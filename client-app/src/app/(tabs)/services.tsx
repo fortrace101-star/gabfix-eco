@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ChevronRight, Search } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronRight, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,10 +19,13 @@ const filters: readonly { value: CategoryFilter; label: string }[] = [
   ...serviceCategories.map((category) => ({ value: category.id, label: category.name })),
 ];
 
+/** Services shown per category before the customer expands the section. */
+const COLLAPSED_COUNT = 2;
+
 const priceLabel = (service: Service) =>
   service.pricingMode === 'quote' ? 'Get a quote' : `From ${ugx(fromHourly)}/hr`;
 
-function ServiceRow({ service }: { service: Service }) {
+function ServiceCard({ service }: { service: Service }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,39 +36,43 @@ function ServiceRow({ service }: { service: Service }) {
           params: { slug: service.slug },
         })
       }
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-      <ServicePhoto
-        slug={service.slug}
-        cardUri={service.cardImage}
-        
-        style={styles.thumb}
-      />
-      <View style={styles.rowBody}>
-        <Text style={styles.name} maxFontSizeMultiplier={1.3}>
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+      <View style={styles.cardMedia}>
+        <ServicePhoto
+          slug={service.slug}
+          cardUri={service.cardImage}
+          style={styles.cardPhoto}
+        />
+        {service.tag ? (
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>{service.tag}</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.name} maxFontSizeMultiplier={1.3} numberOfLines={2}>
           {service.name}
         </Text>
         <Text style={styles.tagline} maxFontSizeMultiplier={1.3} numberOfLines={2}>
           {service.tagline}
         </Text>
-        <Text style={styles.price} maxFontSizeMultiplier={1.3}>
-          {priceLabel(service)}
-        </Text>
-      </View>
-      {service.tag ? (
-        <View style={styles.tag}>
-          <Text style={styles.tagText}>{service.tag}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.price} maxFontSizeMultiplier={1.3} numberOfLines={1}>
+            {priceLabel(service)}
+          </Text>
+          <ChevronRight size={16} color={colors.disabledText} strokeWidth={2} />
         </View>
-      ) : null}
-      <ChevronRight size={20} color={colors.disabledText} strokeWidth={2} />
+      </View>
     </Pressable>
   );
 }
 
-/** P6 Services: category chips and grouped sections over `GET /services`. */
+/** P6 Services: category chips and grouped cards over `GET /services`. */
 export default function ServicesTab() {
   const insets = useSafeAreaInsets();
   const { services, error, refresh } = useServices();
   const [category, setCategory] = useState<CategoryFilter>('all');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   useStatusBarStyle('dark');
 
   const visible = services.filter(
@@ -134,23 +141,62 @@ export default function ServicesTab() {
           </View>
         ) : null}
 
-        {groups.map((group) => (
-          <View key={group.id} style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle} maxFontSizeMultiplier={1.3}>
-                {group.name}
-              </Text>
-              <Text style={styles.sectionCaption} maxFontSizeMultiplier={1.2}>
-                {group.caption}
-              </Text>
+        {groups.map((group) => {
+          // Picking one category means the customer wants to browse it in full.
+          const isExpanded = category !== 'all' || (expanded[group.id] ?? false);
+          const overflow = group.services.length - COLLAPSED_COUNT;
+          const canCollapse = category === 'all' && overflow > 0;
+          const shown = isExpanded ? group.services : group.services.slice(0, COLLAPSED_COUNT);
+          const toggle = () =>
+            setExpanded((current) => ({ ...current, [group.id]: !isExpanded }));
+
+          return (
+            <View key={group.id} style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionTitle} maxFontSizeMultiplier={1.3}>
+                    {group.name}
+                  </Text>
+                  <View style={styles.sectionCount}>
+                    <Text style={styles.sectionCountText} maxFontSizeMultiplier={1.2}>
+                      {group.services.length}{' '}
+                      {group.services.length === 1 ? 'service' : 'services'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.sectionCaption} maxFontSizeMultiplier={1.2}>
+                  {group.caption}
+                </Text>
+              </View>
+              <View style={styles.grid}>
+                {shown.map((service) => (
+                  <ServiceCard key={service.slug} service={service} />
+                ))}
+              </View>
+              {canCollapse ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isExpanded
+                      ? `Show fewer ${group.name} services`
+                      : `Show ${overflow} more ${group.name} services`
+                  }
+                  accessibilityState={{ expanded: isExpanded }}
+                  onPress={toggle}
+                  style={({ pressed }) => [styles.expand, pressed && styles.expandPressed]}>
+                  <Text style={styles.expandText} maxFontSizeMultiplier={1.2}>
+                    {isExpanded ? 'Show less' : `Show ${overflow} more`}
+                  </Text>
+                  {isExpanded ? (
+                    <ChevronUp size={16} color={colors.green700} strokeWidth={2} />
+                  ) : (
+                    <ChevronDown size={16} color={colors.green700} strokeWidth={2} />
+                  )}
+                </Pressable>
+              ) : null}
             </View>
-            <View style={styles.list}>
-              {group.services.map((service) => (
-                <ServiceRow key={service.slug} service={service} />
-              ))}
-            </View>
-          </View>
-        ))}
+          );
+        })}
 
         {visible.length === 0 && !error ? (
           <Text style={styles.emptyText} maxFontSizeMultiplier={1.3}>
@@ -181,23 +227,63 @@ const styles = StyleSheet.create({
   chipRow: { paddingHorizontal: space[4], alignItems: 'center', gap: space[2] },
   section: { gap: space[3] },
   sectionHeader: { gap: 2 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   sectionTitle: { ...text.h3 },
-  sectionCaption: { ...text.caption },
-  list: {
+  sectionCount: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
+  },
+  sectionCountText: { ...text.caption, fontFamily: font.bodySemi },
+  sectionCaption: { ...text.caption },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: space[3],
+  },
+  card: {
+    width: '48.5%',
     borderRadius: radius.card,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
     ...shadow.card,
   },
-  row: {
+  cardPressed: { opacity: 0.85 },
+  cardMedia: { aspectRatio: 1.35, backgroundColor: colors.green100 },
+  cardPhoto: { ...StyleSheet.absoluteFill },
+  cardBody: { padding: space[3], gap: 2 },
+  name: { ...text.bodyM, fontFamily: font.bodySemi, fontSize: 14, lineHeight: 19 },
+  tagline: { ...text.caption },
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[3],
-    padding: space[4],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    justifyContent: 'space-between',
+    gap: space[1],
+    marginTop: space[1],
   },
-  rowPressed: { backgroundColor: colors.green50 },
+  price: { ...text.caption, color: colors.green700, fontFamily: font.bodySemi, flexShrink: 1 },
+  tag: {
+    position: 'absolute',
+    top: space[2],
+    left: space[2],
+    height: 22,
+    paddingHorizontal: space[2],
+    borderRadius: 11,
+    backgroundColor: colors.yellow500,
+    justifyContent: 'center',
+  },
+  tagText: { fontFamily: font.bodySemi, fontSize: 11, lineHeight: 14, color: colors.green900 },
+  expand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: space[1],
+    paddingVertical: space[1],
+  },
+  expandPressed: { opacity: 0.65 },
+  expandText: { ...text.bodyM, fontFamily: font.bodySemi, color: colors.green700, fontSize: 13 },
   error: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -209,23 +295,5 @@ const styles = StyleSheet.create({
   },
   errorText: { ...text.caption, color: colors.text, flex: 1 },
   errorLink: { ...text.bodyM, fontFamily: font.bodySemi, color: colors.green700, fontSize: 13 },
-  thumb: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.tile,
-    backgroundColor: colors.green50,
-  },
-  rowBody: { flex: 1, gap: 2 },
-  name: { ...text.bodyM, fontFamily: font.bodySemi, fontSize: 15 },
-  tagline: { ...text.caption },
-  price: { ...text.caption, color: colors.green700, fontFamily: font.bodySemi },
-  tag: {
-    height: 22,
-    paddingHorizontal: space[2],
-    borderRadius: 11,
-    backgroundColor: colors.yellow500,
-    justifyContent: 'center',
-  },
-  tagText: { fontFamily: font.bodySemi, fontSize: 11, lineHeight: 14, color: colors.green900 },
   emptyText: { ...text.body, color: colors.textMuted, textAlign: 'center' },
 });

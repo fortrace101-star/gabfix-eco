@@ -718,12 +718,34 @@ export default function HomeTab() {
           ) : null}
 
           <View style={styles.statRow}>
-            <StatTile label="Bookings" value={bookings.length} />
+            <StatTile
+              label="Bookings"
+              value={bookings.length}
+              accessibilityHint="Opens your bookings"
+              onPress={() => router.push('/(tabs)/bookings')}
+            />
             <StatTile
               label="Upcoming"
               value={bookings.filter((b) => b.status === 'upcoming').length}
+              accessibilityHint="Opens your upcoming bookings"
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/bookings',
+                  params: { tab: 'upcoming' },
+                })
+              }
             />
-            <StatTile label="Due" value={dueTotal > 0 ? ugx(dueTotal) : '—'} />
+            <StatTile
+              label="Completed"
+              value={bookings.filter((b) => b.status === 'completed').length}
+              accessibilityHint="Opens your completed bookings"
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/bookings',
+                  params: { tab: 'completed' },
+                })
+              }
+            />
           </View>
 
           {recentBookings.length > 0 ? (

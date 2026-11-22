@@ -11,7 +11,7 @@ import {
 import { rateCardSource } from '../data';
 import { compactUgx, ugx } from '../lib/format';
 import type { RateCard } from '../types';
-import { services as serviceCatalogue } from '../../../src/config/services';
+import { services as serviceCatalogue } from '@mobile/config/services';
 
 const frequencyLabels: Record<string, string> = {
   once: 'One-off',

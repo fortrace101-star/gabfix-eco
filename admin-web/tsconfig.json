@@ -15,12 +15,18 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@mobile/*": ["../../client-app/src/*"]
+    }
   },
   "include": [
     "src",
-    "../src/config/pricing.ts",
-    "../src/config/support-contact.ts",
-    "../src/lib/support.ts"
+    "../../client-app/src/config/pricing.ts",
+    "../../client-app/src/config/service-categories.ts",
+    "../../client-app/src/config/services.ts",
+    "../../client-app/src/config/support-contact.ts",
+    "../../client-app/src/lib/support.ts"
   ]
 }

@@ -1,4 +1,4 @@
-import { pricing } from '../../src/config/pricing';
+import { pricing } from '@mobile/config/pricing';
 import type {
   Booking,
   CashCollection,
@@ -552,10 +552,10 @@ export const initialRateCard: RateCard = {
   ),
 };
 
-import { supportContact } from '../../src/config/support-contact';
-import { buildSupport } from '../../src/lib/support';
+import { supportContact } from '@mobile/config/support-contact';
+import { buildSupport } from '@mobile/lib/support';
 
-export const rateCardSource = 'src/config/pricing.ts';
+export const rateCardSource = 'client-app/src/config/pricing.ts';
 
 const customerSupport = buildSupport(supportContact);
 

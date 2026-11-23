@@ -23,7 +23,7 @@ import { serviceBySlug } from '@/config/services';
 import { useAvailability } from '@/hooks/use-availability';
 import { getAvailability } from '@/lib/api/availability';
 import { price, type BookingFrequency } from '@/lib/pricing';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
   patchDraft,
@@ -123,8 +123,9 @@ export default function ScheduleScreen() {
   }, [slug]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'schedule' });
+  const ready = useDraftGuard(slug);
 
-  if (!active) return <View style={styles.screen} />;
+  if (!ready || !active) return <View style={styles.screen} />;
 
   const today = new Date();
   const isToday = sameDay(selectedISO, today);

@@ -41,7 +41,7 @@ import {
 } from '@/lib/pricing';
 import { formatMomo, toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 import { totalAccountBalance } from '@/lib/wallet';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
   patchDraft,
@@ -319,8 +319,9 @@ export default function ReviewScreen() {
   }, [slug]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'review' });
+  const draftReady = useDraftGuard(slug);
 
-  if (!active) return <View style={styles.screen} />;
+  if (!draftReady || !active) return <View style={styles.screen} />;
 
   // A card removed in P27b must stop being selectable here without an effect.
   const effectiveCardChoice =

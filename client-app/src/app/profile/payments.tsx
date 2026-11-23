@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Plus,
   ReceiptText,
+  Search,
+  SlidersHorizontal,
   Smartphone,
   Trash2,
   Wallet,
@@ -31,19 +33,22 @@ import { AddMethodSheet } from '@/components/wallet/add-method-sheet';
 import { PaymentMethodSheet, type BalancePaymentSelection } from '@/components/wallet/payment-method-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterChip } from '@/components/ui/filter-chip';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TopBar } from '@/components/ui/top-bar';
 import { savedCardLabel, type SavedCard, type SavedMobileMoney } from '@/config/payments';
 import { paymentMethodLabel } from '@/lib/booking-policy';
 import {
   accountBalanceBookings,
+  activeFilterCount,
   balanceDueBookings,
-  filterTransactions,
+  defaultTransactionQuery,
+  queryTransactions,
   totalAccountBalance,
   totalBalanceDue,
   transactionFilters,
   walletTransactions,
-  type TransactionFilter,
+  type TransactionQuery,
   type WalletTransaction,
 } from '@/lib/wallet';
 import {
@@ -80,6 +85,34 @@ const dateTimeLabel = (iso: string): string => {
 
 const methodCaption = (method?: string): string =>
   method ? paymentMethodLabel(method) : 'Payment method';
+
+const methodOptions: { id: TransactionQuery['method']; label: string }[] = [
+  { id: 'all', label: 'All methods' },
+  { id: 'mtn_momo', label: 'MTN Mobile Money' },
+  { id: 'airtel_money', label: 'Airtel Money' },
+  { id: 'visa_card', label: 'Visa' },
+  { id: 'cash', label: 'Cash' },
+];
+
+const periodOptions: { id: TransactionQuery['period']; label: string }[] = [
+  { id: 'all', label: 'All time' },
+  { id: '7d', label: 'Last 7 days' },
+  { id: '30d', label: 'Last 30 days' },
+  { id: '90d', label: 'Last 90 days' },
+  { id: 'month', label: 'This month' },
+];
+
+const directionOptions: { id: TransactionQuery['direction']; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'in', label: 'Money in' },
+  { id: 'out', label: 'Money out' },
+];
+
+const sortOptions: { id: TransactionQuery['sort']; label: string }[] = [
+  { id: 'newest', label: 'Newest' },
+  { id: 'oldest', label: 'Oldest' },
+  { id: 'amount', label: 'Highest amount' },
+];
 
 type PayAction =
   | { kind: 'booking'; booking: SavedBooking }
@@ -216,7 +249,10 @@ export default function PaymentsScreen() {
   const cards = useSavedCards();
   const mobileMoney = useSavedMobileMoney();
 
-  const [filter, setFilter] = useState<TransactionFilter>('all');
+  const [query, setQuery] = useState<TransactionQuery>(defaultTransactionQuery);
+  const [draftQuery, setDraftQuery] = useState<TransactionQuery>(defaultTransactionQuery);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [banner, setBanner] = useState(params.banner === 'balance-paid');
   const receiptBookingId = typeof params.receiptId === 'string' ? params.receiptId : undefined;
   const [addOpen, setAddOpen] = useState(false);
@@ -251,9 +287,26 @@ export default function PaymentsScreen() {
   const owedTotal = useMemo(() => totalAccountBalance(bookings), [bookings]);
   const transactions = useMemo(() => walletTransactions(bookings), [bookings]);
   const filteredTransactions = useMemo(
-    () => filterTransactions(transactions, filter),
-    [transactions, filter],
+    () => queryTransactions(transactions, query),
+    [transactions, query],
   );
+  const filterCount = activeFilterCount(query);
+  const searching = query.text.trim().length > 0;
+
+  // Search is debounced so every keystroke does not re-sort the whole ledger.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery((current) =>
+        current.text === searchText ? current : { ...current, text: searchText },
+      );
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const openFilters = () => {
+    setDraftQuery(query);
+    setFiltersOpen(true);
+  };
 
   const hydrated = bookingsHydrated && methodsHydrated;
 
@@ -510,6 +563,33 @@ export default function PaymentsScreen() {
             <Text style={styles.sectionTitle} maxFontSizeMultiplier={1.3}>
               Transactions
             </Text>
+            <View style={styles.searchRow}>
+              <Input
+                containerStyle={styles.searchField}
+                leftIcon={Search}
+                placeholder="Search service, booking or amount"
+                value={searchText}
+                onChangeText={setSearchText}
+                returnKeyType="search"
+                accessibilityLabel="Search transactions"
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'
+                }
+                onPress={openFilters}
+                style={[styles.filtersButton, filterCount > 0 && styles.filtersButtonActive]}>
+                <SlidersHorizontal size={18} color={colors.green700} strokeWidth={2} />
+                {filterCount > 0 ? (
+                  <View style={styles.filtersBadge}>
+                    <Text style={styles.filtersBadgeText} maxFontSizeMultiplier={1.2}>
+                      {filterCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -518,11 +598,19 @@ export default function PaymentsScreen() {
                 <FilterChip
                   key={item.id}
                   label={item.label}
-                  selected={filter === item.id}
-                  onPress={() => setFilter(item.id)}
+                  selected={query.kind === item.id}
+                  onPress={() => setQuery((current) => ({ ...current, kind: item.id }))}
                 />
               ))}
             </ScrollView>
+
+            {transactions.length > 0 ? (
+              <Text style={styles.resultLine} maxFontSizeMultiplier={1.2}>
+                {filteredTransactions.length === 0
+                  ? 'No transactions match'
+                  : `${filteredTransactions.length} transaction${filteredTransactions.length === 1 ? '' : 's'}`}
+              </Text>
+            ) : null}
 
             {transactions.length === 0 ? (
               <View style={styles.emptyTxWrap}>
@@ -535,8 +623,17 @@ export default function PaymentsScreen() {
             ) : filteredTransactions.length === 0 ? (
               <View style={styles.emptyFilter}>
                 <Text style={styles.emptyFilterText} maxFontSizeMultiplier={1.3}>
-                  No transactions in this filter.
+                  No transactions match
+                  {searching ? ` “${query.text.trim()}”` : ' these filters'}.
                 </Text>
+                <Button
+                  label="Clear filters"
+                  variant="ghost"
+                  onPress={() => {
+                    setSearchText('');
+                    setQuery(defaultTransactionQuery);
+                  }}
+                />
               </View>
             ) : (
               <View style={styles.txList}>
@@ -555,6 +652,78 @@ export default function PaymentsScreen() {
         onAddMobileMoney={(provider, phone) => addMobileMoney(provider, phone)}
         onAddCard={(last4, expiry) => addCard(last4, expiry)}
       />
+      <BottomSheet
+        visible={filtersOpen}
+        onDismiss={() => setFiltersOpen(false)}
+        title="Filters"
+        subtitle="Method, period, direction and sort combine with the chips and search."
+        contentContainerStyle={styles.filtersContent}
+        footer={
+          <View style={styles.filtersFooter}>
+            <Button
+              label="Show results"
+              onPress={() => {
+                setQuery(draftQuery);
+                setFiltersOpen(false);
+              }}
+              style={styles.fullWidth}
+            />
+            <Button
+              label="Reset"
+              variant="ghost"
+              onPress={() =>
+                setDraftQuery({ ...defaultTransactionQuery, kind: draftQuery.kind })
+              }
+            />
+          </View>
+        }>
+        {[
+          {
+            title: 'Method',
+            options: methodOptions,
+            selected: draftQuery.method,
+            select: (id: TransactionQuery['method']) =>
+              setDraftQuery((current) => ({ ...current, method: id })),
+          },
+          {
+            title: 'Period',
+            options: periodOptions,
+            selected: draftQuery.period,
+            select: (id: TransactionQuery['period']) =>
+              setDraftQuery((current) => ({ ...current, period: id })),
+          },
+          {
+            title: 'Direction',
+            options: directionOptions,
+            selected: draftQuery.direction,
+            select: (id: TransactionQuery['direction']) =>
+              setDraftQuery((current) => ({ ...current, direction: id })),
+          },
+          {
+            title: 'Sort',
+            options: sortOptions,
+            selected: draftQuery.sort,
+            select: (id: TransactionQuery['sort']) =>
+              setDraftQuery((current) => ({ ...current, sort: id })),
+          },
+        ].map((group) => (
+          <View key={group.title} style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} maxFontSizeMultiplier={1.2}>
+              {group.title}
+            </Text>
+            <View style={styles.filterChips}>
+              {group.options.map((option) => (
+                <FilterChip
+                  key={option.id}
+                  label={option.label}
+                  selected={group.selected === option.id}
+                  onPress={() => group.select(option.id as never)}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
+      </BottomSheet>
       <PaymentMethodSheet
         visible={payAction !== null}
         title={paySheetTitle}
@@ -743,6 +912,38 @@ const styles = StyleSheet.create({
   addText: { ...text.bodyM, color: colors.green700, fontFamily: font.bodySemi },
   cashCaption: { ...text.caption, color: colors.textMuted },
   filters: { gap: space[2], paddingVertical: space[1] },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  searchField: { flex: 1 },
+  filtersButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.button,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtersButtonActive: { borderColor: colors.green500, backgroundColor: colors.green50 },
+  filtersBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.green500,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtersBadgeText: { fontFamily: font.bodySemi, fontSize: 11, color: colors.surface },
+  resultLine: { ...text.caption, color: colors.textMuted },
+  filtersContent: { paddingHorizontal: space[4], paddingTop: space[2], gap: space[4] },
+  filtersFooter: { paddingHorizontal: space[4], paddingTop: space[2], gap: space[1] },
+  filterGroup: { gap: space[2] },
+  filterGroupTitle: { ...text.bodyM, fontFamily: font.bodySemi },
+  filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   txList: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,

@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { Home, MapPin, MoreHorizontal, Plus, Star, Trash2, Pencil, X } from 'lucide-react-native';
+import { Home, MapPin, MoreHorizontal, Plus, Star, Trash2, Pencil } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TopBar } from '@/components/ui/top-bar';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import {
   deleteAddress,
@@ -24,7 +25,6 @@ function AddressMenu({
   visible: boolean;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [confirming, setConfirming] = useState(false);
 
   if (!address) return null;
@@ -35,88 +35,67 @@ function AddressMenu({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={close} transparent visible={visible}>
-      <View style={styles.backdrop}>
-        <Pressable
-          accessibilityLabel="Close address actions"
-          accessibilityRole="button"
-          onPress={close}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space[4]) }]}>
-          <View style={styles.handle} />
-          {confirming ? (
-            <View style={styles.confirm}>
-              <View style={styles.confirmIcon}>
-                <Trash2 size={24} color={colors.error} strokeWidth={2} />
-              </View>
-              <Text style={styles.confirmTitle} maxFontSizeMultiplier={1.3}>
-                Delete this address?
-              </Text>
-              <Text style={styles.confirmBody} maxFontSizeMultiplier={1.3}>
-                {address.street} will be removed from your address book. Bookings that already use
-                it keep their address.
-              </Text>
-              <Button
-                label="Delete address"
-                variant="destructive"
-                onPress={() => {
-                  deleteAddress(address.id);
-                  close();
-                }}
-                style={styles.fullWidth}
-              />
-              <Button label="Keep address" variant="ghost" onPress={() => setConfirming(false)} />
-            </View>
-          ) : (
-            <>
-              <View style={styles.sheetHeader}>
-                <View style={styles.sheetTitleWrap}>
-                  <Text style={styles.sheetTitle} maxFontSizeMultiplier={1.3}>
-                    {address.label}
-                  </Text>
-                  <Text style={styles.sheetSubtitle} maxFontSizeMultiplier={1.3} numberOfLines={1}>
-                    {address.street}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityLabel="Close"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={close}
-                  style={styles.close}>
-                  <X size={22} color={colors.text} strokeWidth={2} />
-                </Pressable>
-              </View>
-              <MenuRow
-                icon={Pencil}
-                label="Edit address"
-                onPress={() => {
-                  close();
-                  router.push({ pathname: '/addresses/[id]', params: { id: address.id } });
-                }}
-              />
-              {!address.isDefault ? (
-                <MenuRow
-                  icon={Star}
-                  label="Set as default"
-                  onPress={() => {
-                    setDefaultAddress(address.id);
-                    close();
-                  }}
-                />
-              ) : null}
-              <MenuRow
-                icon={Trash2}
-                label="Delete address"
-                destructive
-                onPress={() => setConfirming(true)}
-              />
-            </>
-          )}
+    <BottomSheet
+      visible={visible}
+      onDismiss={close}
+      title={confirming ? 'Delete this address?' : address.label}
+      subtitle={confirming ? undefined : address.street}
+      contentContainerStyle={styles.menuContent}
+      footer={
+        confirming ? (
+          <View style={styles.confirmActions}>
+            <Button
+              label="Delete address"
+              variant="destructive"
+              onPress={() => {
+                deleteAddress(address.id);
+                close();
+              }}
+              style={styles.fullWidth}
+            />
+            <Button label="Keep address" variant="ghost" onPress={() => setConfirming(false)} />
+          </View>
+        ) : undefined
+      }>
+      {confirming ? (
+        <View style={styles.confirm}>
+          <View style={styles.confirmIcon}>
+            <Trash2 size={24} color={colors.error} strokeWidth={2} />
+          </View>
+          <Text style={styles.confirmBody} maxFontSizeMultiplier={1.3}>
+            {address.street} will be removed from your address book. Bookings that already use it
+            keep their address.
+          </Text>
         </View>
-      </View>
-    </Modal>
+      ) : (
+        <>
+          <MenuRow
+            icon={Pencil}
+            label="Edit address"
+            onPress={() => {
+              close();
+              router.push({ pathname: '/addresses/[id]', params: { id: address.id } });
+            }}
+          />
+          {!address.isDefault ? (
+            <MenuRow
+              icon={Star}
+              label="Set as default"
+              onPress={() => {
+                setDefaultAddress(address.id);
+                close();
+              }}
+            />
+          ) : null}
+          <MenuRow
+            icon={Trash2}
+            label="Delete address"
+            destructive
+            onPress={() => setConfirming(true)}
+          />
+        </>
+      )}
+    </BottomSheet>
   );
 }
 
@@ -329,27 +308,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { ...text.h3, color: colors.text, textAlign: 'center' },
   emptyBody: { ...text.bodyM, color: colors.textMuted, textAlign: 'center', marginBottom: space[2] },
-  backdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.sheet,
-    borderTopRightRadius: radius.sheet,
-    paddingHorizontal: space[4],
-    paddingTop: space[2],
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: space[3],
-  },
-  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
-  sheetTitleWrap: { flex: 1, gap: 2 },
-  sheetTitle: { ...text.h2 },
-  sheetSubtitle: { ...text.caption },
-  close: { width: 48, height: 48, alignItems: 'flex-end', justifyContent: 'center' },
+  menuContent: { paddingHorizontal: space[4], paddingTop: space[2] },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -369,7 +328,8 @@ const styles = StyleSheet.create({
   menuIconDanger: { backgroundColor: colors.errorBg },
   menuLabel: { ...text.bodyM, color: colors.text },
   menuLabelDanger: { color: colors.error },
-  confirm: { alignItems: 'center', gap: space[3], paddingVertical: space[4] },
+  confirm: { alignItems: 'center', gap: space[3], paddingVertical: space[4], paddingHorizontal: space[4] },
+  confirmActions: { gap: space[1] },
   confirmIcon: {
     width: 56,
     height: 56,
@@ -378,7 +338,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmTitle: { ...text.h3, color: colors.text, textAlign: 'center' },
   confirmBody: { ...text.bodyM, color: colors.textMuted, textAlign: 'center' },
   fullWidth: { alignSelf: 'stretch' },
 });

@@ -21,7 +21,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { pricing } from '@/config/pricing';
 import { serviceBySlug } from '@/config/services';
 import { price, type BookingFrequency } from '@/lib/pricing';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import { getBookingDraft, patchDetails, startDraft, useBookingDraft } from '@/store/booking';
 import { colors, font, radius, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
@@ -97,8 +97,9 @@ export default function JobDetailsScreen() {
   }, [slug]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'details' });
+  const ready = useDraftGuard(slug, { entry: true });
 
-  if (!active) return <View style={styles.screen} />;
+  if (!ready || !active) return <View style={styles.screen} />;
 
   const { details } = active;
   const quote = price(active);

@@ -26,7 +26,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import type { FixturePlace } from '@/config/location-fixtures';
 import { serviceBySlug } from '@/config/services';
 import { price, type BookingLocation } from '@/lib/pricing';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
   patchDraft,
@@ -172,8 +172,9 @@ export default function LocationScreen() {
   };
 
   const { requestExit, sheet } = useDraftExit({ step: 'location' });
+  const ready = useDraftGuard(slug);
 
-  if (!active) return <View style={styles.screen} />;
+  if (!ready || !active) return <View style={styles.screen} />;
 
   const quote = price(active);
   const streetError =

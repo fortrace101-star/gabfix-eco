@@ -13,7 +13,7 @@ import { addOns, type AddOnId } from '@/config/add-ons';
 import { pricing } from '@/config/pricing';
 import { serviceBySlug } from '@/config/services';
 import { addOnPrice, price } from '@/lib/pricing';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
   patchDetails,
@@ -51,8 +51,9 @@ export default function AddOnsScreen() {
   }, [slug]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'add-ons' });
+  const ready = useDraftGuard(slug);
 
-  if (!active) return <View style={styles.screen} />;
+  if (!ready || !active) return <View style={styles.screen} />;
 
   const { details } = active;
   const quote = price(active);

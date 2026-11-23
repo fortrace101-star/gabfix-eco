@@ -46,14 +46,14 @@ export function useDraftExit({ step, enabled = true }: Options): DraftExit {
   const save = useCallback(async () => {
     setOpen(false);
     await saveDraftNow();
-    router.replace(HOME);
+    router.dismissTo(HOME);
   }, []);
 
   const discard = useCallback(() => {
     setOpen(false);
     deleteDraftMedia();
     resetDraft();
-    router.replace(SERVICES);
+    router.dismissTo(SERVICES);
   }, []);
 
   const requestExit = useCallback(() => {
@@ -62,7 +62,7 @@ export function useDraftExit({ step, enabled = true }: Options): DraftExit {
     if (!draftIsDirty(current)) {
       deleteDraftMedia();
       resetDraft();
-      router.replace(SERVICES);
+      router.dismissTo(SERVICES);
       return;
     }
     setOpen(true);
@@ -102,14 +102,17 @@ export function useDraftExit({ step, enabled = true }: Options): DraftExit {
 
 /**
  * If the draft for this slug is gone (after Discard, a deep link or a cold start), send the
- * customer to Services instead of rendering an empty screen.
+ * customer to Services instead of rendering an empty screen. The details screen is the
+ * entry point and creates a draft, so pass `entry: true` there to avoid a redirect race.
  */
-export function useDraftGuard(slug: string): boolean {
+export function useDraftGuard(slug: string, { entry = false }: { entry?: boolean } = {}): boolean {
   const draft = useBookingDraft();
+  const ready = Boolean(draft && draft.serviceSlug === slug);
 
   useEffect(() => {
-    if (!draft || draft.serviceSlug !== slug) router.replace(SERVICES);
-  }, [draft, slug]);
+    if (entry || ready) return;
+    router.dismissTo(SERVICES);
+  }, [entry, ready]);
 
-  return Boolean(draft && draft.serviceSlug === slug);
+  return ready;
 }

@@ -24,7 +24,7 @@ import {
 import { validateAnswers, type FormField, type FormValue } from '@/lib/form-schema';
 import { deleteMediaFile } from '@/lib/media';
 import { price, type BookingMediaItem } from '@/lib/pricing';
-import { useDraftExit } from '@/lib/use-draft-exit';
+import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
   patchDetails,
@@ -52,6 +52,7 @@ export default function JobScopeScreen() {
   const [previewItem, setPreviewItem] = useState<BookingMediaItem | null>(null);
 
   const { requestExit, sheet } = useDraftExit({ step: 'scope' });
+  const ready = useDraftGuard(slug);
 
   useEffect(() => {
     if (!slug) return;
@@ -70,7 +71,7 @@ export default function JobScopeScreen() {
     [schema],
   );
 
-  if (!active || !scope) return <View style={styles.screen} />;
+  if (!ready || !active || !scope) return <View style={styles.screen} />;
 
   const { details } = active;
   const quote = price(active);

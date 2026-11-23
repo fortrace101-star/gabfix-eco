@@ -22,6 +22,7 @@ import { slotLabel } from '@/components/booking/slot-chips';
 import { SelectableCard } from '@/components/booking/selectable-card';
 import { StepperHeader } from '@/components/booking/stepper-header';
 import { SummaryBar } from '@/components/booking/summary-bar';
+import { MomoNumberPicker } from '@/components/payment/momo-number-picker';
 import { StickyComposer } from '@/components/ui/sticky-composer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,6 +45,7 @@ import {
   type PaymentMethod,
   type PaymentPlan,
 } from '@/lib/pricing';
+import { formatMomo, toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 import { totalAccountBalance } from '@/lib/wallet';
 import { useDraftExit } from '@/lib/use-draft-exit';
 import {
@@ -54,8 +56,7 @@ import {
   useBookingDraft,
 } from '@/store/booking';
 import { useBookings } from '@/store/bookings';
-import { useSavedCards } from '@/store/payment-methods';
-import { useAuthUser } from '@/store/session';
+import { useSavedCards, useSavedMobileMoney } from '@/store/payment-methods';
 import { chip, colors, font, radius, selectable, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
 
@@ -105,10 +106,9 @@ const balanceMethods = ['mtn_momo', 'airtel_money', 'visa_card', 'cash'] as cons
 
 const promoRates: Record<string, { rate: number } | undefined> = pricing.promos;
 
-const phoneDigits = (value?: string): string =>
-  (value ?? '').replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '').slice(0, 9);
-
-const isValidPhone = (digits: string): boolean => /^7\d{8}$/.test(digits);
+const momoNetworks: MomoNetwork[] = ['mtn_momo', 'airtel_money'];
+const isMomoMethod = (method: PaymentMethod): method is MomoNetwork =>
+  method === 'mtn_momo' || method === 'airtel_money';
 
 const parseISODate = (iso: string): Date => {
   const [year, month, day] = iso.split('-').map(Number);
@@ -262,9 +262,9 @@ export default function ReviewScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const draft = useBookingDraft();
-  const user = useAuthUser();
   const bookings = useBookings();
   const savedCards = useSavedCards();
+  const savedMobileMoney = useSavedMobileMoney();
   const accountBalance = totalAccountBalance(bookings);
   const service = serviceBySlug(slug);
   // Quote services have no price to collect here: the request goes out for pricing (H10).
@@ -298,13 +298,16 @@ export default function ReviewScreen() {
     const payment = getBookingDraft()?.payment;
     return payment?.balanceMethod ?? payment?.method ?? 'mtn_momo';
   });
-  const [payerPhone, setPayerPhone] = useState(() =>
-    phoneDigits(
-      getBookingDraft()?.payment?.payerPhone ||
-        getBookingDraft()?.location?.contactPhone ||
-        user?.phone,
-    ),
+  const [payerPhones, setPayerPhones] = useState<Partial<Record<MomoNetwork, string>>>(
+    () => ({ ...(getBookingDraft()?.payment?.payerPhones ?? {}) }),
   );
+  const [savedMomoIds, setSavedMomoIds] = useState<Partial<Record<MomoNetwork, string | 'new'>>>(
+    () => ({ ...(getBookingDraft()?.payment?.savedMomoIds ?? {}) }),
+  );
+  const [saveNumber, setSaveNumber] = useState<Partial<Record<MomoNetwork, boolean>>>(
+    () => ({ ...(getBookingDraft()?.payment?.saveNumber ?? {}) }),
+  );
+  const [momoTouched, setMomoTouched] = useState<Partial<Record<MomoNetwork, boolean>>>({});
   const [saveCard, setSaveCard] = useState(Boolean(savedPayment?.saveCard));
   const [cardChoice, setCardChoice] = useState(
     () => getBookingDraft()?.payment?.savedCardId ?? savedCards[0]?.id ?? 'new',
@@ -313,7 +316,6 @@ export default function ReviewScreen() {
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState<string>();
   const [consent, setConsent] = useState(false);
-  const [phoneTouched, setPhoneTouched] = useState(false);
   const [depositTouched, setDepositTouched] = useState(false);
 
   useEffect(() => {
@@ -349,16 +351,35 @@ export default function ReviewScreen() {
   const appliedPromo =
     active.promoCode && promoRates[active.promoCode] ? active.promoCode : undefined;
 
-  const payNowNeedsPhone =
-    plan !== 'after_service' &&
-    (payNowMethod === 'mtn_momo' || payNowMethod === 'airtel_money');
-  const afterNeedsPhone =
-    plan !== 'full_now' && (balanceMethod === 'mtn_momo' || balanceMethod === 'airtel_money');
-  const phoneValid = isValidPhone(payerPhone);
-  const phoneError =
-    phoneTouched && (payNowNeedsPhone || afterNeedsPhone) && !phoneValid
-      ? 'Enter the 9 digits after +256, for example 772 123 456.'
-      : undefined;
+  const savedMomoByNetwork = (network: MomoNetwork) =>
+    savedMobileMoney.filter((item) =>
+      network === 'mtn_momo' ? item.provider === 'MTN' : item.provider === 'Airtel',
+    );
+
+  const momoSelection = (network: MomoNetwork): string | 'new' => {
+    const saved = savedMomoByNetwork(network);
+    const selected = savedMomoIds[network];
+    if (selected && selected !== 'new' && saved.some((item) => item.id === selected)) return selected;
+    return 'new';
+  };
+
+  const momoReady = (network: MomoNetwork): boolean => {
+    const selection = momoSelection(network);
+    if (selection !== 'new') return savedMomoByNetwork(network).some((item) => item.id === selection);
+    return validateMomo(network, payerPhones[network] ?? '') === null;
+  };
+
+  const momoError = (network: MomoNetwork): string | undefined => {
+    if (momoSelection(network) !== 'new' || !momoTouched[network]) return undefined;
+    return validateMomo(network, payerPhones[network] ?? '') ?? undefined;
+  };
+
+  const payNowNeedsMomo = plan !== 'after_service' && isMomoMethod(payNowMethod);
+  const afterNeedsMomo = plan !== 'full_now' && isMomoMethod(balanceMethod);
+  const requiredMomoNetworks = momoNetworks.filter(
+    (network) =>
+      (payNowNeedsMomo && payNowMethod === network) || (afterNeedsMomo && balanceMethod === network),
+  );
   const depositError =
     depositTouched && plan === 'deposit' && !depositValid
       ? `Enter an amount from ${ugx(minDeposit)} up to ${ugx(total - 1_000)}.`
@@ -373,8 +394,7 @@ export default function ReviewScreen() {
     accountBalance <= 0 &&
     (isQuote ||
       ((plan !== 'deposit' || depositValid) &&
-        (!payNowNeedsPhone || phoneValid) &&
-        (!afterNeedsPhone || phoneValid)));
+        requiredMomoNetworks.every((network) => momoReady(network)))) ;
 
   const scheduleText = active.schedule
     ? `${parseISODate(active.schedule.dateISO).toLocaleDateString('en-GB', {
@@ -443,11 +463,28 @@ export default function ReviewScreen() {
   const onConfirm = async () => {
     if (submitting || !ready) return;
     setSubmitting(true);
+    const paymentPayerPhones: Partial<Record<MomoNetwork, string>> = {};
+    const paymentSavedMomoIds: Partial<Record<MomoNetwork, string | 'new'>> = {};
+    const paymentSaveNumber: Partial<Record<MomoNetwork, boolean>> = {};
+    requiredMomoNetworks.forEach((network) => {
+      const selection = momoSelection(network);
+      paymentSavedMomoIds[network] = selection;
+      if (selection === 'new') {
+        paymentPayerPhones[network] = payerPhones[network] ?? '';
+        paymentSaveNumber[network] = Boolean(saveNumber[network]);
+      } else {
+        const saved = savedMomoByNetwork(network).find((item) => item.id === selection);
+        if (saved) paymentPayerPhones[network] = `0${saved.phone}`;
+      }
+    });
+
     const payment: BookingPayment = {
       plan,
       method: plan === 'after_service' ? undefined : payNowMethod,
       balanceMethod: plan === 'full_now' ? payNowMethod : balanceMethod,
-      payerPhone: payNowNeedsPhone || afterNeedsPhone ? payerPhone : undefined,
+      payerPhones: Object.keys(paymentPayerPhones).length > 0 ? paymentPayerPhones : undefined,
+      savedMomoIds: Object.keys(paymentSavedMomoIds).length > 0 ? paymentSavedMomoIds : undefined,
+      saveNumber: Object.keys(paymentSaveNumber).length > 0 ? paymentSaveNumber : undefined,
       depositAmount: plan === 'deposit' ? presetDeposit : undefined,
       savedCardId:
         payNowMethod === 'visa_card' && plan !== 'after_service' ? selectedCard?.id : undefined,
@@ -474,6 +511,15 @@ export default function ReviewScreen() {
           params: { slug, bookingId, paid: '0', quote: '1' },
         });
       } else if (dueToday > 0) {
+        const payNowNetwork = isMomoMethod(payNowMethod) ? payNowMethod : undefined;
+        const payNowSelection = payNowNetwork ? momoSelection(payNowNetwork) : 'new';
+        const payNowPhone = payNowNetwork
+          ? payNowSelection !== 'new'
+            ? (savedMomoByNetwork(payNowNetwork).find((item) => item.id === payNowSelection)?.phone ??
+              '')
+            : toStoredMomo(payerPhones[payNowNetwork] ?? '')
+          : '';
+
         router.push({
           pathname: '/payment/[id]',
           params: {
@@ -482,7 +528,10 @@ export default function ReviewScreen() {
             slug,
             amount: String(dueToday),
             method: payNowMethod,
-            phone: payerPhone,
+            phone: payNowPhone,
+            network: payNowNetwork ?? '',
+            saveNumber:
+              payNowNetwork && payNowSelection === 'new' && saveNumber[payNowNetwork] ? '1' : '0',
             last4: selectedCard?.last4 ?? 'new',
             saveCard:
               payNowMethod === 'visa_card' && plan !== 'after_service' && !selectedCard && saveCard
@@ -835,19 +884,22 @@ export default function ReviewScreen() {
               />
             ))}
 
-            {payNowMethod === 'mtn_momo' || payNowMethod === 'airtel_money' ? (
-              <Input
-                label="Mobile money number"
-                prefix="+256"
-                value={payerPhone}
-                onChangeText={(value) => setPayerPhone(phoneDigits(value))}
-                onBlur={() => setPhoneTouched(true)}
-                keyboardType="phone-pad"
-                maxLength={9}
-                textContentType="telephoneNumber"
-                helper="You'll get a prompt on this number."
-                error={phoneError}
-                returnKeyType="done"
+            {isMomoMethod(payNowMethod) ? (
+              <MomoNumberPicker
+                network={payNowMethod}
+                saved={savedMomoByNetwork(payNowMethod)}
+                selected={momoSelection(payNowMethod)}
+                onSelect={(id) => setSavedMomoIds((current) => ({ ...current, [payNowMethod]: id }))}
+                value={payerPhones[payNowMethod] ?? ''}
+                onChange={(value) =>
+                  setPayerPhones((current) => ({ ...current, [payNowMethod]: value }))
+                }
+                save={Boolean(saveNumber[payNowMethod])}
+                onSaveChange={(save) =>
+                  setSaveNumber((current) => ({ ...current, [payNowMethod]: save }))
+                }
+                error={momoError(payNowMethod)}
+                onBlur={() => setMomoTouched((current) => ({ ...current, [payNowMethod]: true }))}
               />
             ) : null}
 
@@ -933,10 +985,20 @@ export default function ReviewScreen() {
                 method={method}
                 selected={balanceMethod === method}
                 subline={
-                  method === 'mtn_momo' || method === 'airtel_money'
-                    ? payerPhone
-                      ? `+256 ${payerPhone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')}`
-                      : methodInfo[method].subline
+                  isMomoMethod(method)
+                    ? (() => {
+                        const selection = momoSelection(method);
+                        if (selection !== 'new') {
+                          const saved = savedMomoByNetwork(method).find((item) => item.id === selection);
+                          return saved
+                            ? `+256 ${formatMomo(saved.phone).replace(/^0/, '')}`
+                            : methodInfo[method].subline;
+                        }
+                        const local = payerPhones[method] ?? '';
+                        return local.length === 10
+                          ? `+256 ${formatMomo(toStoredMomo(local)).replace(/^0/, '')}`
+                          : methodInfo[method].subline;
+                      })()
                     : undefined
                 }
                 onPress={() => setBalanceMethod(method)}
@@ -958,25 +1020,27 @@ export default function ReviewScreen() {
               </Text>
             ) : null}
 
-            {plan === 'after_service' &&
-            (balanceMethod === 'mtn_momo' || balanceMethod === 'airtel_money') ? (
-              <Input
-                label="Mobile money number"
-                prefix="+256"
-                value={payerPhone}
-                onChangeText={(value) => setPayerPhone(phoneDigits(value))}
-                onBlur={() => setPhoneTouched(true)}
-                keyboardType="phone-pad"
-                maxLength={9}
-                textContentType="telephoneNumber"
-                helper="We'll send the prompt here after the service."
-                error={phoneError}
-                returnKeyType="done"
+            {isMomoMethod(balanceMethod) &&
+            !(plan === 'deposit' && payNowNeedsMomo && payNowMethod === balanceMethod) ? (
+              <MomoNumberPicker
+                network={balanceMethod}
+                saved={savedMomoByNetwork(balanceMethod)}
+                selected={momoSelection(balanceMethod)}
+                onSelect={(id) => setSavedMomoIds((current) => ({ ...current, [balanceMethod]: id }))}
+                value={payerPhones[balanceMethod] ?? ''}
+                onChange={(value) =>
+                  setPayerPhones((current) => ({ ...current, [balanceMethod]: value }))
+                }
+                save={Boolean(saveNumber[balanceMethod])}
+                onSaveChange={(save) =>
+                  setSaveNumber((current) => ({ ...current, [balanceMethod]: save }))
+                }
+                error={momoError(balanceMethod)}
+                onBlur={() => setMomoTouched((current) => ({ ...current, [balanceMethod]: true }))}
               />
             ) : null}
 
-            {plan === 'deposit' &&
-            (balanceMethod === 'mtn_momo' || balanceMethod === 'airtel_money') ? (
+            {plan === 'deposit' && payNowNeedsMomo && isMomoMethod(balanceMethod) && payNowMethod === balanceMethod ? (
               <Text style={styles.helperText} maxFontSizeMultiplier={1.3}>
                 We&apos;ll use the mobile money number above.
               </Text>

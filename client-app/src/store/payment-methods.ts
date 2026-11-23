@@ -7,6 +7,7 @@ import {
   type SavedCard,
   type SavedMobileMoney,
 } from '@/config/payments';
+import { toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 
 const STORAGE_KEY = 'gabfix.payment-methods.v1';
 
@@ -48,14 +49,21 @@ const isCard = (value: unknown): value is SavedCard => {
   return Boolean(card && card.id && card.last4 && card.expiry);
 };
 
+const providerNetwork = (provider: SavedMobileMoney['provider']): MomoNetwork =>
+  provider === 'MTN' ? 'mtn_momo' : 'airtel_money';
+
 const isMobileMoney = (value: unknown): value is SavedMobileMoney => {
   const method = value as SavedMobileMoney | null;
-  return Boolean(
-    method &&
-      method.id &&
-      method.phone &&
-      (method.provider === 'MTN' || method.provider === 'Airtel'),
-  );
+  if (
+    !method ||
+    !method.id ||
+    !method.phone ||
+    (method.provider !== 'MTN' && method.provider !== 'Airtel')
+  ) {
+    return false;
+  }
+  const local = `0${String(method.phone).replace(/\D/g, '').replace(/^0/, '')}`.slice(0, 10);
+  return validateMomo(providerNetwork(method.provider), local) === null;
 };
 
 /** Called once at boot from the root layout. */
@@ -113,11 +121,20 @@ export function addCard(last4: string, expiry: string): SavedCard {
   return card;
 }
 
-export function addMobileMoney(provider: SavedMobileMoney['provider'], phone: string): SavedMobileMoney {
+export function addMobileMoney(
+  provider: SavedMobileMoney['provider'],
+  phone: string,
+): SavedMobileMoney {
+  const stored = toStoredMomo(phone.replace(/\D/g, '').slice(-10));
+  const existing = state.mobileMoney.find(
+    (item) => item.provider === provider && item.phone === stored,
+  );
+  if (existing) return existing;
+
   const method: SavedMobileMoney = {
     id: `momo-${provider.toLowerCase()}-${Date.now()}`,
     provider,
-    phone,
+    phone: stored,
   };
   setMethods(state.cards, [...state.mobileMoney, method]);
   return method;

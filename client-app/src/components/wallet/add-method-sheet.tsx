@@ -6,6 +6,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { SavedMobileMoney } from '@/config/payments';
+import { normalizeMomoInput, toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 import { colors, radius, space, text } from '@/theme';
 
 type MethodKind = 'mtn' | 'airtel' | 'visa';
@@ -15,9 +16,6 @@ const kinds: { id: MethodKind; label: string; hint: string }[] = [
   { id: 'airtel', label: 'Airtel Money', hint: 'Save a number for faster checkout' },
   { id: 'visa', label: 'Visa card', hint: 'Save a card reference' },
 ];
-
-const phoneDigits = (value: string): string =>
-  value.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '').slice(0, 9);
 
 const formatExpiry = (value: string): string => {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -39,16 +37,18 @@ export function AddMethodSheet({ visible, onClose, onAddMobileMoney, onAddCard }
   const [expiry, setExpiry] = useState('');
   const [touched, setTouched] = useState(false);
 
-  const phoneValid = /^7\d{8}$/.test(phone);
+  const network: MomoNetwork | undefined =
+    kind === 'mtn' ? 'mtn_momo' : kind === 'airtel' ? 'airtel_money' : undefined;
+  const phoneError = network ? validateMomo(network, phone) : null;
   const last4Valid = /^\d{4}$/.test(last4);
   const expiryValid = /^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry);
-  const valid = kind === 'visa' ? last4Valid && expiryValid : phoneValid;
+  const valid = kind === 'visa' ? last4Valid && expiryValid : phoneError === null;
 
   const save = () => {
     setTouched(true);
     if (!valid) return;
     if (kind === 'visa') onAddCard(last4, expiry);
-    else onAddMobileMoney(kind === 'mtn' ? 'MTN' : 'Airtel', phone);
+    else onAddMobileMoney(kind === 'mtn' ? 'MTN' : 'Airtel', toStoredMomo(phone));
     onClose();
   };
 
@@ -127,18 +127,14 @@ export function AddMethodSheet({ visible, onClose, onAddMobileMoney, onAddCard }
         </View>
       ) : (
         <Input
-          label="Mobile Money number"
-          prefix="+256"
+          label="Mobile money number"
           value={phone}
-          onChangeText={(value) => setPhone(phoneDigits(value))}
+          onChangeText={(value) => setPhone(normalizeMomoInput(value))}
           onBlur={() => setTouched(true)}
-          placeholder="772 123 456"
+          placeholder="0771 234 567"
           keyboardType="phone-pad"
-          error={
-            touched && !phoneValid
-              ? 'Enter the 9 digits after +256, for example 772 123 456.'
-              : undefined
-          }
+          maxLength={12}
+          error={touched && phoneError ? phoneError : undefined}
         />
       )}
 

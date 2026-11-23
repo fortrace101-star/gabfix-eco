@@ -19,7 +19,7 @@ import { demoNewCard } from '@/config/payments';
 import { support } from '@/config/support';
 import { supportsNativeDriver } from '@/lib/animation';
 import { addBookingTip, markPaymentFailed } from '@/store/bookings';
-import { addCard } from '@/store/payment-methods';
+import { addCard, addMobileMoney } from '@/store/payment-methods';
 import { colors, font, radius, space, text } from '@/theme';
 import { successHaptic } from '@/utils/haptics';
 import { ugx } from '@/utils/format';
@@ -47,6 +47,8 @@ export default function PaymentScreen() {
     phone?: string;
     last4?: string;
     saveCard?: string;
+    saveNumber?: string;
+    network?: string;
     kind?: string;
   }>();
   const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-00000';
@@ -58,6 +60,11 @@ export default function PaymentScreen() {
   const isCard = method === 'visa_card';
   const isTip = params.kind === 'tip';
   const saveNewCard = !isTip && isCard && params.saveCard === '1';
+  const saveNewMomo =
+    !isTip &&
+    !isCard &&
+    params.saveNumber === '1' &&
+    (method === 'mtn_momo' || method === 'airtel_money');
 
   const [status, setStatus] = useState<'pending' | 'approved' | 'failed'>('pending');
   const [secondsLeft, setSecondsLeft] = useState(PROMPT_TIMEOUT_MS / 1000);
@@ -107,6 +114,8 @@ export default function PaymentScreen() {
       addBookingTip(bookingId, amount, method);
     } else if (saveNewCard) {
       addCard(demoNewCard.last4, demoNewCard.expiry);
+    } else if (saveNewMomo) {
+      addMobileMoney(method === 'mtn_momo' ? 'MTN' : 'Airtel', phone);
     }
     const next = setTimeout(() => {
       if (isTip) {
@@ -119,7 +128,7 @@ export default function PaymentScreen() {
       });
     }, 1600);
     return () => clearTimeout(next);
-  }, [amount, bookingId, isTip, method, saveNewCard, slug, status, tick]);
+  }, [amount, bookingId, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
 
   const stop = () => {
     if (status === 'approved') return;

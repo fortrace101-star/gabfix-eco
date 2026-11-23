@@ -56,10 +56,8 @@ export type SavedMobileMoney = {
   phone: string;
 };
 
-export const savedMobileMoney: SavedMobileMoney[] = [
-  { id: 'momo-mtn-772123456', provider: 'MTN', phone: '772123456' },
-  { id: 'momo-airtel-701234567', provider: 'Airtel', phone: '701234567' },
-];
+// Demo numbers removed (11.2): nothing appears saved unless the customer saved it.
+export const savedMobileMoney: SavedMobileMoney[] = [];
 
 export const savedCardById = (id?: string): SavedCard | undefined =>
   savedCards.find((card) => card.id === id);

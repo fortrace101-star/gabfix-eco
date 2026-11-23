@@ -2,13 +2,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
   Bell,
+  BellOff,
+  CalendarCheck2,
   ChevronDown,
   ChevronRight,
   MapPin,
   Navigation,
   Repeat,
   Search,
+  Settings,
+  ShieldAlert,
   Sparkles,
+  Tag,
+  WalletCards,
+  type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -44,8 +51,13 @@ import {
   useBookings,
 } from '@/store/bookings';
 import {
+  markAllNotificationsRead,
+  markNotificationRead,
+  useNotifications,
   useNotificationsHydrated,
   useUnreadNotificationCount,
+  type AppNotification,
+  type NotificationKind,
 } from '@/store/notifications';
 import { useReviews } from '@/store/reviews';
 import { useOnboardingUserName } from '@/store/onboarding';
@@ -54,6 +66,34 @@ import { endSession, useAuthUser } from '@/store/session';
 import { showToast } from '@/components/ui/toast';
 import { auth, base, colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
+import { selectionHaptic } from '@/utils/haptics';
+
+const notifIconFor: Record<NotificationKind, LucideIcon> = {
+  booking: CalendarCheck2,
+  reminder: Sparkles,
+  payment: WalletCards,
+  system: Bell,
+  security: ShieldAlert,
+  promo: Tag,
+};
+
+const isSameNotifDay = (left: Date, right: Date): boolean =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const notifTimeLabel = (iso: string): string => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  if (isSameNotifDay(date, now)) {
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameNotifDay(date, yesterday)) return 'Yesterday';
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+};
 
 const bookingStart = (booking: SavedBooking): number => {
   if (!booking.dateISO) return Number.MAX_SAFE_INTEGER;
@@ -89,7 +129,7 @@ const PROMO_RESUME_DELAY_MS = 6_000;
 /** P4 Home tab shell. Discovery data is still local; `GET /home` replaces it in Phase 3. */
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   useStatusBarStyle('light');
 
   const addresses = useAddresses();
@@ -103,13 +143,23 @@ export default function HomeTab() {
   const draft = useBookingDraft();
   const notificationsReady = useNotificationsHydrated();
   const unreadNotifications = useUnreadNotificationCount();
+  const notifications = useNotifications();
   const { services, refresh: refreshServices } = useServices();
   const bookings = useBookings();
   const [refreshing, setRefreshing] = useState(false);
   const [activePromo, setActivePromo] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const closeNotif = useCallback(() => setNotifOpen(false), []);
+  const openNotif = useCallback(() => setNotifOpen(true), []);
+
+  const openNotification = useCallback((notification: AppNotification) => {
+    if (!notification.read) markNotificationRead(notification.id);
+    closeNotif();
+    if (notification.href) router.push(notification.href as Href);
+  }, [closeNotif]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -309,13 +359,19 @@ export default function HomeTab() {
                     ? `Notifications, ${unreadNotifications} unread`
                     : 'Notifications'
                 }
+                accessibilityHint="Opens your notifications"
+                accessibilityState={{ expanded: notifOpen }}
                 hitSlop={8}
-                onPress={() => router.push('/notifications')}
+                onPress={openNotif}
                 style={styles.bell}
               >
                 <Bell size={20} color={colors.surface} strokeWidth={2} />
                 {notificationsReady && unreadNotifications > 0 ? (
-                  <View style={styles.bellDot} />
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText} maxFontSizeMultiplier={1.1}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </Text>
+                  </View>
                 ) : null}
               </Pressable>
               <Pressable
@@ -929,6 +985,143 @@ export default function HomeTab() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        transparent
+        visible={notifOpen}
+        animationType="fade"
+        onRequestClose={closeNotif}>
+        <Pressable
+          accessibilityLabel="Close notifications"
+          accessibilityRole="button"
+          onPress={closeNotif}
+          style={styles.menuOverlay}>
+          <Pressable
+            accessible={false}
+            onPress={(event) => event.stopPropagation()}
+            style={[
+              styles.notifCard,
+              { top: insets.top + space[4] + 48, maxHeight: Math.round(height * 0.62) },
+            ]}>
+            <View style={styles.notifHeader}>
+              <Text style={styles.notifTitle} maxFontSizeMultiplier={1.3}>
+                Notifications
+              </Text>
+              <View style={styles.notifHeaderActions}>
+                {unreadNotifications > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Mark all notifications as read"
+                    hitSlop={8}
+                    onPress={() => {
+                      selectionHaptic();
+                      markAllNotificationsRead();
+                    }}
+                    style={styles.notifMarkAll}>
+                    <Text style={styles.notifMarkAllText} maxFontSizeMultiplier={1.2}>
+                      Mark all read
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Notification settings"
+                  hitSlop={8}
+                  onPress={() => {
+                    closeNotif();
+                    router.push('/profile/notification-preferences' as Href);
+                  }}
+                  style={styles.notifIconBtn}>
+                  <Settings size={18} color={colors.textMuted} strokeWidth={2} />
+                </Pressable>
+              </View>
+            </View>
+
+            {!notificationsReady ? (
+              <View style={styles.notifEmpty}>
+                <Text style={styles.notifEmptyBody} maxFontSizeMultiplier={1.3}>
+                  Loading notifications…
+                </Text>
+              </View>
+            ) : notifications.length === 0 ? (
+              <View style={styles.notifEmpty}>
+                <View style={styles.notifEmptyIcon}>
+                  <BellOff size={22} color={colors.green700} strokeWidth={2} />
+                </View>
+                <Text style={styles.notifEmptyTitle} maxFontSizeMultiplier={1.3}>
+                  You&apos;re all caught up
+                </Text>
+                <Text style={styles.notifEmptyBody} maxFontSizeMultiplier={1.3}>
+                  Booking updates and reminders will appear here.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.notifScroll}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={styles.notifList}>
+                {notifications.map((notification) => {
+                  const Icon = notifIconFor[notification.kind] ?? Bell;
+                  const time = notifTimeLabel(notification.createdAtISO);
+                  return (
+                    <Pressable
+                      key={notification.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${notification.title}. ${notification.body}. ${time}${
+                        notification.read ? '' : '. Unread'
+                      }`}
+                      onPress={() => openNotification(notification)}
+                      style={({ pressed }) => [
+                        styles.notifRow,
+                        !notification.read && styles.notifRowUnread,
+                        pressed && styles.notifRowPressed,
+                      ]}>
+                      <View style={styles.notifRowIcon}>
+                        <Icon size={18} color={colors.green700} strokeWidth={2} />
+                      </View>
+                      <View style={styles.notifRowBody}>
+                        <View style={styles.notifRowTop}>
+                          <Text
+                            style={styles.notifRowTitle}
+                            maxFontSizeMultiplier={1.3}
+                            numberOfLines={1}>
+                            {notification.title}
+                          </Text>
+                          <Text style={styles.notifRowTime} maxFontSizeMultiplier={1.2}>
+                            {time}
+                          </Text>
+                        </View>
+                        <Text
+                          style={styles.notifRowText}
+                          maxFontSizeMultiplier={1.3}
+                          numberOfLines={2}>
+                          {notification.body}
+                        </Text>
+                      </View>
+                      {!notification.read ? <View style={styles.notifUnreadDot} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View all notifications"
+              onPress={() => {
+                closeNotif();
+                router.push('/notifications' as Href);
+              }}
+              style={({ pressed }) => [styles.notifFooter, pressed && styles.notifRowPressed]}>
+              <Text style={styles.notifFooterText} maxFontSizeMultiplier={1.2}>
+                View all notifications
+              </Text>
+              <ChevronRight size={16} color={colors.green700} strokeWidth={2} />
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -961,14 +1154,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
     backgroundColor: colors.yellow500,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    fontFamily: font.bodySemi,
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.green900,
   },
   avatar: {
     width: 40,
@@ -1383,4 +1585,104 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: space[1],
   },
+  notifCard: {
+    position: 'absolute',
+    left: space[4],
+    right: space[4],
+    borderRadius: radius.card,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    ...shadow.card,
+  },
+  notifHeader: {
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[3],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+  },
+  notifTitle: { ...text.h3, fontSize: 16, color: colors.text },
+  notifHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  notifMarkAll: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: space[2],
+  },
+  notifMarkAllText: { ...text.caption, fontFamily: font.bodySemi, color: colors.green700 },
+  notifIconBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifScroll: { flexShrink: 1 },
+  notifList: { paddingVertical: space[1] },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[3],
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
+    minHeight: 72,
+  },
+  notifRowUnread: { backgroundColor: colors.green50 },
+  notifRowPressed: { backgroundColor: colors.green50 },
+  notifRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.green100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  notifRowBody: { flex: 1, gap: 2 },
+  notifRowTop: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  notifRowTitle: { ...text.bodyM, fontFamily: font.bodySemi, color: colors.text, flex: 1 },
+  notifRowTime: { ...text.caption, color: colors.textMuted },
+  notifRowText: { ...text.caption, color: colors.textMuted, lineHeight: 18 },
+  notifUnreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.green500,
+    marginTop: 8,
+  },
+  notifEmpty: {
+    paddingHorizontal: space[5],
+    paddingVertical: space[8],
+    alignItems: 'center',
+    gap: space[2],
+  },
+  notifEmptyIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.green100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space[1],
+  },
+  notifEmptyTitle: { ...text.h3, fontSize: 16, color: colors.text, textAlign: 'center' },
+  notifEmptyBody: { ...text.bodyM, color: colors.textMuted, textAlign: 'center' },
+  notifFooter: {
+    minHeight: 52,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[1],
+    paddingHorizontal: space[4],
+  },
+  notifFooterText: { ...text.bodyM, fontFamily: font.bodySemi, color: colors.green700 },
 });

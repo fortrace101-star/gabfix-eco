@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
 import { emptyScope, migrateScope } from '@/lib/booking-scope';
+import { validateMomo, type MomoNetwork } from '@/lib/momo';
 import {
   emptyDraft,
   type BookingDetails,
@@ -16,7 +17,8 @@ import {
  * Order-flow draft (Gabfix_App_Ui_2.md, Section 6.0). Each P8–P12 screen reads and writes
  * this store, so a draft survives navigation, app restarts and a cancelled payment.
  */
-const STORAGE_KEY = 'gabfix.booking.draft.v1';
+const STORAGE_KEY = 'gabfix.booking.draft.v2';
+const LEGACY_STORAGE_KEY = 'gabfix.booking.draft.v1';
 
 type BookingState = {
   draft: BookingDraft | null;
@@ -39,6 +41,50 @@ const persist = (draft: BookingDraft | null) => {
   void write.catch(() => undefined);
 };
 
+const migratePayment = (payment: unknown): BookingDraft['payment'] => {
+  if (!payment || typeof payment !== 'object') return undefined;
+  const p = payment as Record<string, unknown> & {
+    payerPhone?: unknown;
+    payerPhones?: Partial<Record<MomoNetwork, string>>;
+    savedMomoIds?: Partial<Record<MomoNetwork, string | 'new'>>;
+    saveNumber?: Partial<Record<MomoNetwork, boolean>>;
+  };
+
+  const plan = p.plan;
+  const balanceMethod = p.balanceMethod;
+  if (
+    (plan !== 'full_now' && plan !== 'deposit' && plan !== 'after_service') ||
+    typeof balanceMethod !== 'string'
+  ) {
+    return undefined;
+  }
+
+  const payerPhones: Partial<Record<MomoNetwork, string>> = { ...(p.payerPhones ?? {}) };
+  // 11.2 migration: old single payerPhone is copied only if it validates for a network.
+  if (typeof p.payerPhone === 'string' && p.payerPhone.trim()) {
+    const digits = p.payerPhone.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '').slice(0, 9);
+    const local = `0${digits}`;
+    (['mtn_momo', 'airtel_money'] as const).forEach((network) => {
+      if (!payerPhones[network] && validateMomo(network, local) === null) {
+        payerPhones[network] = local;
+      }
+    });
+  }
+
+  const { payerPhone: _legacy, ...rest } = p;
+  const next: BookingDraft['payment'] = {
+    ...(rest as BookingDraft['payment']),
+    plan,
+    balanceMethod: balanceMethod as NonNullable<BookingDraft['payment']>['balanceMethod'],
+    payerPhones: Object.keys(payerPhones).length > 0 ? payerPhones : undefined,
+    savedMomoIds:
+      p.savedMomoIds && Object.keys(p.savedMomoIds).length > 0 ? p.savedMomoIds : undefined,
+    saveNumber:
+      p.saveNumber && Object.keys(p.saveNumber).length > 0 ? p.saveNumber : undefined,
+  };
+  return next;
+};
+
 const withScopeDefaults = (draft: BookingDraft): BookingDraft => {
   const base = emptyDraft(draft.serviceSlug);
   return {
@@ -49,6 +95,7 @@ const withScopeDefaults = (draft: BookingDraft): BookingDraft => {
     // Old fixed-field drafts are mapped onto the seed schema's answers (never wiped).
     scope: migrateScope(draft.scope, draft.serviceSlug),
     media: { items: draft.media?.items ?? [], uploaded: draft.media?.uploaded ?? false },
+    payment: migratePayment(draft.payment),
   };
 };
 
@@ -62,7 +109,9 @@ const setDraft = (draft: BookingDraft | null) => {
 export async function hydrateBookingDraft(): Promise<void> {
   let draft: BookingDraft | null = null;
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw =
+      (await AsyncStorage.getItem(STORAGE_KEY)) ??
+      (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
     const parsed = raw ? (JSON.parse(raw) as BookingDraft) : null;
     if (parsed?.serviceSlug && parsed.details) {
       const normalized = withScopeDefaults(parsed);
@@ -73,6 +122,8 @@ export async function hydrateBookingDraft(): Promise<void> {
           items: dedupeMediaItems(normalized.media?.items ?? []),
         },
       };
+      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)).catch(() => undefined);
+      void AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(() => undefined);
     }
   } catch {
     draft = null;

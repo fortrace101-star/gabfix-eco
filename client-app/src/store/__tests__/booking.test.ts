@@ -3,7 +3,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-const STORAGE_KEY = 'gabfix.booking.draft.v1';
+const STORAGE_KEY = 'gabfix.booking.draft.v2';
 
 type BookingModule = typeof import('@/store/booking');
 type StorageModule = typeof import('@react-native-async-storage/async-storage').default;

@@ -1,5 +1,6 @@
 import { hourlyRate, pricing, type Frequency } from '@/config/pricing';
 import type { BookingScope } from '@/lib/form-schema';
+import type { MomoNetwork } from '@/lib/momo';
 
 /** Booking model from Gabfix_App_Ui_2.md, Section 3.5. Persisted by `src/store/booking.ts`. */
 export type BookingFrequency = Frequency;
@@ -49,7 +50,12 @@ export type BookingPayment = {
   method?: PaymentMethod;
   /** Method for the balance collected after the service. Any method, including cash. */
   balanceMethod: PaymentMethod;
-  payerPhone?: string;
+  /** Local-form MoMo number per network (11.2). Each network keeps its own number. */
+  payerPhones?: Partial<Record<MomoNetwork, string>>;
+  /** Selected saved number id, or 'new', per network. */
+  savedMomoIds?: Partial<Record<MomoNetwork, string | 'new'>>;
+  /** Whether to save the entered number after an approved payment, per network. */
+  saveNumber?: Partial<Record<MomoNetwork, boolean>>;
   depositAmount?: number;
   savedCardId?: string;
   /** Set on P12 when the customer ticks “Save this card”. */

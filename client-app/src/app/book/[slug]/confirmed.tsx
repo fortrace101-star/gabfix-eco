@@ -96,7 +96,14 @@ export default function ConfirmedScreen() {
         balance,
         paymentPlan: snapshot?.payment?.plan,
         paymentMethod: snapshot?.payment?.method,
-        phone: snapshot?.payment?.payerPhone,
+        phone: (() => {
+          const p = snapshot?.payment;
+          const method = p?.method ?? p?.balanceMethod;
+          const network =
+            method === 'mtn_momo' ? 'mtn_momo' : method === 'airtel_money' ? 'airtel_money' : undefined;
+          const local = network ? p?.payerPhones?.[network] : undefined;
+          return local ? local.replace(/^0/, '') : undefined;
+        })(),
         contactName: location?.contactName,
         cleanerId: preferredCleaner?.id,
         cleanerName: preferredCleaner?.name,
@@ -135,7 +142,7 @@ export default function ConfirmedScreen() {
       successHaptic();
       Animated.spring(tick, { toValue: 1, useNativeDriver: supportsNativeDriver }).start();
     })();
-  }, [balance, bookingId, isQuote, location?.area, location?.contactName, location?.propertyType, location?.street, paid, preferredCleaner?.id, preferredCleaner?.name, schedule?.dateISO, schedule?.startTime, service?.name, service?.slug, slug, snapshot, snapshot?.details.cleaners, snapshot?.details.hours, snapshot?.payment?.method, snapshot?.payment?.payerPhone, snapshot?.payment?.plan, snapshot?.serviceSlug, tick, total]);
+  }, [balance, bookingId, isQuote, location?.area, location?.contactName, location?.propertyType, location?.street, paid, preferredCleaner?.id, preferredCleaner?.name, schedule?.dateISO, schedule?.startTime, service?.name, service?.slug, slug, snapshot, snapshot?.details.cleaners, snapshot?.details.hours, snapshot?.payment?.method, snapshot?.payment?.payerPhones, snapshot?.payment?.plan, snapshot?.serviceSlug, tick, total]);
 
   const when = schedule
     ? `${parseISODate(schedule.dateISO).toLocaleDateString('en-GB', {

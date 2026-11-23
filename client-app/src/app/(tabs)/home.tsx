@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import {
   Bell,
   ChevronDown,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -48,7 +50,8 @@ import {
 import { useReviews } from '@/store/reviews';
 import { useOnboardingUserName } from '@/store/onboarding';
 import { useAddresses } from '@/store/addresses';
-import { useAuthUser } from '@/store/session';
+import { endSession, useAuthUser } from '@/store/session';
+import { showToast } from '@/components/ui/toast';
 import { auth, base, colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
 
@@ -104,6 +107,9 @@ export default function HomeTab() {
   const bookings = useBookings();
   const [refreshing, setRefreshing] = useState(false);
   const [activePromo, setActivePromo] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -121,6 +127,50 @@ export default function HomeTab() {
     );
     return upcoming.sort((a, b) => bookingStart(a) - bookingStart(b))[0];
   }, [bookings]);
+
+  const openMyProfile = useCallback(() => {
+    closeMenu();
+    router.push('/(tabs)/profile');
+  }, [closeMenu]);
+
+  const openAddresses = useCallback(() => {
+    closeMenu();
+    router.push('/addresses');
+  }, [closeMenu]);
+
+  const openNextBooking = useCallback(() => {
+    closeMenu();
+    if (nextBooking) {
+      router.push(`/booking/${nextBooking.id}` as never);
+      return;
+    }
+    showToast('No bookings yet');
+    router.push('/(tabs)/services');
+  }, [closeMenu, nextBooking]);
+
+  const openReferrals = useCallback(() => {
+    closeMenu();
+    router.push('/refer' as Href);
+  }, [closeMenu]);
+
+  const openHelpSupport = useCallback(() => {
+    closeMenu();
+    router.push('/help' as Href);
+  }, [closeMenu]);
+
+  const confirmSignOut = useCallback(() => {
+    closeMenu();
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: () => {
+          void endSession().then(() => router.replace('/login' as Href));
+        },
+      },
+    ]);
+  }, [closeMenu]);
   const reviews = useReviews();
   const dueBookings = useMemo(() => balanceDueBookings(bookings), [bookings]);
   const dueTotal = useMemo(() => totalBalanceDue(bookings), [bookings]);
@@ -268,14 +318,17 @@ export default function HomeTab() {
                   <View style={styles.bellDot} />
                 ) : null}
               </Pressable>
-              <View
-                style={styles.avatar}
-                accessibilityLabel={`Signed in as ${displayName}`}
-              >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Account menu, signed in as ${displayName}`}
+                accessibilityHint="Opens account options"
+                hitSlop={8}
+                onPress={() => setMenuOpen(true)}
+                style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}>
                 <Text style={styles.avatarText} maxFontSizeMultiplier={1.2}>
                   {initials}
                 </Text>
-              </View>
+              </Pressable>
             </View>
           </View>
 
@@ -806,6 +859,76 @@ export default function HomeTab() {
           ) : null}
         </View>
       </ScrollView>
+
+      <Modal
+        transparent
+        visible={menuOpen}
+        animationType="fade"
+        onRequestClose={closeMenu}>
+        <Pressable
+          accessibilityLabel="Close account menu"
+          accessibilityRole="button"
+          onPress={closeMenu}
+          style={styles.menuOverlay}>
+          <Pressable
+            accessible={false}
+            onPress={(event) => event.stopPropagation()}
+            style={[styles.menuCard, { top: insets.top + space[4] + 48, right: space[4] }]}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openMyProfile}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text style={styles.menuItemText} maxFontSizeMultiplier={1.3}>
+                My Profile
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openAddresses}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text style={styles.menuItemText} maxFontSizeMultiplier={1.3}>
+                Addresses
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint="Opens your next upcoming booking, or services if you have none"
+              onPress={openNextBooking}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text style={styles.menuItemText} maxFontSizeMultiplier={1.3}>
+                Next Booking
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openReferrals}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text style={styles.menuItemText} maxFontSizeMultiplier={1.3}>
+                Referrals
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openHelpSupport}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text style={styles.menuItemText} maxFontSizeMultiplier={1.3}>
+                Help &amp; Support
+              </Text>
+            </Pressable>
+            <View style={styles.menuDivider} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={confirmSignOut}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}>
+              <Text
+                style={[styles.menuItemText, styles.menuItemDanger]}
+                maxFontSizeMultiplier={1.3}>
+                Sign out
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -855,6 +978,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPressed: { opacity: 0.75 },
   avatarText: {
     fontFamily: font.poppinsSemi,
     fontSize: 14,
@@ -1233,5 +1357,30 @@ const styles = StyleSheet.create({
     ...text.caption,
     fontFamily: font.bodySemi,
     color: colors.green700,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.2)',
+  },
+  menuCard: {
+    position: 'absolute',
+    minWidth: 200,
+    borderRadius: radius.card,
+    backgroundColor: colors.surface,
+    paddingVertical: space[2],
+    ...shadow.card,
+  },
+  menuItem: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: space[4],
+  },
+  menuItemPressed: { backgroundColor: colors.green50 },
+  menuItemText: { ...text.bodyM, color: colors.text },
+  menuItemDanger: { color: colors.error },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: space[1],
   },
 });

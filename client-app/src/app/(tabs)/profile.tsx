@@ -244,21 +244,21 @@ export default function ProfileTab() {
             <Text style={styles.dangerLabel} maxFontSizeMultiplier={1.3}>Sign out</Text>
             <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setDeleteOpen(true)}
-            style={styles.dangerRow}>
-            <Trash2 size={20} color={colors.error} strokeWidth={2} />
-            <Text style={[styles.dangerLabel, { color: colors.error }]} maxFontSizeMultiplier={1.3}>
-              Delete account
-            </Text>
-            <ChevronRight size={20} color={colors.textMuted} strokeWidth={2} />
-          </Pressable>
         </View>
 
         <Text style={styles.version} maxFontSizeMultiplier={1.2}>
           Gabfix v{appVersion}
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          hitSlop={8}
+          onPress={() => setDeleteOpen(true)}
+          style={({ pressed }) => [styles.deleteAccount, pressed && styles.deleteAccountPressed]}>
+          <Text style={styles.deleteAccountText} maxFontSizeMultiplier={1.3}>
+            Delete account
+          </Text>
+        </Pressable>
       </ScrollView>
 
       <ConfirmSheet
@@ -328,4 +328,12 @@ const styles = StyleSheet.create({
   dangerRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4] },
   dangerLabel: { ...text.bodyM, flex: 1 },
   version: { ...text.caption, color: colors.textMuted, textAlign: 'center' },
+  deleteAccount: {
+    minHeight: 44,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space[4],
+  },
+  deleteAccountPressed: { opacity: 0.65 },
+  deleteAccountText: { ...text.bodyM, color: colors.error, textAlign: 'center' },
 });

@@ -1,10 +1,11 @@
 import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { CheckCircle2, ClipboardList, MessageSquare } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContactOptions } from '@/components/help/contact-options';
 import { Button } from '@/components/ui/button';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { base, colors, font, radius, space, text } from '@/theme';
 
@@ -33,7 +34,7 @@ export default function ContactScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <TopBar title="Contact support" />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <KeyboardScreen contentContainerStyle={styles.content}>
         <View style={styles.intro}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             We are here 7 days a week.
@@ -82,7 +83,7 @@ export default function ContactScreen() {
         <Text style={styles.footnote} maxFontSizeMultiplier={1.2}>
           In-app chat is open 7 days a week. Calls, WhatsApp and email reach the same support team.
         </Text>
-      </ScrollView>
+      </KeyboardScreen>
     </SafeAreaView>
   );
 }

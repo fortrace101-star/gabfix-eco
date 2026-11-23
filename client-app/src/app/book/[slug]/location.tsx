@@ -6,7 +6,6 @@ import {
   Alert,
   Linking,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +20,7 @@ import { SummarySheet } from '@/components/booking/summary-sheet';
 import { StickyComposer } from '@/components/ui/sticky-composer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { PermissionCard } from '@/components/ui/permission-card';
 import { TopBar } from '@/components/ui/top-bar';
 import type { FixturePlace } from '@/config/location-fixtures';
@@ -257,10 +257,21 @@ export default function LocationScreen() {
       <StepperHeader current={3} />
       {sheet}
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen
+        contentContainerStyle={styles.content}
+        footer={
+          <SummaryBar
+            caption={
+              form.street ? `${locality ? `${locality} · ` : ''}${form.street}` : 'Add your address'
+            }
+            total={service?.pricingMode === 'quote' ? 0 : quote.total}
+            valueLabel={service?.pricingMode === 'quote' ? 'Custom quote' : undefined}
+            actionLabel="Next"
+            onPress={onNext}
+            disabled={!complete}
+            onDetailsPress={() => setSummaryOpen(true)}
+          />
+        }>
         <View style={styles.intro}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             Where should we clean?
@@ -501,17 +512,7 @@ export default function LocationScreen() {
           ) : null}
         </View>
 
-      </ScrollView>
-
-      <SummaryBar
-        caption={form.street ? `${locality ? `${locality} · ` : ''}${form.street}` : 'Add your address'}
-        total={service?.pricingMode === 'quote' ? 0 : quote.total}
-        valueLabel={service?.pricingMode === 'quote' ? 'Custom quote' : undefined}
-        actionLabel="Next"
-        onPress={onNext}
-        disabled={!complete}
-        onDetailsPress={() => setSummaryOpen(true)}
-      />
+      </KeyboardScreen>
 
       <SummarySheet
         draft={active}

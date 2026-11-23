@@ -9,14 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { slotLabel } from '@/components/booking/slot-chips';
 import { SelectableCard } from '@/components/booking/selectable-card';
@@ -27,6 +20,7 @@ import { StickyComposer } from '@/components/ui/sticky-composer';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { addOns } from '@/config/add-ons';
 import {
@@ -576,10 +570,28 @@ export default function ReviewScreen() {
       <StepperHeader current={5} />
       {sheet}
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen
+        contentContainerStyle={styles.content}
+        footer={
+          <SummaryBar
+            caption={isQuote ? 'Nothing due today' : 'Pay now'}
+            total={isQuote ? 0 : dueToday}
+            valueLabel={isQuote ? 'Custom quote' : undefined}
+            actionLabel={
+              submitting
+                ? isQuote
+                  ? 'Sending…'
+                  : 'Starting…'
+                : isQuote
+                  ? 'Request quote'
+                  : dueToday > 0
+                    ? `Pay ${ugx(dueToday)} and confirm`
+                    : 'Confirm booking'
+            }
+            onPress={onConfirm}
+            disabled={!ready || submitting}
+          />
+        }>
         <View style={styles.intro}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             {isQuote ? 'Review your request' : 'Review and pay'}
@@ -1089,26 +1101,7 @@ export default function ReviewScreen() {
             </Pressable>
           </View>
         </View>
-      </ScrollView>
-
-      <SummaryBar
-        caption={isQuote ? 'Nothing due today' : 'Pay now'}
-        total={isQuote ? 0 : dueToday}
-        valueLabel={isQuote ? 'Custom quote' : undefined}
-        actionLabel={
-          submitting
-            ? isQuote
-              ? 'Sending…'
-              : 'Starting…'
-            : isQuote
-              ? 'Request quote'
-              : dueToday > 0
-                ? `Pay ${ugx(dueToday)} and confirm`
-                : 'Confirm booking'
-        }
-        onPress={onConfirm}
-        disabled={!ready || submitting}
-      />
+      </KeyboardScreen>
     </StickyComposer>
   );
 }

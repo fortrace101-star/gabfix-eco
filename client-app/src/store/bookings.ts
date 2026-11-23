@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 import { mock } from '@/config/mock';
 import { cancelAssignmentReminder } from '@/lib/local-notifications';
+import { isRecurringFrequency, nextOccurrenceISO, toISODate } from '@/lib/plans';
 import type {
   BookingDetails,
   BookingLocation,
@@ -50,6 +51,8 @@ export type SavedBooking = {
   completedAtISO?: string;
   /** The customer skipped the rating prompt; do not ask again. */
   ratingSkippedAtISO?: string;
+  /** F6: this upcoming visit was booked by completing a recurring plan's previous visit. */
+  seededFromId?: string;
   /** Job scope facts captured at booking time (Phase 2). */
   scope?: BookingScope;
   /** Local/finalized media attached to the job (Phase 2). */
@@ -173,12 +176,77 @@ export function rescheduleBooking(
   });
 }
 
+const recurringBookingId = (): string => {
+  const base = Number(String(Date.now()).slice(-5));
+  for (let step = 0; step < 100; step += 1) {
+    const id = `GBX-${String((base + step) % 100000).padStart(5, '0')}`;
+    if (!state.bookings.some((item) => item.id === id)) return id;
+  }
+  return `GBX-${String(Date.now()).slice(-5)}`;
+};
+
+/**
+ * F6: a completed recurring job books the next visit for the same person and plan, so Home's
+ * next clean, the bookings list and the plan's next-visit date stay current without a server.
+ * Idempotent: a date that is already booked is never seeded twice.
+ */
+function seedNextRecurringVisit(booking: SavedBooking, now: number): void {
+  if (!mock.completion.enabled || !mock.completion.seedNextVisit) return;
+  const frequency = booking.rebook?.details.frequency;
+  if (!isRecurringFrequency(frequency) || !booking.dateISO) return;
+
+  const todayISO = toISODate(new Date(now));
+  let dateISO = booking.dateISO;
+  for (let guard = 0; dateISO <= todayISO && guard < 500; guard += 1) {
+    dateISO = nextOccurrenceISO(dateISO, frequency);
+  }
+  if (dateISO <= todayISO) return;
+
+  const alreadyBooked = state.bookings.some(
+    (item) =>
+      item.status !== 'cancelled' &&
+      item.serviceSlug === booking.serviceSlug &&
+      item.dateISO === dateISO,
+  );
+  if (alreadyBooked) return;
+
+  addBooking({
+    id: recurringBookingId(),
+    serviceSlug: booking.serviceSlug,
+    serviceName: booking.serviceName,
+    status: 'upcoming',
+    createdAtISO: new Date(now).toISOString(),
+    dateISO,
+    startTime: booking.startTime,
+    area: booking.area,
+    street: booking.street,
+    propertyType: booking.propertyType,
+    cleaners: booking.cleaners,
+    hours: booking.hours,
+    total: booking.total,
+    paid: 0,
+    balance: booking.total,
+    paymentPlan: booking.paymentPlan,
+    paymentMethod: booking.paymentMethod,
+    phone: booking.phone,
+    contactName: booking.contactName,
+    // A recurring plan keeps the same person (P17), so the visit starts assigned.
+    cleanerId: booking.cleanerId,
+    cleanerName: booking.cleanerName,
+    assignedAtISO: booking.cleanerId ? new Date(now).toISOString() : undefined,
+    scope: booking.scope,
+    rebook: booking.rebook,
+    seededFromId: booking.id,
+  });
+}
+
 /** S1 12.4: mock completion. Notifies once and unlocks the optional rating. */
-export function completeBooking(id: string): void {
+export function completeBooking(id: string, now: number = Date.now()): void {
   const booking = state.bookings.find((item) => item.id === id);
   if (!booking || booking.status !== 'upcoming') return;
 
-  updateBooking(id, { status: 'completed', completedAtISO: new Date().toISOString() });
+  updateBooking(id, { status: 'completed', completedAtISO: new Date(now).toISOString() });
+  seedNextRecurringVisit(booking, now);
   addNotification({
     id: `booking-review-${id}`,
     kind: 'booking',

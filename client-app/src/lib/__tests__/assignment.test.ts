@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import type { Cleaner } from '@/config/cleaners';
 import { pickAssignee, processDueAssignments, processDueCompletions } from '@/lib/assignment';
-import { addBooking, getBookingById, updateBooking, type SavedBooking } from '@/store/bookings';
+import {
+  addBooking,
+  completeBooking,
+  getBookingById,
+  getBookings,
+  updateBooking,
+  type SavedBooking,
+} from '@/store/bookings';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -105,6 +112,54 @@ describe('processDueAssignments', () => {
 
     expect(processDueAssignments(due)).toHaveLength(0);
     expect(getBookingById('GBX-CANCELLED')?.assignedAtISO).toBeUndefined();
+  });
+});
+
+describe('recurring next visit (F6)', () => {
+  const weekly = (id: string, serviceSlug = 'home-clean'): SavedBooking =>
+    booking({
+      id,
+      serviceSlug,
+      cleanerId: 'a-cleaner',
+      cleanerName: 'Ann Cleaner',
+      assignedAtISO: '2026-01-02T08:00:00.000Z',
+      rebook: {
+        details: { cleaners: 1, hours: 2, frequency: 'weekly', materials: false },
+        addOns: [],
+      },
+    });
+
+  it('books the next weekly visit for the same cleaner on completion', () => {
+    addBooking(weekly('GBX-WEEKLY'));
+    completeBooking('GBX-WEEKLY', new Date('2026-01-02T12:00:00').getTime());
+
+    const seeded = getBookings().find((item) => item.seededFromId === 'GBX-WEEKLY');
+    expect(seeded?.status).toBe('upcoming');
+    expect(seeded?.dateISO).toBe('2026-01-09');
+    expect(seeded?.startTime).toBe('09:00');
+    expect(seeded?.cleanerName).toBe('Ann Cleaner');
+    expect(seeded?.paid).toBe(0);
+    expect(seeded?.balance).toBe(45_000);
+  });
+
+  it('does not seed a one-off job', () => {
+    addBooking(booking({ id: 'GBX-ONCE' }));
+    completeBooking('GBX-ONCE', new Date('2026-01-02T12:00:00').getTime());
+
+    expect(getBookings().some((item) => item.seededFromId === 'GBX-ONCE')).toBe(false);
+  });
+
+  it('does not seed a date that already has a booking for the service', () => {
+    addBooking(weekly('GBX-WEEKLY-DUP', 'deep-clean'));
+    // A visit already exists on the date the recurrence would land on.
+    addBooking(booking({ id: 'GBX-EXISTING', serviceSlug: 'deep-clean', dateISO: '2026-01-09' }));
+
+    completeBooking('GBX-WEEKLY-DUP', new Date('2026-01-02T12:00:00').getTime());
+
+    expect(getBookings().some((item) => item.seededFromId === 'GBX-WEEKLY-DUP')).toBe(false);
+    expect(
+      getBookings().filter((item) => item.serviceSlug === 'deep-clean' && item.dateISO === '2026-01-09'),
+    ).toHaveLength(1);
   });
 });
 

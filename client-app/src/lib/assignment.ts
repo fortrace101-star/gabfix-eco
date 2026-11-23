@@ -88,7 +88,7 @@ export function processDueCompletions(now: number = Date.now()): string[] {
     return end !== undefined && end <= now;
   });
 
-  due.forEach((booking) => completeBooking(booking.id));
+  due.forEach((booking) => completeBooking(booking.id, now));
   return due.map((booking) => booking.id);
 }
 

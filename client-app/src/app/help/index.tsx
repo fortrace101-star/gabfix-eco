@@ -1,15 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { CheckCircle2, ChevronRight, CircleHelp, ImagePlus, Search, X } from 'lucide-react-native';
 import { useState } from 'react';
-import {
-  Image,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FaqAccordion } from '@/components/help/faq-accordion';
@@ -17,6 +9,7 @@ import { TicketRow } from '@/components/help/ticket-row';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Input } from '@/components/ui/input';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import {
   searchFaqs,
@@ -117,10 +110,7 @@ export default function HelpCentreScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <TopBar title="Help centre" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen contentContainerStyle={styles.content}>
         <View style={styles.intro}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             How can we help?
@@ -413,7 +403,7 @@ export default function HelpCentreScreen() {
             />
           </>
         )}
-      </ScrollView>
+      </KeyboardScreen>
     </SafeAreaView>
   );
 }

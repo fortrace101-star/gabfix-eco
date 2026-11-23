@@ -4,5 +4,11 @@
  */
 export const mock = {
   assignment: { enabled: true, delayMs: 6 * 60_000 },
-  completion: { enabled: true, afterScheduleEnd: true, devButton: __DEV__ },
+  completion: {
+    enabled: true,
+    afterScheduleEnd: true,
+    devButton: __DEV__,
+    /** F6: a completed recurring job books its next visit on the same plan. */
+    seedNextVisit: true,
+  },
 } as const;

@@ -16,6 +16,7 @@ import { SelectableCard } from '@/components/booking/selectable-card';
 import { StepperHeader } from '@/components/booking/stepper-header';
 import { SummaryBar } from '@/components/booking/summary-bar';
 import { SummarySheet } from '@/components/booking/summary-sheet';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { pricing } from '@/config/pricing';
 import { serviceBySlug } from '@/config/services';
@@ -132,10 +133,19 @@ export default function JobDetailsScreen() {
       <StepperHeader current={0} />
       {sheet}
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen
+        contentContainerStyle={styles.content}
+        footer={
+          <SummaryBar
+            caption={`${details.hours} h · ${details.cleaners} cleaner${
+              details.cleaners === 1 ? '' : 's'
+            }`}
+            total={quote.total}
+            actionLabel="Next"
+            onPress={onNext}
+            onDetailsPress={() => setSummaryOpen(true)}
+          />
+        }>
         <View style={styles.group}>
           <Text style={styles.label} maxFontSizeMultiplier={1.3}>
             How many cleaners?
@@ -230,15 +240,7 @@ export default function JobDetailsScreen() {
             {instructions.length}/300
           </Text>
         </View>
-      </ScrollView>
-
-      <SummaryBar
-        caption={`${details.hours} h · ${details.cleaners} cleaner${details.cleaners === 1 ? '' : 's'}`}
-        total={quote.total}
-        actionLabel="Next"
-        onPress={onNext}
-        onDetailsPress={() => setSummaryOpen(true)}
-      />
+      </KeyboardScreen>
 
       <SummarySheet
         draft={active}

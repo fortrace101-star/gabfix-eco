@@ -68,11 +68,14 @@ export const shortDate = (iso: string): string =>
     month: 'short',
   });
 
-const stepPlan = (iso: string, frequency: RecurringFrequency): string => {
+/** One recurrence step from a date: monthly, every three days, or weekly. */
+export const nextOccurrenceISO = (iso: string, frequency: RecurringFrequency): string => {
   if (frequency === 'monthly') return addMonthsISO(iso, 1);
   // “Twice a week” has no chosen weekdays in this demo, so visits recur every three days.
   return addDaysISO(iso, frequency === 'severalPerWeek' ? 3 : 7);
 };
+
+const stepPlan = nextOccurrenceISO;
 
 /**
  * P17 next visit. Walks the recurrence from the booked date until it clears today, any pause
@@ -113,6 +116,9 @@ export const recurringPlans = (
 ): RecurringPlan[] =>
   bookings
     .filter((booking) => booking.status !== 'cancelled')
+    // A visit seeded by mock completion belongs to its parent plan, which already walks
+    // the recurrence forward; listing it again would duplicate the card.
+    .filter((booking) => !booking.seededFromId)
     .filter((booking) => !overrides[booking.id]?.endedAtISO)
     .flatMap((booking) => {
       const frequency = booking.rebook?.details.frequency;

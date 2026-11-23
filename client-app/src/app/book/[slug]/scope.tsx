@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Info, Plus, Sparkles, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DynamicForm } from '@/components/booking/dynamic-form';
 import { MediaPreview } from '@/components/booking/media-preview';
@@ -10,6 +10,7 @@ import { MediaTile } from '@/components/booking/media-tile';
 import { StepperHeader } from '@/components/booking/stepper-header';
 import { SummaryBar } from '@/components/booking/summary-bar';
 import { SummarySheet } from '@/components/booking/summary-sheet';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { jobMedia } from '@/config/media';
 import { serviceBySlug } from '@/config/services';
@@ -154,10 +155,25 @@ export default function JobScopeScreen() {
       <StepperHeader current={1} />
       {sheet}
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen
+        contentContainerStyle={styles.content}
+        footer={
+          <SummaryBar
+            caption={
+              showErrors && Object.keys(errors).length > 0
+                ? `${Object.keys(errors).length} required detail${
+                    Object.keys(errors).length === 1 ? '' : 's'
+                  } missing`
+                : `${details.cleaners} cleaner${
+                    details.cleaners === 1 ? '' : 's'
+                  } · ${details.hours} h`
+            }
+            total={quote.total}
+            actionLabel={service?.pricingMode === 'quote' ? 'Request quote' : 'Continue'}
+            onPress={onNext}
+            onDetailsPress={() => setSummaryOpen(true)}
+          />
+        }>
         <View style={styles.section}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             {schema.heading}
@@ -252,21 +268,7 @@ export default function JobScopeScreen() {
               : 'Hours and team size stay editable until you pay.'}
           </Text>
         </View>
-      </ScrollView>
-
-      <SummaryBar
-        caption={
-          showErrors && Object.keys(errors).length > 0
-            ? `${Object.keys(errors).length} required detail${
-                Object.keys(errors).length === 1 ? '' : 's'
-              } missing`
-            : `${details.cleaners} cleaner${details.cleaners === 1 ? '' : 's'} · ${details.hours} h`
-        }
-        total={quote.total}
-        actionLabel={service?.pricingMode === 'quote' ? 'Request quote' : 'Continue'}
-        onPress={onNext}
-        onDetailsPress={() => setSummaryOpen(true)}
-      />
+      </KeyboardScreen>
 
       <SummarySheet
         visible={summaryOpen}

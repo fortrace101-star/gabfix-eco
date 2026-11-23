@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { cleanerById } from '@/config/cleaners';
 import { supportsNativeDriver } from '@/lib/animation';
@@ -342,7 +343,7 @@ export default function RateBookingScreen() {
     }
     if (tipChoice === 'custom' && tipAmount === 0) {
       errorHaptic();
-      setError('Enter a tip amount or choose No tip.');
+      setError('Enter a tip amount, or choose No tip to send your review.');
       return;
     }
     if (tipAmount > 0 && !selectedMethod) {
@@ -394,9 +395,7 @@ export default function RateBookingScreen() {
   return (
     <View style={styles.screen}>
       <TopBar title="Rate your clean" onBack={() => router.back()} />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardScreen
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[10] }]}>
         <Text style={styles.title} maxFontSizeMultiplier={1.3}>
           Rate your clean (optional)
@@ -594,11 +593,31 @@ export default function RateBookingScreen() {
               </Text>
             </View>
             <Text style={styles.optional} maxFontSizeMultiplier={1.2}>
-              100% goes to your cleaner
+              Optional
             </Text>
           </View>
+          <Text style={styles.cardHint} maxFontSizeMultiplier={1.2}>
+            100% goes to your cleaner. You can send your review without a tip.
+          </Text>
 
           <View style={styles.tipChips}>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityLabel="No tip"
+              accessibilityState={{ selected: tipChoice === null }}
+              aria-checked={tipChoice === null}
+              onPress={() => {
+                selectionHaptic();
+                setTipChoice(null);
+                setError('');
+              }}
+              style={[styles.tipChip, tipChoice === null && styles.tipChipOn]}>
+              <Text
+                style={[styles.tipChipText, tipChoice === null && styles.tipChipTextOn]}
+                maxFontSizeMultiplier={1.2}>
+                No tip
+              </Text>
+            </Pressable>
             {TIP_PRESETS.map((amount) => {
               const selected = tipChoice === amount;
               return (
@@ -662,7 +681,7 @@ export default function RateBookingScreen() {
             </View>
           ) : null}
 
-          {hasDigitalMethods ? (
+          {tipAmount > 0 && hasDigitalMethods ? (
             <>
               <Text style={styles.methodLabel} maxFontSizeMultiplier={1.2}>
                 Pay tip with
@@ -707,16 +726,18 @@ export default function RateBookingScreen() {
                 })}
               </View>
             </>
-          ) : (
+          ) : tipAmount > 0 ? (
             <Text style={styles.cashTip} maxFontSizeMultiplier={1.3}>
               No digital method saved. Cash tips go directly to your cleaner.
             </Text>
-          )}
+          ) : null}
 
-          <Text style={styles.cashInfo} maxFontSizeMultiplier={1.2}>
-            Tips sent in the app go to your cleaner&apos;s Gabfix wallet. Cash tips are handed
-            over directly.
-          </Text>
+          {tipAmount > 0 ? (
+            <Text style={styles.cashInfo} maxFontSizeMultiplier={1.2}>
+              Tips sent in the app go to your cleaner&apos;s Gabfix wallet. Cash tips are handed
+              over directly.
+            </Text>
+          ) : null}
         </View>
 
         {error ? (
@@ -744,7 +765,7 @@ export default function RateBookingScreen() {
         <Text style={styles.footNote} maxFontSizeMultiplier={1.2}>
           Reviews are saved on this device until the reviews service is connected.
         </Text>
-      </ScrollView>
+      </KeyboardScreen>
 
       {submitted ? (
         <View

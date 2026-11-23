@@ -3,7 +3,6 @@ import { ArrowLeft, ChevronRight, Clock3, Search, X } from 'lucide-react-native'
 import { useEffect, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stars } from '@/components/reviews/stars';
 import { ServicePhoto } from '@/components/service/service-photo';
 import { EmptyState } from '@/components/ui/empty-state';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cleaners } from '@/config/cleaners';
 import { fromHourly } from '@/config/services';
@@ -145,10 +145,7 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}>
+      <KeyboardScreen contentContainerStyle={styles.content}>
         {!term ? (
           <>
             {recent.length > 0 ? (
@@ -326,7 +323,7 @@ export default function SearchScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+      </KeyboardScreen>
     </View>
   );
 }

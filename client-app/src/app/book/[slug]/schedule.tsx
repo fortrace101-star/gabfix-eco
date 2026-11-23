@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,6 +15,7 @@ import { StepperHeader } from '@/components/booking/stepper-header';
 import { SummaryBar } from '@/components/booking/summary-bar';
 import { SummarySheet } from '@/components/booking/summary-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
+import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { RetryHint } from '@/components/ui/retry-hint';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TopBar } from '@/components/ui/top-bar';
@@ -212,7 +212,19 @@ export default function ScheduleScreen() {
       <StepperHeader current={2} />
       {sheet}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <KeyboardScreen
+        contentContainerStyle={styles.content}
+        footer={
+          <SummaryBar
+            caption={caption}
+            total={service?.pricingMode === 'quote' ? 0 : quote.total}
+            valueLabel={service?.pricingMode === 'quote' ? 'Custom quote' : undefined}
+            actionLabel="Next"
+            onPress={onNext}
+            disabled={!selectedTime}
+            onDetailsPress={() => setSummaryOpen(true)}
+          />
+        }>
         <View style={styles.intro}>
           <Text style={styles.title} maxFontSizeMultiplier={1.3}>
             Pick a date and time
@@ -354,17 +366,7 @@ export default function ScheduleScreen() {
             Free to change or cancel up to 24 hours before.
           </Text>
         </View>
-      </ScrollView>
-
-      <SummaryBar
-        caption={caption}
-        total={service?.pricingMode === 'quote' ? 0 : quote.total}
-        valueLabel={service?.pricingMode === 'quote' ? 'Custom quote' : undefined}
-        actionLabel="Next"
-        onPress={onNext}
-        disabled={!selectedTime}
-        onDetailsPress={() => setSummaryOpen(true)}
-      />
+      </KeyboardScreen>
 
       <SummarySheet
         draft={active}

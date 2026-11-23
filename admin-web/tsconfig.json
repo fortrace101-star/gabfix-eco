@@ -18,15 +18,15 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@mobile/*": ["../../client-app/src/*"]
+      "@mobile/*": ["../client-app/src/*"]
     }
   },
   "include": [
     "src",
-    "../../client-app/src/config/pricing.ts",
-    "../../client-app/src/config/service-categories.ts",
-    "../../client-app/src/config/services.ts",
-    "../../client-app/src/config/support-contact.ts",
-    "../../client-app/src/lib/support.ts"
+    "../client-app/src/config/pricing.ts",
+    "../client-app/src/config/service-categories.ts",
+    "../client-app/src/config/services.ts",
+    "../client-app/src/config/support-contact.ts",
+    "../client-app/src/lib/support.ts"
   ]
 }

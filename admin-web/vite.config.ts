@@ -9,13 +9,13 @@ export default defineConfig({
   resolve: {
     alias: {
       // The rate card and catalogue read the single source used by the mobile app.
-      '@mobile': fileURLToPath(new URL('../../client-app/src', import.meta.url)),
+      '@mobile': fileURLToPath(new URL('../client-app/src', import.meta.url)),
     },
   },
   server: {
     fs: {
       // Allow the sibling client-app config files the alias points at.
-      allow: ['../..'],
+      allow: ['..'],
     },
   },
 });

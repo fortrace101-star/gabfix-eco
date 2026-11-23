@@ -23,6 +23,8 @@ type Props = {
   subtitle?: string;
   /** Replaces the default title row. The drag handle is always drawn. */
   header?: ReactNode;
+  /** Optional leading control in the default title row, such as a back arrow. */
+  headerLeft?: ReactNode;
   /** Pinned below the scrolling body. */
   footer?: ReactNode;
   children: ReactNode;
@@ -47,6 +49,7 @@ export function BottomSheet({
   title,
   subtitle,
   header,
+  headerLeft,
   footer,
   children,
   dismissible = true,
@@ -94,6 +97,7 @@ export function BottomSheet({
 
           {header ?? (hasHeader ? (
             <View style={styles.header}>
+              {headerLeft}
               <View style={styles.headerText}>
                 <Text
                   accessibilityRole="header"

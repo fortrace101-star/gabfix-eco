@@ -3,6 +3,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Banknote,
+  CheckCircle2,
   CreditCard,
   ChevronRight,
   Plus,
@@ -10,6 +11,7 @@ import {
   Smartphone,
   Trash2,
   Wallet,
+  X,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -26,7 +28,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { AddMethodSheet } from '@/components/wallet/add-method-sheet';
-import { PaymentMethodSheet } from '@/components/wallet/payment-method-sheet';
+import { PaymentMethodSheet, type BalancePaymentSelection } from '@/components/wallet/payment-method-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,10 +46,7 @@ import {
   type TransactionFilter,
   type WalletTransaction,
 } from '@/lib/wallet';
-import type { PaymentMethod } from '@/lib/pricing';
 import {
-  payBookingBalance,
-  settleLateFees,
   useBookings,
   useBookingsHydrated,
   type SavedBooking,
@@ -62,7 +61,6 @@ import {
 } from '@/store/payment-methods';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
-import { successHaptic } from '@/utils/haptics';
 
 const maskPhone = (digits: string): string => {
   const clean = digits.replace(/\D/g, '');
@@ -201,7 +199,16 @@ function LoadingState() {
 /** P27b Payments and wallet. All data is derived from local booking records. */
 export default function PaymentsScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ focus?: string }>();
+  const params = useLocalSearchParams<{
+    focus?: string;
+    reopen?: string;
+    kind?: string;
+    bookingId?: string;
+    bookingIds?: string;
+    amount?: string;
+    banner?: string;
+    receiptId?: string;
+  }>();
   const focus = typeof params.focus === 'string' ? params.focus : undefined;
   const bookings = useBookings();
   const bookingsHydrated = useBookingsHydrated();
@@ -210,8 +217,29 @@ export default function PaymentsScreen() {
   const mobileMoney = useSavedMobileMoney();
 
   const [filter, setFilter] = useState<TransactionFilter>('all');
+  const [banner, setBanner] = useState(params.banner === 'balance-paid');
+  const receiptBookingId = typeof params.receiptId === 'string' ? params.receiptId : undefined;
   const [addOpen, setAddOpen] = useState(false);
-  const [payAction, setPayAction] = useState<PayAction | null>(null);
+  // A failed balance payment returns here with reopen=1 so the drawer opens again.
+  const [payAction, setPayAction] = useState<PayAction | null>(() => {
+    if (params.reopen !== '1') return null;
+    if (params.kind === 'balance') {
+      const bookingId = typeof params.bookingId === 'string' ? params.bookingId : undefined;
+      const booking = bookings.find((item) => item.id === bookingId);
+      return booking && booking.balance > 0 ? { kind: 'booking', booking } : null;
+    }
+    if (params.kind === 'account') {
+      const amount = Number(params.amount) || 0;
+      const bookingIds =
+        typeof params.bookingIds === 'string'
+          ? params.bookingIds.split(',').filter(Boolean)
+          : [];
+      return amount > 0 && bookingIds.length > 0
+        ? { kind: 'account', amount, bookingIds }
+        : null;
+    }
+    return null;
+  });
   const [removeTarget, setRemoveTarget] = useState<{ id: string; label: string } | null>(null);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [focusY, setFocusY] = useState<number | null>(null);
@@ -248,14 +276,43 @@ export default function PaymentsScreen() {
     setRemoveTarget({ id, label });
   };
 
-  const onPay = (method: Exclude<PaymentMethod, 'cash'>) => {
+  useEffect(() => {
+    if (!hydrated || params.reopen !== '1') return;
+    router.replace('/profile/payments' as Href);
+  }, [hydrated, params.reopen]);
+
+  const onContinue = (selection: BalancePaymentSelection) => {
     if (!payAction) return;
+    const base = {
+      amount: String(paySheetAmount),
+      method: selection.method,
+      phone: selection.phone ?? '',
+      last4: selection.last4 ?? 'new',
+      saveNumber: selection.saveNumber ? '1' : '0',
+      saveCard: selection.saveCard ? '1' : '0',
+    };
+
     if (payAction.kind === 'booking') {
-      payBookingBalance(payAction.booking.id, method);
+      router.push({
+        pathname: '/payment/[id]',
+        params: {
+          id: payAction.booking.id,
+          bookingId: payAction.booking.id,
+          kind: 'balance',
+          ...base,
+        },
+      } as never);
     } else {
-      settleLateFees(payAction.bookingIds, method);
+      router.push({
+        pathname: '/payment/[id]',
+        params: {
+          id: `account-${Date.now()}`,
+          kind: 'account',
+          bookingIds: payAction.bookingIds.join(','),
+          ...base,
+        },
+      } as never);
     }
-    successHaptic();
     setPayAction(null);
   };
 
@@ -279,6 +336,35 @@ export default function PaymentsScreen() {
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[6] }]}>
+          {banner ? (
+            <View style={styles.successBanner}>
+              <CheckCircle2 size={20} color={colors.success} strokeWidth={2} />
+              <View style={styles.successCopy}>
+                <Text style={styles.successText} maxFontSizeMultiplier={1.3}>
+                  Balance paid. Receipt available.
+                </Text>
+                {receiptBookingId ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="View the receipt"
+                    hitSlop={8}
+                    onPress={() => router.push(`/booking/${receiptBookingId}/receipt` as Href)}>
+                    <Text style={styles.successLink} maxFontSizeMultiplier={1.2}>
+                      View receipt
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss message"
+                hitSlop={8}
+                onPress={() => setBanner(false)}>
+                <X size={18} color={colors.textMuted} strokeWidth={2} />
+              </Pressable>
+            </View>
+          ) : null}
+
           {dueBookings.length > 0 ? (
             <View
               accessibilityLabel={highlight ? 'Balance due, highlighted' : undefined}
@@ -475,7 +561,7 @@ export default function PaymentsScreen() {
         subtitle={paySheetSubtitle}
         amount={paySheetAmount}
         onClose={() => setPayAction(null)}
-        onPay={onPay}
+        onContinue={onContinue}
       />
       <BottomSheet
         visible={removeTarget !== null}
@@ -514,6 +600,17 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   balanceCardFocus: { borderWidth: 2, borderColor: colors.green700 },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
+    padding: space[3],
+    borderRadius: radius.tile,
+    backgroundColor: colors.successBg,
+  },
+  successCopy: { flex: 1, gap: 2 },
+  successText: { ...text.bodyM, color: colors.success },
+  successLink: { ...text.caption, color: colors.success, textDecorationLine: 'underline' },
   balanceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
   balanceHeaderCopy: { flex: 1, gap: 2 },
   balanceKicker: {

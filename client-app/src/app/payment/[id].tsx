@@ -18,7 +18,12 @@ import { TopBar } from '@/components/ui/top-bar';
 import { demoNewCard } from '@/config/payments';
 import { support } from '@/config/support';
 import { supportsNativeDriver } from '@/lib/animation';
-import { addBookingTip, markPaymentFailed } from '@/store/bookings';
+import {
+  addBookingTip,
+  markPaymentFailed,
+  payBookingBalance,
+  settleLateFees,
+} from '@/store/bookings';
 import { addCard, addMobileMoney } from '@/store/payment-methods';
 import { colors, font, radius, space, text } from '@/theme';
 import { successHaptic } from '@/utils/haptics';
@@ -49,9 +54,11 @@ export default function PaymentScreen() {
     saveCard?: string;
     saveNumber?: string;
     network?: string;
+    bookingIds?: string;
     kind?: string;
   }>();
   const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-00000';
+  const accountIdsParam = typeof params.bookingIds === 'string' ? params.bookingIds : '';
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const amount = Number(params.amount) || 0;
   const method = typeof params.method === 'string' ? params.method : 'mtn_momo';
@@ -59,6 +66,10 @@ export default function PaymentScreen() {
   const last4 = typeof params.last4 === 'string' ? params.last4 : 'new';
   const isCard = method === 'visa_card';
   const isTip = params.kind === 'tip';
+  const isBalance = params.kind === 'balance';
+  const isAccount = params.kind === 'account';
+  // Only a new booking is held after a failed authorisation; a balance payment changes nothing.
+  const holdsBooking = !isTip && !isBalance && !isAccount;
   const saveNewCard = !isTip && isCard && params.saveCard === '1';
   const saveNewMomo =
     !isTip &&
@@ -97,7 +108,7 @@ export default function PaymentScreen() {
     // then held for 30 minutes before the auto-cancel sweep releases it.
     const expiry = setTimeout(() => {
       setStatus('failed');
-      if (!isTip) markPaymentFailed(bookingId);
+      if (holdsBooking) markPaymentFailed(bookingId);
     }, PROMPT_TIMEOUT_MS);
 
     return () => {
@@ -105,14 +116,19 @@ export default function PaymentScreen() {
       clearTimeout(approval);
       clearTimeout(expiry);
     };
-  }, [bookingId, isCard, isTip, status]);
+  }, [bookingId, holdsBooking, isCard, status]);
 
   useEffect(() => {
     if (status !== 'approved') return;
     Animated.spring(tick, { toValue: 1, useNativeDriver: supportsNativeDriver }).start();
     if (isTip) {
       addBookingTip(bookingId, amount, method);
-    } else if (saveNewCard) {
+    } else if (isBalance) {
+      payBookingBalance(bookingId, method);
+    } else if (isAccount) {
+      settleLateFees(accountIdsParam.split(',').filter(Boolean), method);
+    }
+    if (saveNewCard) {
       addCard(demoNewCard.last4, demoNewCard.expiry);
     } else if (saveNewMomo) {
       addMobileMoney(method === 'mtn_momo' ? 'MTN' : 'Airtel', phone);
@@ -122,13 +138,25 @@ export default function PaymentScreen() {
         router.replace('/(tabs)/home');
         return;
       }
+      if (isBalance || isAccount) {
+        router.replace({
+          pathname: '/profile/payments',
+          params: {
+            banner: 'balance-paid',
+            ...(isBalance ? { receiptId: bookingId } : {}),
+          },
+        } as never);
+        return;
+      }
       router.replace({
         pathname: '/book/[slug]/confirmed',
         params: { slug, bookingId, paid: String(amount) },
       });
     }, 1600);
     return () => clearTimeout(next);
-  }, [amount, bookingId, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
+  }, [accountIdsParam, amount, bookingId, isAccount, isBalance, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
+
+  const isBalancePayment = isBalance || isAccount;
 
   const stop = () => {
     if (status === 'approved') return;
@@ -136,7 +164,9 @@ export default function PaymentScreen() {
       isTip ? 'Cancel this tip?' : 'Stop this payment?',
       isTip
         ? 'No tip will be charged. Your review stays saved.'
-        : 'Your booking is saved. You can start the payment again from the review screen.',
+        : isBalancePayment
+          ? 'Your balance stays unchanged. You can start the payment again from Payments.'
+          : 'Your booking is saved. You can start the payment again from the review screen.',
       [
         { text: 'Keep waiting', style: 'cancel' },
         { text: isTip ? 'Cancel tip' : 'Stop', style: 'destructive', onPress: () => router.back() },
@@ -144,12 +174,29 @@ export default function PaymentScreen() {
     );
   };
 
+  // A failed balance payment returns to the drawer so another method can be chosen.
+  const anotherMethod = () => {
+    if (!isBalancePayment) {
+      router.back();
+      return;
+    }
+    router.replace({
+      pathname: '/profile/payments',
+      params: {
+        reopen: '1',
+        kind: isBalance ? 'balance' : 'account',
+        amount: String(amount),
+        ...(isBalance ? { bookingId } : { bookingIds: accountIdsParam }),
+      },
+    } as never);
+  };
+
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = String(secondsLeft % 60).padStart(2, '0');
 
   const decline = () => {
     setStatus('failed');
-    if (!isTip) markPaymentFailed(bookingId);
+    if (holdsBooking) markPaymentFailed(bookingId);
   };
 
   const retry = () => {
@@ -163,7 +210,7 @@ export default function PaymentScreen() {
   return (
     <View style={styles.screen}>
       <TopBar
-        title={isTip ? 'Tip' : 'Payment'}
+        title={isTip ? 'Tip' : isBalancePayment ? 'Pay balance' : 'Payment'}
         onBack={stop}
         right={
           <Pressable
@@ -197,9 +244,11 @@ export default function PaymentScreen() {
             <Text style={styles.body} maxFontSizeMultiplier={1.3}>
               {isTip
                 ? `${ugx(amount)} tip sent to your cleaner. Taking you home…`
-                : `${ugx(amount)} paid${
-                    saveNewCard ? ` · Visa ending ${demoNewCard.last4} saved` : ''
-                  }. Taking you to your confirmation…`}
+                : isBalancePayment
+                  ? `${ugx(amount)} paid. Taking you to your receipt…`
+                  : `${ugx(amount)} paid${
+                      saveNewCard ? ` · Visa ending ${demoNewCard.last4} saved` : ''
+                    }. Taking you to your confirmation…`}
             </Text>
           </>
         ) : status === 'failed' ? (
@@ -213,10 +262,12 @@ export default function PaymentScreen() {
             <Text style={styles.body} maxFontSizeMultiplier={1.3}>
               {isTip
                 ? 'Your tip was not sent. No money left your account and your review is still saved.'
-                : `No money left your account. Booking ${bookingId} is held for 30 minutes, then cancelled automatically.`}
+                : isBalancePayment
+                  ? 'No money left your account. Your balance is unchanged.'
+                  : `No money left your account. Booking ${bookingId} is held for 30 minutes, then cancelled automatically.`}
             </Text>
 
-            {isTip ? null : (
+            {isTip || isBalancePayment ? null : (
               <View style={styles.holdNote}>
                 <Text style={styles.holdText} maxFontSizeMultiplier={1.3}>
                   Try again now, or go back and choose another method. Your booking details are
@@ -229,7 +280,7 @@ export default function PaymentScreen() {
             <Button
               label={isTip ? 'Back to review' : 'Use another method'}
               variant="secondary"
-              onPress={() => router.back()}
+              onPress={anotherMethod}
             />
             {support.phone ? (
               <Button
@@ -262,7 +313,11 @@ export default function PaymentScreen() {
               }
             />
             <Text style={styles.helper} maxFontSizeMultiplier={1.3}>
-              {isTip ? `Tip for booking ${bookingId}.` : `Booking ${bookingId}.`}
+              {isTip
+                ? `Tip for booking ${bookingId}.`
+                : isBalancePayment
+                  ? 'Your saved payment methods are unchanged.'
+                  : `Booking ${bookingId}.`}
             </Text>
           </>
         ) : (

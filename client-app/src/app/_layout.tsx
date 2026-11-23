@@ -10,7 +10,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import { OfflineBanner } from '@/components/ui/offline-banner';
 import { SessionExpiredModal } from '@/components/ui/session-expired-modal';
 import { ToastHost } from '@/components/ui/toast';
 import { isUpdateRequired } from '@/config/release';
+import { runMockBookingChecks } from '@/lib/assignment';
 import { cleanupDraftMedia } from '@/lib/media';
 import { hydrateAddresses } from '@/store/addresses';
 import { getBookingDraft, hydrateBookingDraft } from '@/store/booking';
@@ -86,6 +87,21 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError, sessionRestored]);
+
+  // S1 12.3/12.4: mock assignment and completion. Runs once after hydration, whenever the
+  // app comes back to the foreground, and every 30 s while it is open.
+  useEffect(() => {
+    if (!sessionRestored) return;
+    runMockBookingChecks();
+    const timer = setInterval(() => runMockBookingChecks(), 30_000);
+    const subscription = AppState.addEventListener('change', (status) => {
+      if (status === 'active') runMockBookingChecks();
+    });
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [sessionRestored]);
 
   if ((!fontsLoaded && !fontError) || !sessionRestored) return null;
 

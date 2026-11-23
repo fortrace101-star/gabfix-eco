@@ -8,6 +8,10 @@ export type Cleaner = {
   id: string;
   name: string;
   initials: string;
+  /** Who handles the work: cleaning or a trade (shown as "Technician"). */
+  kind: 'cleaner' | 'technician';
+  /** Optional portrait; the avatar falls back to the initials. */
+  photoUri?: string;
   rating: number;
   jobsDone: number;
   years: number;
@@ -26,6 +30,8 @@ export const cleaners: readonly Cleaner[] = [
     id: 'rose-nakato',
     name: 'Rose Nakato',
     initials: 'RN',
+    kind: 'cleaner',
+    photoUri: 'https://i.pravatar.cc/240?img=47',
     rating: 4.9,
     jobsDone: 428,
     years: 6,
@@ -39,6 +45,8 @@ export const cleaners: readonly Cleaner[] = [
     id: 'grace-achieng',
     name: 'Grace Achieng',
     initials: 'GA',
+    kind: 'cleaner',
+    photoUri: 'https://i.pravatar.cc/240?img=45',
     rating: 4.8,
     jobsDone: 312,
     years: 5,
@@ -52,6 +60,8 @@ export const cleaners: readonly Cleaner[] = [
     id: 'moses-kato',
     name: 'Moses Kato',
     initials: 'MK',
+    kind: 'technician',
+    photoUri: 'https://i.pravatar.cc/240?img=12',
     rating: 4.9,
     jobsDone: 254,
     years: 4,
@@ -65,6 +75,8 @@ export const cleaners: readonly Cleaner[] = [
     id: 'sarah-namukasa',
     name: 'Sarah Namukasa',
     initials: 'SN',
+    kind: 'cleaner',
+    photoUri: 'https://i.pravatar.cc/240?img=32',
     rating: 5,
     jobsDone: 186,
     years: 3,
@@ -74,6 +86,36 @@ export const cleaners: readonly Cleaner[] = [
     primaryServiceSlug: 'move-out-clean',
     reviewIds: ['r7', 'r3', 'r9'],
   },
+  {
+    id: 'daniel-opio',
+    name: 'Daniel Opio',
+    initials: 'DO',
+    kind: 'technician',
+    photoUri: 'https://i.pravatar.cc/240?img=59',
+    rating: 4.8,
+    jobsDone: 141,
+    years: 7,
+    languages: ['English', 'Ateso'],
+    skills: ['Electrical', 'Lighting', 'Sockets', 'Safety checks'],
+    serviceSlugs: ['electrical-works'],
+    primaryServiceSlug: 'electrical-works',
+    reviewIds: ['r2', 'r5'],
+  },
+  {
+    id: 'peter-mugisha',
+    name: 'Peter Mugisha',
+    initials: 'PM',
+    kind: 'technician',
+    photoUri: 'https://i.pravatar.cc/240?img=8',
+    rating: 4.7,
+    jobsDone: 98,
+    years: 5,
+    languages: ['English', 'Runyankole'],
+    skills: ['Plumbing', 'Leaks', 'Taps', 'Drainage'],
+    serviceSlugs: ['plumbing-works', 'handyman-works'],
+    primaryServiceSlug: 'plumbing-works',
+    reviewIds: ['r6', 'r3'],
+  },
 ];
 
 export const cleanerById = (id?: string): Cleaner | undefined =>
@@ -81,6 +123,9 @@ export const cleanerById = (id?: string): Cleaner | undefined =>
 
 export const cleanersForService = (slug: string): readonly Cleaner[] =>
   cleaners.filter((cleaner) => cleaner.serviceSlugs.includes(slug));
+
+export const assigneeLabel = (cleaner?: Pick<Cleaner, 'kind'>): string =>
+  cleaner?.kind === 'technician' ? 'Technician' : 'Cleaner';
 
 export const reviewsForCleaner = (cleaner: Cleaner): readonly ServiceReview[] =>
   cleaner.reviewIds

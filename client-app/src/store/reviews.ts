@@ -8,7 +8,10 @@ export type SavedReview = {
   bookingId: string;
   cleanerId?: string;
   cleanerName: string;
-  stars: number;
+  /** 1–5 when the customer rated the job itself (S1 12.4). */
+  jobStars?: number;
+  /** 1–5 when the customer rated the person who did the work. */
+  cleanerStars?: number;
   tags: string[];
   comment: string;
   /** Local photo URIs/data URLs; uploads wait on the reviews API. */
@@ -41,21 +44,43 @@ const setReviews = (reviews: SavedReview[]) => {
   persist(reviews);
 };
 
-const isReview = (value: unknown): value is SavedReview => {
-  const item = value as SavedReview | null;
-  return Boolean(
-    item &&
-      item.id &&
-      item.bookingId &&
-      item.cleanerName &&
-      Number.isInteger(item.stars) &&
-      item.stars >= 1 &&
-      item.stars <= 5 &&
-      typeof item.comment === 'string' &&
-      Array.isArray(item.tags) &&
-      Array.isArray(item.photos) &&
-      item.createdAtISO,
-  );
+const readStars = (value: unknown): number | undefined =>
+  Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 5
+    ? (value as number)
+    : undefined;
+
+/** Accepts the new optional pair and migrates the old single `stars` value into both. */
+const migrateReview = (value: unknown): SavedReview | undefined => {
+  const item = value as (Partial<SavedReview> & { stars?: unknown }) | null;
+  if (
+    !item ||
+    !item.id ||
+    !item.bookingId ||
+    !item.cleanerName ||
+    !item.createdAtISO ||
+    typeof item.comment !== 'string' ||
+    !Array.isArray(item.tags) ||
+    !Array.isArray(item.photos)
+  ) {
+    return undefined;
+  }
+  const legacy = readStars(item.stars);
+  const jobStars = readStars(item.jobStars) ?? legacy;
+  const cleanerStars = readStars(item.cleanerStars) ?? legacy;
+  if (!jobStars && !cleanerStars && item.comment.trim().length === 0) return undefined;
+
+  return {
+    id: item.id,
+    bookingId: item.bookingId,
+    cleanerId: item.cleanerId,
+    cleanerName: item.cleanerName,
+    jobStars,
+    cleanerStars,
+    tags: item.tags,
+    comment: item.comment,
+    photos: item.photos,
+    createdAtISO: item.createdAtISO,
+  };
 };
 
 /** Called once at boot from the root layout. */
@@ -64,7 +89,11 @@ export async function hydrateReviews(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : null;
-    if (Array.isArray(parsed)) reviews = parsed.filter(isReview);
+    if (Array.isArray(parsed)) {
+      reviews = parsed
+        .map(migrateReview)
+        .filter((review): review is SavedReview => review !== undefined);
+    }
   } catch {
     reviews = [];
   }

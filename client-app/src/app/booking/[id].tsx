@@ -9,12 +9,21 @@ import { RescheduleSheet } from '@/components/booking/reschedule-sheet';
 import { ScopeSummary } from '@/components/booking/scope-summary';
 import { slotLabel } from '@/components/booking/slot-chips';
 import { UploadStatus } from '@/components/booking/upload-status';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { assigneeLabel, cleanerById } from '@/config/cleaners';
+import { mock } from '@/config/mock';
 import { paymentMethodLabel } from '@/lib/booking-policy';
 import { retryBookingUploads } from '@/lib/media-upload';
 import { buildRebookDraft } from '@/lib/rebook';
 import { startRebookDraft } from '@/store/booking';
-import { type BookingStatus, getBookingById, useBookings } from '@/store/bookings';
+import {
+  type BookingStatus,
+  completeBooking,
+  getBookingById,
+  skipBookingRating,
+  useBookings,
+} from '@/store/bookings';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
 import { useReviews } from '@/store/reviews';
 import { colors, font, radius, shadow, space, text } from '@/theme';
@@ -132,6 +141,10 @@ export default function BookingDetailScreen() {
   }
 
   const meta = statusMeta[booking.status];
+  const cleaner = cleanerById(booking.cleanerId);
+  const role = assigneeLabel(cleaner);
+  const showRatePrompt =
+    booking.status === 'completed' && !review && !booking.ratingSkippedAtISO;
   const when = booking.dateISO
     ? `${parseISODate(booking.dateISO).toLocaleDateString('en-GB', {
         weekday: 'short',
@@ -229,19 +242,43 @@ export default function BookingDetailScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
-            Cleaner
+            {role}
           </Text>
           {booking.cleanerName ? (
             <>
-              <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
-                Assigned to your preferred cleaner.
-              </Text>
-              <InfoRow icon={Users} label="Cleaner" value={booking.cleanerName} />
+              <View style={styles.assigneeRow}>
+                <Avatar uri={cleaner?.photoUri} name={booking.cleanerName} size={56} />
+                <View style={styles.assigneeCopy}>
+                  <Text style={styles.assigneeName} maxFontSizeMultiplier={1.3} numberOfLines={1}>
+                    {booking.cleanerName}
+                  </Text>
+                  {cleaner ? (
+                    <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                      {cleaner.rating.toFixed(1)} ★ · {cleaner.jobsDone} jobs done
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              {cleaner ? (
+                <Button
+                  label="View profile"
+                  variant="secondary"
+                  onPress={() => router.push(`/cleaner/${cleaner.id}` as never)}
+                />
+              ) : null}
             </>
           ) : (
-            <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
-              A cleaner will be assigned before your appointment. You’ll be notified once assigned.
-            </Text>
+            <>
+              <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
+                A {role.toLowerCase()} will be assigned before your appointment. You’ll be
+                notified once assigned.
+              </Text>
+              {mock.assignment.enabled ? (
+                <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
+                  A {role.toLowerCase()} is usually assigned within a few minutes.
+                </Text>
+              ) : null}
+            </>
           )}
         </View>
 
@@ -301,42 +338,79 @@ export default function BookingDetailScreen() {
           )}
         </View>
 
-        {booking.status === 'completed' ? (
+        {booking.status === 'completed' && review ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
-              {review ? 'Your review' : 'How was your clean?'}
+              Your review
             </Text>
-            {review ? (
-              <>
+            {review.jobStars ? (
+              <View style={styles.reviewRow}>
+                <Text style={styles.summaryLabel} maxFontSizeMultiplier={1.2}>
+                  Job
+                </Text>
                 <View style={styles.reviewStars}>
                   {[1, 2, 3, 4, 5].map((value) => (
                     <Star
                       key={value}
-                      size={20}
-                      color={value <= review.stars ? colors.yellow600 : colors.border}
-                      fill={value <= review.stars ? colors.yellow600 : 'transparent'}
+                      size={18}
+                      color={value <= (review.jobStars ?? 0) ? colors.yellow600 : colors.border}
+                      fill={value <= (review.jobStars ?? 0) ? colors.yellow600 : 'transparent'}
                       strokeWidth={1.8}
                     />
                   ))}
                 </View>
-                {review.comment ? (
-                  <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
-                    “{review.comment}”
-                  </Text>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
-                  Rate {booking.cleanerName ?? 'your cleaner'} and add a tip in a few taps.
+              </View>
+            ) : null}
+            {review.cleanerStars ? (
+              <View style={styles.reviewRow}>
+                <Text style={styles.summaryLabel} maxFontSizeMultiplier={1.2}>
+                  {role}
                 </Text>
-                <Button
-                  label="Rate your clean"
-                  icon={Star}
-                  onPress={() => router.push(`/booking/${booking.id}/rate` as never)}
-                />
-              </>
-            )}
+                <View style={styles.reviewStars}>
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <Star
+                      key={value}
+                      size={18}
+                      color={value <= (review.cleanerStars ?? 0) ? colors.yellow600 : colors.border}
+                      fill={value <= (review.cleanerStars ?? 0) ? colors.yellow600 : 'transparent'}
+                      strokeWidth={1.8}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+            {review.comment ? (
+              <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
+                “{review.comment}”
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {showRatePrompt ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
+              How was your clean?
+            </Text>
+            <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
+              Rating is optional. Rate the job and {booking.cleanerName ?? 'your cleaner'}, and add
+              a tip if you like.
+            </Text>
+            <Button
+              label="Rate your clean"
+              icon={Star}
+              onPress={() => router.push(`/booking/${booking.id}/rate` as never)}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip rating for now"
+              hitSlop={8}
+              onPress={() => skipBookingRating(booking.id)}
+              style={styles.skipRating}>
+              <Text style={styles.skipRatingText} maxFontSizeMultiplier={1.2}>
+                Skip for now
+              </Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -423,6 +497,13 @@ export default function BookingDetailScreen() {
                 variant="dangerGhost"
                 icon={XCircle}
                 onPress={() => setCancelOpen(true)}
+              />
+            ) : null}
+            {booking.status === 'upcoming' && mock.completion.devButton ? (
+              <Button
+                label="Mark job complete (demo)"
+                variant="ghost"
+                onPress={() => completeBooking(booking.id)}
               />
             ) : null}
           </View>
@@ -518,6 +599,21 @@ const styles = StyleSheet.create({
   receiptText: { ...text.bodyM, color: colors.green700, fontFamily: font.bodySemi },
   bodyMuted: { ...text.bodyM, color: colors.textMuted },
   reviewStars: { flexDirection: 'row', gap: 4, paddingVertical: 2 },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[2],
+  },
+  assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  assigneeCopy: { flex: 1, gap: 2 },
+  assigneeName: { ...text.bodyM, fontFamily: font.bodySemi },
+  skipRating: { alignSelf: 'center', paddingVertical: space[1] },
+  skipRatingText: {
+    ...text.bodyM,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
+  },
   actions: { gap: space[2], marginTop: space[1] },
   footerNote: { alignItems: 'center', paddingHorizontal: space[3] },
   footerText: { ...text.caption, color: colors.textMuted, textAlign: 'center' },

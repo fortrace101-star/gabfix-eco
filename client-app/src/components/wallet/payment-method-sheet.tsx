@@ -157,12 +157,7 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
           </>
         ) : (
           <View style={styles.payFooter}>
-            <Button
-              label={`Pay ${ugx(amount)}`}
-              onPress={submit}
-              disabled={!ready}
-              style={styles.payButton}
-            />
+            <Button label={`Pay ${ugx(amount)}`} onPress={submit} disabled={!ready} />
           </View>
         )
       }>
@@ -316,5 +311,4 @@ const styles = StyleSheet.create({
   radioSelected: { borderColor: colors.green500, backgroundColor: colors.green500 },
   note: { ...text.caption, color: colors.textMuted, textAlign: 'center', marginTop: space[2] },
   payFooter: { paddingBottom: space[8] },
-  payButton: { minHeight: 64 },
 });

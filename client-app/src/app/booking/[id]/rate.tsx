@@ -24,19 +24,21 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TopBar } from '@/components/ui/top-bar';
 import { cleanerById } from '@/config/cleaners';
 import { supportsNativeDriver } from '@/lib/animation';
-import { getBookingById, useBookings } from '@/store/bookings';
+import { getBookingById, skipBookingRating, useBookings } from '@/store/bookings';
 import { useSavedCards, useSavedMobileMoney } from '@/store/payment-methods';
 import { addReview, getReviewForBooking } from '@/store/reviews';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 import { errorHaptic, selectionHaptic, successHaptic } from '@/utils/haptics';
 import { ugx } from '@/utils/format';
 
-const TAGS = ['On time', 'Thorough', 'Friendly', 'Great value', 'Respectful'] as const;
+const JOB_TAGS = ['On time', 'Spotless', 'Good value', 'Thorough'] as const;
+const CLEANER_TAGS = ['Polite', 'Careful', 'Professional', 'Friendly'] as const;
 const TIP_PRESETS = [2_000, 5_000, 10_000] as const;
 const MAX_PHOTOS = 3;
 const RATING_LABELS = ['Tap a star to rate', 'Not good', 'Could be better', 'Good', 'Great', 'Excellent'];
@@ -54,6 +56,32 @@ const maskedPhone = (phone: string): string => {
   if (phone.length < 5) return `+256 ${phone}`;
   return `+256 ${phone.slice(0, 2)} ••• ${phone.slice(-3)}`;
 };
+
+function Stars({
+  value,
+  onChange,
+  reducedMotion,
+  label,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  reducedMotion: boolean;
+  label: string;
+}) {
+  return (
+    <View style={styles.stars} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <StarButton
+          key={star}
+          value={star}
+          active={star <= value}
+          reducedMotion={reducedMotion}
+          onPress={() => onChange(star)}
+        />
+      ))}
+    </View>
+  );
+}
 
 function StarButton({
   value,
@@ -89,7 +117,7 @@ function StarButton({
       style={styles.starButton}>
       <Animated.View style={{ transform: [{ scale }] }}>
         <Star
-          size={38}
+          size={36}
           color={active ? colors.yellow600 : colors.border}
           fill={active ? colors.yellow600 : 'transparent'}
           strokeWidth={1.8}
@@ -99,7 +127,39 @@ function StarButton({
   );
 }
 
-/** P27f Rate and Review. Reviews and tips are local until the reviews API exists. */
+function TagRow({
+  tags,
+  selected,
+  onToggle,
+}: {
+  tags: readonly string[];
+  selected: string[];
+  onToggle: (tag: string) => void;
+}) {
+  return (
+    <View style={styles.tags}>
+      {tags.map((tag) => {
+        const on = selected.includes(tag);
+        return (
+          <Pressable
+            key={tag}
+            accessibilityRole="checkbox"
+            accessibilityLabel={tag}
+            accessibilityState={{ checked: on }}
+            aria-checked={on}
+            onPress={() => onToggle(tag)}
+            style={[styles.tag, on && styles.tagOn]}>
+            <Text style={[styles.tagText, on && styles.tagTextOn]} maxFontSizeMultiplier={1.2}>
+              {tag}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** P27f / S1 12.4: optional job and cleaner ratings, plus the tip. */
 export default function RateBookingScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
@@ -110,8 +170,10 @@ export default function RateBookingScreen() {
 
   const cards = useSavedCards();
   const mobileMoney = useSavedMobileMoney();
-  const [rating, setRating] = useState(0);
-  const [tags, setTags] = useState<string[]>([]);
+  const [jobStars, setJobStars] = useState(0);
+  const [cleanerStars, setCleanerStars] = useState(0);
+  const [jobTags, setJobTags] = useState<string[]>([]);
+  const [cleanerTags, setCleanerTags] = useState<string[]>([]);
   const [comment, setComment] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [tipChoice, setTipChoice] = useState<number | 'custom' | null>(null);
@@ -141,8 +203,7 @@ export default function RateBookingScreen() {
     return [...cardMethods, ...momoMethods];
   }, [cards, mobileMoney]);
 
-  const selectedMethod =
-    methods.find((method) => method.id === selectedMethodId) ?? methods[0];
+  const selectedMethod = methods.find((method) => method.id === selectedMethodId) ?? methods[0];
 
   const tipAmount =
     tipChoice === 'custom'
@@ -196,12 +257,19 @@ export default function RateBookingScreen() {
               <Check size={32} color={colors.surface} strokeWidth={2.6} />
             </View>
             <Text style={styles.thankTitle} maxFontSizeMultiplier={1.3}>
-              Thanks for your review
+              Thanks for your feedback
             </Text>
-            <Text style={styles.thankBody} maxFontSizeMultiplier={1.3}>
-              You rated this clean {review?.stars ?? 0} star{review?.stars === 1 ? '' : 's'}.
-              Your feedback helps the next customer choose with confidence.
-            </Text>
+            {review?.jobStars ? (
+              <Text style={styles.thankBody} maxFontSizeMultiplier={1.3}>
+                You rated the job {review.jobStars} star{review.jobStars === 1 ? '' : 's'}.
+              </Text>
+            ) : null}
+            {review?.cleanerStars ? (
+              <Text style={styles.thankBody} maxFontSizeMultiplier={1.3}>
+                {review.cleanerName} got {review.cleanerStars} star
+                {review.cleanerStars === 1 ? '' : 's'} from you.
+              </Text>
+            ) : null}
             {review?.comment ? (
               <Text style={styles.savedComment} maxFontSizeMultiplier={1.3}>
                 “{review.comment}”
@@ -216,21 +284,15 @@ export default function RateBookingScreen() {
 
   const cleaner = cleanerById(booking.cleanerId);
   const cleanerName = booking.cleanerName ?? cleaner?.name ?? 'Your Gabfix cleaner';
-  const cleanerInitials =
-    cleaner?.initials ??
-    cleanerName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join('') ??
-    'GC';
+  const role = cleaner?.kind === 'technician' ? 'technician' : 'cleaner';
+  const firstName = cleanerName.split(' ')[0];
 
-  const balanceMethod =
-    booking.rebook?.payment?.balanceMethod ?? booking.paymentMethod ?? 'cash';
+  const balanceMethod = booking.rebook?.payment?.balanceMethod ?? booking.paymentMethod ?? 'cash';
   const digitalBalance = booking.balance > 0 && balanceMethod !== 'cash';
   const cashBalance = booking.balance > 0 && balanceMethod === 'cash';
   const hasDigitalMethods = methods.length > 0;
+  const canSend =
+    jobStars > 0 || cleanerStars > 0 || comment.trim().length > 0 || tipAmount > 0;
 
   const pickPhotos = async () => {
     const remaining = MAX_PHOTOS - photos.length;
@@ -264,23 +326,18 @@ export default function RateBookingScreen() {
     setError('');
   };
 
-  const toggleTag = (tag: string) => {
+  const toggleTag = (group: 'job' | 'cleaner', tag: string) => {
     selectionHaptic();
-    setTags((current) =>
-      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
-    );
-  };
-
-  const selectRating = (value: number) => {
-    selectionHaptic();
-    setRating(value);
-    setError('');
+    const update = (current: string[]) =>
+      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag];
+    if (group === 'job') setJobTags(update);
+    else setCleanerTags(update);
   };
 
   const submit = () => {
-    if (rating < 1) {
+    if (!canSend) {
       errorHaptic();
-      setError('Choose a star rating before sending your review.');
+      setError('Add a rating, a comment or a tip before sending.');
       return;
     }
     if (tipChoice === 'custom' && tipAmount === 0) {
@@ -301,8 +358,9 @@ export default function RateBookingScreen() {
       bookingId: booking.id,
       cleanerId: booking.cleanerId ?? cleaner?.id,
       cleanerName,
-      stars: rating,
-      tags,
+      jobStars: jobStars > 0 ? jobStars : undefined,
+      cleanerStars: cleanerStars > 0 ? cleanerStars : undefined,
+      tags: [...jobTags, ...cleanerTags],
       comment: comment.trim(),
       photos,
     });
@@ -328,6 +386,11 @@ export default function RateBookingScreen() {
     setSubmitted(true);
   };
 
+  const skip = () => {
+    skipBookingRating(booking.id);
+    router.replace('/(tabs)/home');
+  };
+
   return (
     <View style={styles.screen}>
       <TopBar title="Rate your clean" onBack={() => router.back()} />
@@ -336,18 +399,14 @@ export default function RateBookingScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[10] }]}>
         <Text style={styles.title} maxFontSizeMultiplier={1.3}>
-          How was your clean?
+          Rate your clean (optional)
         </Text>
         <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
-          Your honest feedback helps {cleanerName.split(' ')[0]} and the next customer.
+          Share as much or as little as you like — a star, a comment or a tip is enough.
         </Text>
 
         <View style={styles.cleanerCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText} maxFontSizeMultiplier={1.2}>
-              {cleanerInitials}
-            </Text>
-          </View>
+          <Avatar uri={cleaner?.photoUri} name={cleanerName} size={48} />
           <View style={styles.cleanerCopy}>
             <Text style={styles.cleanerName} maxFontSizeMultiplier={1.3} numberOfLines={1}>
               {cleanerName}
@@ -401,55 +460,68 @@ export default function RateBookingScreen() {
         ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
-            Your rating
-          </Text>
-          <View style={styles.stars} accessibilityRole="radiogroup">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <StarButton
-                key={value}
-                value={value}
-                active={value <= rating}
-                reducedMotion={reducedMotion}
-                onPress={() => selectRating(value)}
-              />
-            ))}
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
+              Rate the job
+            </Text>
+            <Text style={styles.optional} maxFontSizeMultiplier={1.2}>
+              Optional
+            </Text>
           </View>
+          <Stars
+            value={jobStars}
+            label="Rate the job"
+            reducedMotion={reducedMotion}
+            onChange={(value) => {
+              selectionHaptic();
+              setJobStars(value);
+              setError('');
+            }}
+          />
           <Text
-            style={[styles.ratingLabel, rating > 0 && styles.ratingLabelActive]}
+            style={[styles.ratingLabel, jobStars > 0 && styles.ratingLabelActive]}
             maxFontSizeMultiplier={1.3}>
-            {RATING_LABELS[rating]}
+            {RATING_LABELS[jobStars]}
           </Text>
+          <Text style={styles.cardHint} maxFontSizeMultiplier={1.2}>
+            What went well?
+          </Text>
+          <TagRow
+            tags={JOB_TAGS}
+            selected={jobTags}
+            onToggle={(tag) => toggleTag('job', tag)}
+          />
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
-            What went well?
-          </Text>
-          <Text style={styles.cardHint} maxFontSizeMultiplier={1.2}>
-            Choose any that apply.
-          </Text>
-          <View style={styles.tags}>
-            {TAGS.map((tag) => {
-              const selected = tags.includes(tag);
-              return (
-                <Pressable
-                  key={tag}
-                  accessibilityRole="checkbox"
-                  accessibilityLabel={tag}
-                  accessibilityState={{ checked: selected }}
-                  aria-checked={selected}
-                  onPress={() => toggleTag(tag)}
-                  style={[styles.tag, selected && styles.tagOn]}>
-                  <Text
-                    style={[styles.tagText, selected && styles.tagTextOn]}
-                    maxFontSizeMultiplier={1.2}>
-                    {tag}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle} maxFontSizeMultiplier={1.3}>
+              Rate {firstName} (optional)
+            </Text>
+            <Text style={styles.optional} maxFontSizeMultiplier={1.2}>
+              Your {role}
+            </Text>
           </View>
+          <Stars
+            value={cleanerStars}
+            label={`Rate ${cleanerName}`}
+            reducedMotion={reducedMotion}
+            onChange={(value) => {
+              selectionHaptic();
+              setCleanerStars(value);
+              setError('');
+            }}
+          />
+          <Text
+            style={[styles.ratingLabel, cleanerStars > 0 && styles.ratingLabelActive]}
+            maxFontSizeMultiplier={1.3}>
+            {RATING_LABELS[cleanerStars]}
+          </Text>
+          <TagRow
+            tags={CLEANER_TAGS}
+            selected={cleanerTags}
+            onToggle={(tag) => toggleTag('cleaner', tag)}
+          />
         </View>
 
         <View style={styles.card}>
@@ -461,7 +533,7 @@ export default function RateBookingScreen() {
             multiline
             maxLength={500}
             onChangeText={setComment}
-            placeholder="What did your cleaner do well? Anything we should improve?"
+            placeholder="Anything we should know?"
             placeholderTextColor={colors.placeholder}
             style={styles.comment}
             textAlignVertical="top"
@@ -654,14 +726,21 @@ export default function RateBookingScreen() {
         ) : null}
 
         <Button
-          label={
-            tipAmount > 0
-              ? `Send review and ${ugx(tipAmount)} tip`
-              : 'Send review'
-          }
+          label={tipAmount > 0 ? `Send and tip ${ugx(tipAmount)}` : 'Send review'}
           loading={submitting}
+          disabled={!canSend}
           onPress={submit}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Skip for now"
+          hitSlop={8}
+          onPress={skip}
+          style={styles.skip}>
+          <Text style={styles.skipText} maxFontSizeMultiplier={1.2}>
+            Skip for now
+          </Text>
+        </Pressable>
         <Text style={styles.footNote} maxFontSizeMultiplier={1.2}>
           Reviews are saved on this device until the reviews service is connected.
         </Text>
@@ -676,7 +755,7 @@ export default function RateBookingScreen() {
             <Check size={16} color={colors.surface} strokeWidth={3} />
           </View>
           <Text style={styles.toastText} maxFontSizeMultiplier={1.3}>
-            Thanks for your review!
+            Thanks for your feedback.
           </Text>
         </View>
       ) : null}
@@ -697,20 +776,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     padding: space[3],
     ...shadow.card,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
-    backgroundColor: colors.green500,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: font.poppinsSemi,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.surface,
   },
   cleanerCopy: { flex: 1, gap: 2 },
   cleanerName: { ...text.bodyM, fontFamily: font.bodySemi },
@@ -929,6 +994,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.input,
     padding: space[3],
   },
+  skip: { alignSelf: 'center', paddingVertical: space[1] },
+  skipText: { ...text.bodyM, color: colors.textMuted, textDecorationLine: 'underline' },
   footNote: { ...text.caption, textAlign: 'center', lineHeight: 17 },
   toast: {
     position: 'absolute',

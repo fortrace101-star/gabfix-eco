@@ -15,8 +15,9 @@ import { finalizeDraftMedia } from '@/lib/media';
 import { requestPushPermission, shouldShowPushPrePrompt, snoozePushPrePrompt } from '@/lib/push';
 import { price } from '@/lib/pricing';
 import { getBookingDraft, resetDraft } from '@/store/booking';
-import { addBooking } from '@/store/bookings';
+import { addBooking, updateBooking } from '@/store/bookings';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
+import { scheduleAssignmentReminder } from '@/lib/local-notifications';
 import { addNotification } from '@/store/notifications';
 import { colors, font, radius, space, text } from '@/theme';
 import { successHaptic } from '@/utils/haptics';
@@ -132,6 +133,15 @@ export default function ConfirmedScreen() {
         createdAtISO: new Date().toISOString(),
         href: `/booking/${bookingId}`,
       });
+
+      // S1 12.3: the local notification that fires when the mock assignment lands.
+      const reminderId = isQuote
+        ? undefined
+        : await scheduleAssignmentReminder(
+            bookingId,
+            `A ${preferredCleaner?.id ? 'preferred ' : ''}cleaner is on the way for ${service?.name ?? 'your booking'}. Tap to see who.`,
+          );
+      if (reminderId) updateBooking(bookingId, { assignmentNotificationId: reminderId });
 
       if (finalizedMedia.length > 0) {
         prepareBookingUploads(bookingId, finalizedMedia);

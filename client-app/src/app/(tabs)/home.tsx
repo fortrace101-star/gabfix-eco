@@ -36,12 +36,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { slotLabel } from '@/components/booking/slot-chips';
 import { ServicePhoto } from '@/components/service/service-photo';
+import { Avatar } from '@/components/ui/avatar';
 import { StatTile } from '@/components/ui/stat-tile';
 import { useServices } from '@/hooks/use-services';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { buildRebookDraft } from '@/lib/rebook';
 import { price } from '@/lib/pricing';
 import { balanceDueBookings, totalBalanceDue } from '@/lib/wallet';
+import { cleanerById } from '@/config/cleaners';
 import { promos } from '@/config/promos';
 import { fromHourly, serviceBySlug } from '@/config/services';
 import { startRebookDraft, useBookingDraft } from '@/store/booking';
@@ -229,7 +231,9 @@ export default function HomeTab() {
     return [...bookings]
       .filter(
         (booking) =>
-          booking.status === 'completed' && !reviewed.has(booking.id),
+          booking.status === 'completed' &&
+          !reviewed.has(booking.id) &&
+          !booking.ratingSkippedAtISO,
       )
       .sort((a, b) => bookingStart(b) - bookingStart(a))[0];
   }, [bookings, reviews]);
@@ -741,6 +745,13 @@ export default function HomeTab() {
                     {nextBooking.area ? ` · ${nextBooking.area}` : ''}
                   </Text>
                 </View>
+                {nextBooking.cleanerName ? (
+                  <Avatar
+                    uri={cleanerById(nextBooking.cleanerId)?.photoUri}
+                    name={nextBooking.cleanerName}
+                    size={40}
+                  />
+                ) : null}
                 <View style={styles.confirmedPill}>
                   <Text
                     style={styles.confirmedText}

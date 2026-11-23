@@ -24,9 +24,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuoteRequestCard } from '@/components/booking/quote-request-card';
 import { SegmentedControl } from '@/components/booking/segmented-control';
 import { slotLabel } from '@/components/booking/slot-chips';
+import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusChip, type StatusChipTone } from '@/components/ui/status-chip';
+import { cleanerById } from '@/config/cleaners';
 import { buildRebookDraft } from '@/lib/rebook';
 import { startRebookDraft } from '@/store/booking';
 import {
@@ -115,6 +117,18 @@ function BookingCard({ booking }: { booking: SavedBooking }) {
           {whereLabel(booking)}
         </Text>
       </View>
+      {booking.cleanerName ? (
+        <View style={styles.assigneeRow}>
+          <Avatar
+            uri={cleanerById(booking.cleanerId)?.photoUri}
+            name={booking.cleanerName}
+            size={26}
+          />
+          <Text style={styles.assigneeText} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+            {booking.cleanerName} · assigned
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.cardFooter}>
         <View>
@@ -351,6 +365,8 @@ const styles = StyleSheet.create({
   cardId: { ...text.caption, color: colors.textMuted },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaText: { ...text.bodyM, color: colors.textMuted, flex: 1 },
+  assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  assigneeText: { ...text.caption, color: colors.text, flex: 1 },
   cardFooter: {
     marginTop: space[1],
     paddingTop: space[2],

@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import { mock } from '@/config/mock';
+import { cancelAssignmentReminder } from '@/lib/local-notifications';
 import type {
   BookingDetails,
   BookingLocation,
@@ -8,6 +10,7 @@ import type {
   BookingPayment,
   BookingScope,
 } from '@/lib/pricing';
+import { addNotification } from '@/store/notifications';
 
 const STORAGE_KEY = 'gabfix.bookings.v1';
 
@@ -38,6 +41,15 @@ export type SavedBooking = {
   /** Assigned cleaner, once assignment exists (P18 “Book same cleaner”). */
   cleanerId?: string;
   cleanerName?: string;
+  /** Mock assignment (S1 12.3): when the assignee should appear, and when they did. */
+  assignAtISO?: string;
+  assignedAtISO?: string;
+  /** Pending local notification for the assignment, so it can be cancelled. */
+  assignmentNotificationId?: string;
+  /** S1 12.4: set when the job reaches the completed state. */
+  completedAtISO?: string;
+  /** The customer skipped the rating prompt; do not ask again. */
+  ratingSkippedAtISO?: string;
   /** Job scope facts captured at booking time (Phase 2). */
   scope?: BookingScope;
   /** Local/finalized media attached to the job (Phase 2). */
@@ -126,7 +138,16 @@ export async function hydrateBookings(): Promise<void> {
 
 export function addBooking(booking: SavedBooking): void {
   if (state.bookings.some((item) => item.id === booking.id)) return;
-  setBookings([booking, ...state.bookings]);
+  const assignAtISO =
+    booking.assignAtISO ??
+    (mock.assignment.enabled
+      ? new Date(Date.parse(booking.createdAtISO) + mock.assignment.delayMs).toISOString()
+      : undefined);
+  setBookings([{ ...booking, assignAtISO }, ...state.bookings]);
+}
+
+export function getBookings(): SavedBooking[] {
+  return state.bookings;
 }
 
 export function getBookingById(id: string): SavedBooking | undefined {
@@ -143,7 +164,34 @@ export function rescheduleBooking(
   id: string,
   schedule: { dateISO: string; startTime: string },
 ): void {
-  updateBooking(id, { ...schedule, rescheduledAtISO: new Date().toISOString() });
+  const booking = state.bookings.find((item) => item.id === id);
+  void cancelAssignmentReminder(booking?.assignmentNotificationId);
+  updateBooking(id, {
+    ...schedule,
+    rescheduledAtISO: new Date().toISOString(),
+    assignmentNotificationId: undefined,
+  });
+}
+
+/** S1 12.4: mock completion. Notifies once and unlocks the optional rating. */
+export function completeBooking(id: string): void {
+  const booking = state.bookings.find((item) => item.id === id);
+  if (!booking || booking.status !== 'upcoming') return;
+
+  updateBooking(id, { status: 'completed', completedAtISO: new Date().toISOString() });
+  addNotification({
+    id: `booking-review-${id}`,
+    kind: 'booking',
+    title: 'How did it go?',
+    body: `${booking.serviceName} is complete. Rate the job and ${booking.cleanerName ?? 'your cleaner'} — both optional.`,
+    createdAtISO: new Date().toISOString(),
+    href: `/booking/${id}/rate`,
+  });
+}
+
+/** The customer chose "Skip for now", so the rating prompt is not shown again. */
+export function skipBookingRating(id: string): void {
+  updateBooking(id, { ratingSkippedAtISO: new Date().toISOString() });
 }
 
 /** P27b: pays the remaining balance of one booking from the wallet screen. */
@@ -228,12 +276,15 @@ export function cancelBooking(
   id: string,
   details: { reason: string; refundAmount: number; lateFee: number },
 ): void {
+  const booking = state.bookings.find((item) => item.id === id);
+  void cancelAssignmentReminder(booking?.assignmentNotificationId);
   updateBooking(id, {
     status: 'cancelled',
     cancelledAtISO: new Date().toISOString(),
     cancelReason: details.reason,
     refundAmount: details.refundAmount,
     lateFee: details.lateFee,
+    assignmentNotificationId: undefined,
   });
 }
 

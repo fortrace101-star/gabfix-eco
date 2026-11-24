@@ -24,7 +24,8 @@ import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { PermissionCard } from '@/components/ui/permission-card';
 import { TopBar } from '@/components/ui/top-bar';
 import type { FixturePlace } from '@/config/location-fixtures';
-import { serviceBySlug } from '@/config/services';
+
+import { useService } from '@/hooks/use-service';
 import { price, servicePricing, type BookingLocation } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
@@ -72,7 +73,7 @@ export default function LocationScreen() {
   const draft = useBookingDraft();
   const savedAddresses = useAddresses();
   const user = useAuthUser();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const active = draft && draft.serviceSlug === slug ? draft : null;
 
   const [form, setForm] = useState<Form>(() => {

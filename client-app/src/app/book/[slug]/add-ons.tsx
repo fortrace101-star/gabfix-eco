@@ -11,7 +11,8 @@ import { SummarySheet } from '@/components/booking/summary-sheet';
 import { TopBar } from '@/components/ui/top-bar';
 import { addOns, type AddOnId } from '@/config/add-ons';
 import { pricing } from '@/config/pricing';
-import { serviceBySlug } from '@/config/services';
+
+import { useService } from '@/hooks/use-service';
 import { addOnPrice, price, servicePricing } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
@@ -39,7 +40,7 @@ export default function AddOnsScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const draft = useBookingDraft();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const active = draft && draft.serviceSlug === slug ? draft : null;
   const [openId, setOpenId] = useState<AddOnId | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);

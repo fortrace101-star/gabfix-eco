@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TopBar } from '@/components/ui/top-bar';
 import { cleanerById, reviewsForCleaner } from '@/config/cleaners';
-import { serviceBySlug } from '@/config/services';
+
+import { useService } from '@/hooks/use-service';
 import { colors, font, radius, shadow, size, space, text } from '@/theme';
 
 function Stat({ value, label, star = false }: { value: string; label: string; star?: boolean }) {
@@ -48,6 +49,7 @@ export default function CleanerProfileScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : '';
   const cleaner = cleanerById(id);
+  const service = useService(cleaner?.primaryServiceSlug ?? '');
   const insets = useSafeAreaInsets();
 
   if (!cleaner) {
@@ -65,7 +67,6 @@ export default function CleanerProfileScreen() {
     );
   }
 
-  const service = serviceBySlug(cleaner.primaryServiceSlug);
   const reviews = reviewsForCleaner(cleaner);
 
   // D6: the customer books the service, never a named crew member. The photo and

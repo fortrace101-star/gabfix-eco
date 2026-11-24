@@ -19,8 +19,9 @@ import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { RetryHint } from '@/components/ui/retry-hint';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TopBar } from '@/components/ui/top-bar';
-import { serviceBySlug } from '@/config/services';
+
 import { useAvailability } from '@/hooks/use-availability';
+import { useService } from '@/hooks/use-service';
 import { getAvailability } from '@/lib/api/availability';
 import { price, servicePricing, type BookingFrequency } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
@@ -97,7 +98,7 @@ export default function ScheduleScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const draft = useBookingDraft();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const active = draft && draft.serviceSlug === slug ? draft : null;
 
   const [days] = useState(buildDays);

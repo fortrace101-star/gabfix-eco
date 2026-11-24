@@ -43,6 +43,58 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"audit_log": {
+                  Row: {
+                    "action": string,"actor_id": string | null,"created_at": string,"id": number,"new_value": Json | null,"old_value": Json | null,"record_id": string | null,"table_name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "action": string,"actor_id"?: string | null,"created_at"?: string,"id"?: never,"new_value"?: Json | null,"old_value"?: Json | null,"record_id"?: string | null,"table_name": string
+                  }
+                  Update: {
+                    "action"?: string,"actor_id"?: string | null,"created_at"?: string,"id"?: never,"new_value"?: Json | null,"old_value"?: Json | null,"record_id"?: string | null,"table_name"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "audit_log_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"booking_drafts": {
+                  Row: {
+                    "abandoned_at": string | null,"booking_id": string | null,"created_at": string,"customer_id": string,"follow_up_reason": string | null,"followed_up_at": string | null,"followed_up_by": string | null,"id": string,"last_step": string | null,"payload": NonNullable<Json>,"selected_services": NonNullable<Json>,"status": Database["public"]['Enums']["draft_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "abandoned_at"?: string | null,"booking_id"?: string | null,"created_at"?: string,"customer_id": string,"follow_up_reason"?: string | null,"followed_up_at"?: string | null,"followed_up_by"?: string | null,"id"?: string,"last_step"?: string | null,"payload"?: NonNullable<Json>,"selected_services"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["draft_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "abandoned_at"?: string | null,"booking_id"?: string | null,"created_at"?: string,"customer_id"?: string,"follow_up_reason"?: string | null,"followed_up_at"?: string | null,"followed_up_by"?: string | null,"id"?: string,"last_step"?: string | null,"payload"?: NonNullable<Json>,"selected_services"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["draft_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "booking_drafts_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: true
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_drafts_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_drafts_followed_up_by_fkey"
+      columns: ["followed_up_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"booking_form_snapshots": {
                   Row: {
                     "answers": NonNullable<Json>,"booking_id": string,"created_at": string,"form_definition_id": string | null,"form_version": number,"id": string,"questions": NonNullable<Json>
@@ -159,6 +211,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"cancellation_requests": {
+                  Row: {
+                    "booking_id": string,"created_at": string,"decided_at": string | null,"decided_by": string | null,"decision_note": string | null,"id": string,"reason": string,"requested_by": string,"status": Database["public"]['Enums']["request_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"id"?: string,"reason": string,"requested_by": string,"status"?: Database["public"]['Enums']["request_status"]
+                  }
+                  Update: {
+                    "booking_id"?: string,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"decision_note"?: string | null,"id"?: string,"reason"?: string,"requested_by"?: string,"status"?: Database["public"]['Enums']["request_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "cancellation_requests_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "cancellation_requests_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "cancellation_requests_requested_by_fkey"
+      columns: ["requested_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"capabilities": {
                   Row: {
                     "description": string,"key": string
@@ -233,14 +317,14 @@ isOneToOne: false
                   ]
                 },"categories": {
                   Row: {
-                    "active": boolean,"description": string | null,"display_order": number,"id": string,"image_path": string | null,"name": string,"parent_id": string | null
+                    "active": boolean,"description": string | null,"display_order": number,"id": string,"image_path": string | null,"name": string,"parent_id": string | null,"slug": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"description"?: string | null,"display_order"?: number,"id"?: string,"image_path"?: string | null,"name": string,"parent_id"?: string | null
+                    "active"?: boolean,"description"?: string | null,"display_order"?: number,"id"?: string,"image_path"?: string | null,"name": string,"parent_id"?: string | null,"slug": string
                   }
                   Update: {
-                    "active"?: boolean,"description"?: string | null,"display_order"?: number,"id"?: string,"image_path"?: string | null,"name"?: string,"parent_id"?: string | null
+                    "active"?: boolean,"description"?: string | null,"display_order"?: number,"id"?: string,"image_path"?: string | null,"name"?: string,"parent_id"?: string | null,"slug"?: string
                   }
                   Relationships: [
                     {
@@ -266,6 +350,136 @@ isOneToOne: false
                     {
       foreignKeyName: "device_tokens_user_id_fkey"
       columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"equipment": {
+                  Row: {
+                    "created_at": string,"id": string,"last_service_date": string | null,"location": string | null,"name": string,"status": Database["public"]['Enums']["equipment_status"],"type": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"last_service_date"?: string | null,"location"?: string | null,"name": string,"status"?: Database["public"]['Enums']["equipment_status"],"type"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"last_service_date"?: string | null,"location"?: string | null,"name"?: string,"status"?: Database["public"]['Enums']["equipment_status"],"type"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"idempotency_keys": {
+                  Row: {
+                    "created_at": string,"id": string,"key": string,"method": string,"path": string,"response": Json | null,"status": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"key": string,"method": string,"path": string,"response"?: Json | null,"status": number,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"key"?: string,"method"?: string,"path"?: string,"response"?: Json | null,"status"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "idempotency_keys_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"inspection_addenda": {
+                  Row: {
+                    "author_id": string | null,"created_at": string,"id": string,"inspection_id": string,"note": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"created_at"?: string,"id"?: string,"inspection_id": string,"note": string
+                  }
+                  Update: {
+                    "author_id"?: string | null,"created_at"?: string,"id"?: string,"inspection_id"?: string,"note"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inspection_addenda_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspection_addenda_inspection_id_fkey"
+      columns: ["inspection_id"]
+isOneToOne: false
+      referencedRelation: "inspections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"inspection_media": {
+                  Row: {
+                    "caption": string | null,"created_at": string,"id": string,"inspection_id": string,"kind": Database["public"]['Enums']["inspection_media_kind"],"storage_path": string,"taken_at": string | null,"uploaded_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "caption"?: string | null,"created_at"?: string,"id"?: string,"inspection_id": string,"kind"?: Database["public"]['Enums']["inspection_media_kind"],"storage_path": string,"taken_at"?: string | null,"uploaded_by"?: string | null
+                  }
+                  Update: {
+                    "caption"?: string | null,"created_at"?: string,"id"?: string,"inspection_id"?: string,"kind"?: Database["public"]['Enums']["inspection_media_kind"],"storage_path"?: string,"taken_at"?: string | null,"uploaded_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inspection_media_inspection_id_fkey"
+      columns: ["inspection_id"]
+isOneToOne: false
+      referencedRelation: "inspections"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspection_media_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"inspections": {
+                  Row: {
+                    "booking_id": string,"checklist": NonNullable<Json>,"created_at": string,"id": string,"inspector_id": string | null,"measurements": NonNullable<Json>,"notes": string | null,"quote_id": string,"recommended_crew": number | null,"recommended_hours": number | null,"required_at": string,"required_by": string | null,"required_note": string | null,"scheduled_at": string | null,"started_at": string | null,"status": Database["public"]['Enums']["inspection_status"],"submitted_at": string | null,"updated_at": string,"withdrawn_by": string | null,"withdrawn_reason": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"checklist"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"inspector_id"?: string | null,"measurements"?: NonNullable<Json>,"notes"?: string | null,"quote_id": string,"recommended_crew"?: number | null,"recommended_hours"?: number | null,"required_at"?: string,"required_by"?: string | null,"required_note"?: string | null,"scheduled_at"?: string | null,"started_at"?: string | null,"status"?: Database["public"]['Enums']["inspection_status"],"submitted_at"?: string | null,"updated_at"?: string,"withdrawn_by"?: string | null,"withdrawn_reason"?: string | null
+                  }
+                  Update: {
+                    "booking_id"?: string,"checklist"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"inspector_id"?: string | null,"measurements"?: NonNullable<Json>,"notes"?: string | null,"quote_id"?: string,"recommended_crew"?: number | null,"recommended_hours"?: number | null,"required_at"?: string,"required_by"?: string | null,"required_note"?: string | null,"scheduled_at"?: string | null,"started_at"?: string | null,"status"?: Database["public"]['Enums']["inspection_status"],"submitted_at"?: string | null,"updated_at"?: string,"withdrawn_by"?: string | null,"withdrawn_reason"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inspections_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspections_inspector_id_fkey"
+      columns: ["inspector_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspections_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspections_required_by_fkey"
+      columns: ["required_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inspections_withdrawn_by_fkey"
+      columns: ["withdrawn_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -303,6 +517,32 @@ isOneToOne: false
       referencedColumns: ["user_id"]
     }
                   ]
+                },"job_costs": {
+                  Row: {
+                    "amount": number,"booking_id": string,"created_at": string,"description": string,"entered_by": string,"id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"booking_id": string,"created_at"?: string,"description": string,"entered_by": string,"id"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount"?: number,"booking_id"?: string,"created_at"?: string,"description"?: string,"entered_by"?: string,"id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "job_costs_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "job_costs_entered_by_fkey"
+      columns: ["entered_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"job_photos": {
                   Row: {
                     "booking_id": string,"created_at": string,"id": string,"kind": Database["public"]['Enums']["photo_kind"],"storage_path": string,"uploaded_by": string | null
@@ -329,6 +569,104 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"laundry_orders": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"customer_id": string | null,"delivered_at": string | null,"id": string,"picked_up_at": string | null,"status": Database["public"]['Enums']["laundry_status"],"updated_at": string,"walk_in_name": string | null,"walk_in_phone": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"delivered_at"?: string | null,"id"?: string,"picked_up_at"?: string | null,"status"?: Database["public"]['Enums']["laundry_status"],"updated_at"?: string,"walk_in_name"?: string | null,"walk_in_phone"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"delivered_at"?: string | null,"id"?: string,"picked_up_at"?: string | null,"status"?: Database["public"]['Enums']["laundry_status"],"updated_at"?: string,"walk_in_name"?: string | null,"walk_in_phone"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "laundry_orders_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "laundry_orders_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"login_events": {
+                  Row: {
+                    "created_at": string,"device_name": string | null,"id": string,"ip": unknown,"location": string | null,"platform": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"device_name"?: string | null,"id"?: string,"ip"?: unknown,"location"?: string | null,"platform"?: string | null,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"device_name"?: string | null,"id"?: string,"ip"?: unknown,"location"?: string | null,"platform"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "login_events_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"machine_logs": {
+                  Row: {
+                    "action": string,"ended_at": string | null,"equipment_id": string,"id": string,"laundry_order_id": string | null,"operator_id": string | null,"started_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "action": string,"ended_at"?: string | null,"equipment_id": string,"id"?: string,"laundry_order_id"?: string | null,"operator_id"?: string | null,"started_at"?: string
+                  }
+                  Update: {
+                    "action"?: string,"ended_at"?: string | null,"equipment_id"?: string,"id"?: string,"laundry_order_id"?: string | null,"operator_id"?: string | null,"started_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "machine_logs_equipment_id_fkey"
+      columns: ["equipment_id"]
+isOneToOne: false
+      referencedRelation: "equipment"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "machine_logs_laundry_order_id_fkey"
+      columns: ["laundry_order_id"]
+isOneToOne: false
+      referencedRelation: "laundry_orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "machine_logs_operator_id_fkey"
+      columns: ["operator_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"notification_preferences": {
+                  Row: {
+                    "booking_updates": boolean,"payment_updates": boolean,"promotions": boolean,"push_enabled": boolean,"quiet_end": string,"quiet_hours_enabled": boolean,"quiet_start": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_updates"?: boolean,"payment_updates"?: boolean,"promotions"?: boolean,"push_enabled"?: boolean,"quiet_end"?: string,"quiet_hours_enabled"?: boolean,"quiet_start"?: string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "booking_updates"?: boolean,"payment_updates"?: boolean,"promotions"?: boolean,"push_enabled"?: boolean,"quiet_end"?: string,"quiet_hours_enabled"?: boolean,"quiet_start"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notification_preferences_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"notifications": {
                   Row: {
                     "body": string,"created_at": string,"id": string,"read_at": string | null,"title": string,"type": string,"user_id": string
@@ -351,14 +689,14 @@ isOneToOne: false
                   ]
                 },"payments": {
                   Row: {
-                    "amount": number,"booking_id": string,"created_at": string,"id": string,"method": Database["public"]['Enums']["payment_method"],"paid_at": string | null,"provider": string | null,"provider_reference": string | null,"recorded_by": string | null,"status": Database["public"]['Enums']["payment_status"]
+                    "amount": number,"booking_id": string | null,"created_at": string,"id": string,"laundry_order_id": string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at": string | null,"provider": string | null,"provider_reference": string | null,"recorded_by": string | null,"status": Database["public"]['Enums']["payment_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"booking_id": string,"created_at"?: string,"id"?: string,"method": Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
+                    "amount": number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
                   }
                   Update: {
-                    "amount"?: number,"booking_id"?: string,"created_at"?: string,"id"?: string,"method"?: Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
+                    "amount"?: number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"method"?: Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
                   }
                   Relationships: [
                     {
@@ -366,6 +704,12 @@ isOneToOne: false
       columns: ["booking_id"]
 isOneToOne: false
       referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payments_laundry_order_id_fkey"
+      columns: ["laundry_order_id"]
+isOneToOne: false
+      referencedRelation: "laundry_orders"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "payments_recorded_by_fkey"
@@ -395,6 +739,160 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"quotes": {
+                  Row: {
+                    "booking_id": string,"created_at": string,"description": string | null,"expires_at": string | null,"id": string,"inspection_required": boolean,"prepared_by": string | null,"quoted_amount": number | null,"quoted_at": string | null,"requested_by": string | null,"responded_at": string | null,"status": Database["public"]['Enums']["quote_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"created_at"?: string,"description"?: string | null,"expires_at"?: string | null,"id"?: string,"inspection_required"?: boolean,"prepared_by"?: string | null,"quoted_amount"?: number | null,"quoted_at"?: string | null,"requested_by"?: string | null,"responded_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "booking_id"?: string,"created_at"?: string,"description"?: string | null,"expires_at"?: string | null,"id"?: string,"inspection_required"?: boolean,"prepared_by"?: string | null,"quoted_amount"?: number | null,"quoted_at"?: string | null,"requested_by"?: string | null,"responded_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotes_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: true
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_prepared_by_fkey"
+      columns: ["prepared_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_requested_by_fkey"
+      columns: ["requested_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"reactivation_requests": {
+                  Row: {
+                    "decided_at": string | null,"decided_by": string | null,"id": string,"message": string | null,"profile_id": string,"requested_at": string,"status": Database["public"]['Enums']["request_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "decided_at"?: string | null,"decided_by"?: string | null,"id"?: string,"message"?: string | null,"profile_id": string,"requested_at"?: string,"status"?: Database["public"]['Enums']["request_status"]
+                  }
+                  Update: {
+                    "decided_at"?: string | null,"decided_by"?: string | null,"id"?: string,"message"?: string | null,"profile_id"?: string,"requested_at"?: string,"status"?: Database["public"]['Enums']["request_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "reactivation_requests_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "reactivation_requests_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"receipts": {
+                  Row: {
+                    "amount": number,"booking_id": string,"created_at": string,"id": string,"issued_to": string | null,"number": string,"payment_id": string | null,"storage_path": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"booking_id": string,"created_at"?: string,"id"?: string,"issued_to"?: string | null,"number": string,"payment_id"?: string | null,"storage_path"?: string | null
+                  }
+                  Update: {
+                    "amount"?: number,"booking_id"?: string,"created_at"?: string,"id"?: string,"issued_to"?: string | null,"number"?: string,"payment_id"?: string | null,"storage_path"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "receipts_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "receipts_issued_to_fkey"
+      columns: ["issued_to"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "receipts_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: false
+      referencedRelation: "payments"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"referrals": {
+                  Row: {
+                    "code": string,"created_at": string,"id": string,"invitee_id": string | null,"invitee_phone": string | null,"joined_at": string | null,"referrer_id": string,"reward_amount": number,"rewarded_at": string | null,"status": Database["public"]['Enums']["referral_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"created_at"?: string,"id"?: string,"invitee_id"?: string | null,"invitee_phone"?: string | null,"joined_at"?: string | null,"referrer_id": string,"reward_amount"?: number,"rewarded_at"?: string | null,"status"?: Database["public"]['Enums']["referral_status"]
+                  }
+                  Update: {
+                    "code"?: string,"created_at"?: string,"id"?: string,"invitee_id"?: string | null,"invitee_phone"?: string | null,"joined_at"?: string | null,"referrer_id"?: string,"reward_amount"?: number,"rewarded_at"?: string | null,"status"?: Database["public"]['Enums']["referral_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "referrals_invitee_id_fkey"
+      columns: ["invitee_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "referrals_referrer_id_fkey"
+      columns: ["referrer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"reviews": {
+                  Row: {
+                    "booking_id": string,"comment": string | null,"created_at": string,"customer_id": string,"id": string,"rating": number,"service_id": string | null,"target_type": Database["public"]['Enums']["review_target"],"technician_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"comment"?: string | null,"created_at"?: string,"customer_id": string,"id"?: string,"rating": number,"service_id"?: string | null,"target_type": Database["public"]['Enums']["review_target"],"technician_id"?: string | null
+                  }
+                  Update: {
+                    "booking_id"?: string,"comment"?: string | null,"created_at"?: string,"customer_id"?: string,"id"?: string,"rating"?: number,"service_id"?: string | null,"target_type"?: Database["public"]['Enums']["review_target"],"technician_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "reviews_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "reviews_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "reviews_service_id_fkey"
+      columns: ["service_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "reviews_technician_id_fkey"
+      columns: ["technician_id"]
+isOneToOne: false
+      referencedRelation: "technician_profiles"
+      referencedColumns: ["user_id"]
+    }
+                  ]
                 },"role_capabilities": {
                   Row: {
                     "capability": string,"role": Database["public"]['Enums']["app_role"]
@@ -413,6 +911,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "capabilities"
       referencedColumns: ["key"]
+    }
+                  ]
+                },"saved_wallet_numbers": {
+                  Row: {
+                    "created_at": string,"id": string,"is_default": boolean,"label": string | null,"network": Database["public"]['Enums']["wallet_network"],"phone": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"is_default"?: boolean,"label"?: string | null,"network": Database["public"]['Enums']["wallet_network"],"phone": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"is_default"?: boolean,"label"?: string | null,"network"?: Database["public"]['Enums']["wallet_network"],"phone"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "saved_wallet_numbers_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     }
                   ]
                 },"service_form_definitions": {
@@ -449,14 +967,14 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"id": string,"image_path": string | null,"name": string,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null
+                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"id": string,"image_path": string | null,"name": string,"popular_rank": number | null,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null,"slug": string | null,"tag": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name": string,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null
+                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name": string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Update: {
-                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name"?: string,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null
+                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name"?: string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Relationships: [
                     {
@@ -502,6 +1020,64 @@ isOneToOne: false
                     {
       foreignKeyName: "staff_invites_created_by_fkey"
       columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"support_conversations": {
+                  Row: {
+                    "category": Database["public"]['Enums']["support_category"],"created_at": string,"customer_id": string,"id": string,"last_message_at": string,"last_read_by_customer_at": string | null,"last_read_by_staff_at": string | null,"reference": string,"status": Database["public"]['Enums']["support_status"],"subject": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: Database["public"]['Enums']["support_category"],"created_at"?: string,"customer_id": string,"id"?: string,"last_message_at"?: string,"last_read_by_customer_at"?: string | null,"last_read_by_staff_at"?: string | null,"reference"?: string,"status"?: Database["public"]['Enums']["support_status"],"subject"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "category"?: Database["public"]['Enums']["support_category"],"created_at"?: string,"customer_id"?: string,"id"?: string,"last_message_at"?: string,"last_read_by_customer_at"?: string | null,"last_read_by_staff_at"?: string | null,"reference"?: string,"status"?: Database["public"]['Enums']["support_status"],"subject"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_conversations_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"support_messages": {
+                  Row: {
+                    "body": string,"booking_id": string | null,"conversation_id": string,"created_at": string,"id": string,"laundry_order_id": string | null,"sender_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body": string,"booking_id"?: string | null,"conversation_id": string,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"sender_id": string
+                  }
+                  Update: {
+                    "body"?: string,"booking_id"?: string | null,"conversation_id"?: string,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"sender_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "support_messages_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "support_messages_conversation_id_fkey"
+      columns: ["conversation_id"]
+isOneToOne: false
+      referencedRelation: "support_conversations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "support_messages_laundry_order_fk"
+      columns: ["laundry_order_id"]
+isOneToOne: false
+      referencedRelation: "laundry_orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "support_messages_sender_id_fkey"
+      columns: ["sender_id"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -628,16 +1204,31 @@ isOneToOne: false
 "can_view_booking":
 { Args: { "p_booking": string }; Returns: boolean
                            },
+"can_view_conversation":
+{ Args: { "p_conversation": string }; Returns: boolean
+                           },
+"can_view_inspection":
+{ Args: { "p_inspection": string }; Returns: boolean
+                           },
 "complete_job":
 { Args: { "p_billed_hours"?: number,"p_booking": string }; Returns: undefined
                            },
+"conversation_id_from_path":
+{ Args: { "p_path": string }; Returns: string
+                           },
 "has_capability":
 { Args: { "p_capability": string }; Returns: boolean
+                           },
+"inspection_id_from_path":
+{ Args: { "p_path": string }; Returns: string
                            },
 "is_assigned_technician":
 { Args: { "p_booking": string }; Returns: boolean
                            },
 "is_desk":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"is_laundry_staff":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "move_booking_status":
@@ -668,9 +1259,10 @@ isOneToOne: false
 "record_cash_payment":
 { Args: { "p_amount": number,"p_booking": string }; Returns: {
               "amount": number,
-"booking_id": string,
+"booking_id": string | null,
 "created_at": string,
 "id": string,
+"laundry_order_id": string | null,
 "method": Database["public"]['Enums']["payment_method"],
 "paid_at": string | null,
 "provider": string | null,
@@ -692,7 +1284,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "customer"|"technician"|"laundry_operator"|"sales_operator"|"customer_relations"|"manager"|"admin","assignment_status": "assigned"|"accepted"|"declined"|"in_progress"|"done"|"removed","booking_source": "app"|"staff"|"sales","booking_status": "requested"|"awaiting_confirmation"|"confirmed"|"scheduled"|"on_the_way"|"in_progress"|"completed"|"cancelled","cash_dispute_status": "open"|"resolved","crew_role": "lead"|"helper","payment_method": "app"|"cash","payment_status": "pending"|"paid"|"failed"|"refunded","photo_kind": "before"|"after","pricing_type": "fixed"|"hourly"|"quote","profile_status": "active"|"deactivated"
+            "app_role": "customer"|"technician"|"laundry_operator"|"sales_operator"|"customer_relations"|"manager"|"admin","assignment_status": "assigned"|"accepted"|"declined"|"in_progress"|"done"|"removed","booking_source": "app"|"staff"|"sales","booking_status": "requested"|"awaiting_confirmation"|"confirmed"|"scheduled"|"on_the_way"|"in_progress"|"completed"|"cancelled","cash_dispute_status": "open"|"resolved","crew_role": "lead"|"helper","draft_status": "in_progress"|"abandoned"|"followed_up"|"completed","equipment_status": "available"|"in_use"|"maintenance"|"out_of_service","inspection_media_kind": "photo"|"video","inspection_status": "required"|"scheduled"|"in_progress"|"submitted"|"withdrawn","laundry_status": "received"|"washing"|"drying"|"ready"|"delivered","payment_method": "app"|"cash","payment_status": "pending"|"paid"|"failed"|"refunded","photo_kind": "before"|"after","pricing_type": "fixed"|"hourly"|"quote","profile_status": "active"|"deactivated","quote_status": "requested"|"inspection_required"|"inspection_scheduled"|"inspected"|"quoted"|"accepted"|"declined"|"expired","referral_status": "invited"|"joined"|"completed"|"rewarded"|"expired","request_status": "pending"|"approved"|"declined","review_target": "service"|"technician","support_category": "booking"|"payment"|"service"|"account"|"other","support_status": "open"|"waiting_on_customer"|"resolved","wallet_network": "MTN"|"Airtel"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -812,7 +1404,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["customer", "technician", "laundry_operator", "sales_operator", "customer_relations", "manager", "admin"],"assignment_status": ["assigned", "accepted", "declined", "in_progress", "done", "removed"],"booking_source": ["app", "staff", "sales"],"booking_status": ["requested", "awaiting_confirmation", "confirmed", "scheduled", "on_the_way", "in_progress", "completed", "cancelled"],"cash_dispute_status": ["open", "resolved"],"crew_role": ["lead", "helper"],"payment_method": ["app", "cash"],"payment_status": ["pending", "paid", "failed", "refunded"],"photo_kind": ["before", "after"],"pricing_type": ["fixed", "hourly", "quote"],"profile_status": ["active", "deactivated"]
+            "app_role": ["customer", "technician", "laundry_operator", "sales_operator", "customer_relations", "manager", "admin"],"assignment_status": ["assigned", "accepted", "declined", "in_progress", "done", "removed"],"booking_source": ["app", "staff", "sales"],"booking_status": ["requested", "awaiting_confirmation", "confirmed", "scheduled", "on_the_way", "in_progress", "completed", "cancelled"],"cash_dispute_status": ["open", "resolved"],"crew_role": ["lead", "helper"],"draft_status": ["in_progress", "abandoned", "followed_up", "completed"],"equipment_status": ["available", "in_use", "maintenance", "out_of_service"],"inspection_media_kind": ["photo", "video"],"inspection_status": ["required", "scheduled", "in_progress", "submitted", "withdrawn"],"laundry_status": ["received", "washing", "drying", "ready", "delivered"],"payment_method": ["app", "cash"],"payment_status": ["pending", "paid", "failed", "refunded"],"photo_kind": ["before", "after"],"pricing_type": ["fixed", "hourly", "quote"],"profile_status": ["active", "deactivated"],"quote_status": ["requested", "inspection_required", "inspection_scheduled", "inspected", "quoted", "accepted", "declined", "expired"],"referral_status": ["invited", "joined", "completed", "rewarded", "expired"],"request_status": ["pending", "approved", "declined"],"review_target": ["service", "technician"],"support_category": ["booking", "payment", "service", "account", "other"],"support_status": ["open", "waiting_on_customer", "resolved"],"wallet_network": ["MTN", "Airtel"]
           }
         }
 } as const

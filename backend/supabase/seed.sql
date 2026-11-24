@@ -59,7 +59,8 @@ on conflict (id) do nothing;
 -- Skills and technicians -----------------------------------------------------
 
 insert into public.skills (name, max_daily_hours) values
-  ('cleaning', 8), ('electrical', 6), ('plumbing', 6), ('handyman', 8)
+  ('cleaning', 8), ('electrical', 6), ('plumbing', 6), ('handyman', 8),
+  ('pest', 6), ('masonry', 8), ('painting', 8)
 on conflict (name) do nothing;
 
 insert into public.technician_profiles (user_id, display_name, priority_rating)
@@ -86,30 +87,57 @@ where p.role = 'technician';
 
 -- Catalogue ------------------------------------------------------------------
 
-insert into public.categories (name, description, display_order) values
-  ('Cleaning', 'Home and office cleaning', 1),
-  ('Upholstery and carpets', 'Sofas, mattresses and rugs', 2),
-  ('Surface care', 'Tiles, floors and hard surfaces', 3),
-  ('Pest control', 'Fumigation and pest removal', 4),
-  ('Repairs and installations', 'Electrical, plumbing and fittings', 5),
-  ('Building and finishing', 'Painting and small works', 6),
-  ('Outdoor and landscaping', 'Gardens and outdoor spaces', 7)
-on conflict do nothing;
+insert into public.categories (slug, name, description, display_order) values
+  ('cleaning', 'Cleaning', 'Homes, offices and handovers', 1),
+  ('upholstery', 'Upholstery and carpets', 'Carpets, sofas and chairs', 2),
+  ('surface-care', 'Surface care', 'Pavers, roofs, terrazzo and tiles', 3),
+  ('pest-control', 'Pest control', 'Inspection, treatment and follow-up', 4),
+  ('repairs', 'Repairs and installations', 'Electrical, plumbing and handyman work', 5),
+  ('building', 'Building and finishing', 'Painting, tiling and small works', 6),
+  ('outdoor', 'Outdoor and landscaping', 'Gardens, paving and outdoor spaces', 7)
+on conflict (slug) do nothing;
 
-insert into public.services (category_id, name, description, slug, pricing_type, price, duration_minutes, required_skill_id)
-select c.id, s.name, s.description, s.slug, s.pricing, s.price, s.duration, k.id
+-- Mirrors client-app/src/config/services.ts so the catalogue cutover does not
+-- change what customers see. Hourly price is the per-hour base; quote services
+-- carry no price.
+insert into public.services (category_id, name, description, slug, pricing_type, price, duration_minutes, required_skill_id, popular_rank, tag)
+select c.id, s.name, s.description, s.slug, s.pricing, s.price, s.duration, k.id, s.popular_rank, s.tag
 from (values
-  ('Cleaning', 'Standard home clean', 'Routine clean of living areas and bathrooms', 'home-clean', 'hourly'::public.pricing_type, 45000, 120, 'cleaning'),
-  ('Cleaning', 'Deep clean', 'Top-to-bottom deep clean', 'deep-clean', 'hourly'::public.pricing_type, 45000, 240, 'cleaning'),
-  ('Upholstery and carpets', 'Sofa deep clean', 'Shampoo and extract one three-seater', 'sofa-clean', 'fixed'::public.pricing_type, 80000, 90, 'cleaning'),
-  ('Upholstery and carpets', 'Mattress clean', 'Steam and sanitise one mattress', 'mattress-clean', 'fixed'::public.pricing_type, 60000, 60, 'cleaning'),
-  ('Repairs and installations', 'Electrical fault finding', 'Trace and quote a electrical fault', 'electrical-works', 'hourly'::public.pricing_type, 60000, 60, 'electrical'),
-  ('Repairs and installations', 'Leak repair', 'Find and fix a water leak', 'plumbing-works', 'quote'::public.pricing_type, 0, 60, 'plumbing'),
-  ('Outdoor and landscaping', 'Lawn mowing', 'Cut and edge a standard plot', 'landscaping', 'fixed'::public.pricing_type, 50000, 60, 'handyman')
-) as s(category, name, description, slug, pricing, price, duration, skill)
-join public.categories c on c.name = s.category
+  ('cleaning', 'Basic cleaning', 'Floors, surfaces, bathrooms and kitchens', 'home-clean', 'hourly'::public.pricing_type, 45000, 120, 'cleaning', 1, 'Popular'),
+  ('cleaning', 'Deep cleaning', 'A top-to-bottom reset for your home', 'deep-clean', 'hourly'::public.pricing_type, 45000, 240, 'cleaning', 2, null),
+  ('cleaning', 'Post-construction cleaning', 'Dust, debris and paint splatter after a build', 'post-construction-clean', 'quote'::public.pricing_type, 0, 240, 'cleaning', null, null),
+  ('upholstery', 'Carpet cleaning', 'Deep extraction for rugs and fitted carpet', 'carpet-clean', 'fixed'::public.pricing_type, 85000, 90, 'cleaning', 4, null),
+  ('upholstery', 'Sofa sets cleaning', 'Shampoo and extraction for every seat', 'sofa-clean', 'hourly'::public.pricing_type, 45000, 90, 'cleaning', 3, null),
+  ('upholstery', 'Dining chairs cleaning', 'Fabric and frame care for dining sets', 'chair-clean', 'hourly'::public.pricing_type, 45000, 60, 'cleaning', null, null),
+  ('surface-care', 'Pavers cleaning', 'Pressure washing for driveways and compounds', 'pavers-clean', 'quote'::public.pricing_type, 0, 120, 'handyman', null, null),
+  ('surface-care', 'Roof tile cleaning', 'Moss, dust and stain removal from tiles', 'roof-clean', 'quote'::public.pricing_type, 0, 180, 'handyman', null, null),
+  ('surface-care', 'Terrazzo and tile polishing', 'Grinding, sealing and shine restoration', 'terrazzo-polish', 'quote'::public.pricing_type, 0, 180, 'handyman', null, null),
+  ('pest-control', 'Fumigation', 'Inspection, treatment and a follow-up visit', 'fumigation', 'quote'::public.pricing_type, 0, 120, 'pest', 5, null),
+  ('repairs', 'Electrical works', 'Sockets, lighting, wiring and fault-finding', 'electrical-works', 'quote'::public.pricing_type, 0, 90, 'electrical', null, null),
+  ('repairs', 'Plumbing works', 'Leaks, fittings, drains and water heaters', 'plumbing-works', 'quote'::public.pricing_type, 0, 90, 'plumbing', null, null),
+  ('repairs', 'Handyman works', 'Mounting, repairs and small installations', 'handyman-works', 'quote'::public.pricing_type, 0, 90, 'handyman', null, null),
+  ('building', 'Tiling', 'Floor and wall tiling, grouting and repairs', 'tiling', 'quote'::public.pricing_type, 0, 180, 'masonry', null, null),
+  ('building', 'Painting', 'Interior and exterior painting and touch-ups', 'painting', 'quote'::public.pricing_type, 0, 180, 'painting', 6, null),
+  ('building', 'Renovation works', 'Room refreshes and small building works', 'renovation', 'quote'::public.pricing_type, 0, 240, 'masonry', null, null),
+  ('outdoor', 'Pavers laying', 'New paving for driveways and walkways', 'pavers-laying', 'quote'::public.pricing_type, 0, 240, 'masonry', null, null),
+  ('outdoor', 'Landscaping and grass cutting', 'Lawns, hedges and garden upkeep', 'landscaping', 'quote'::public.pricing_type, 0, 120, 'handyman', null, null),
+  ('cleaning', 'Office cleaning', 'Desks, meeting rooms and shared kitchens', 'office-clean', 'hourly'::public.pricing_type, 45000, 120, 'cleaning', null, null),
+  ('cleaning', 'Move-in / move-out', 'Handover-ready cleaning', 'move-out-clean', 'hourly'::public.pricing_type, 45000, 180, 'cleaning', null, null)
+) as s(category, name, description, slug, pricing, price, duration, skill, popular_rank, tag)
+join public.categories c on c.slug = s.category
 join public.skills k on k.name = s.skill
-where not exists (select 1 from public.services x where x.name = s.name);
+on conflict (slug) do update set
+  category_id = excluded.category_id,
+  name = excluded.name,
+  description = excluded.description,
+  pricing_type = excluded.pricing_type,
+  price = excluded.price,
+  duration_minutes = excluded.duration_minutes,
+  required_skill_id = excluded.required_skill_id,
+  popular_rank = excluded.popular_rank,
+  tag = excluded.tag;
+
+update public.services set active = false where slug in ('office-clean', 'move-out-clean');
 
 -- Demo jobs ------------------------------------------------------------------
 

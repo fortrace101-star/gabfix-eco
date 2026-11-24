@@ -13,7 +13,7 @@ import { SummarySheet } from '@/components/booking/summary-sheet';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { jobMedia } from '@/config/media';
-import { serviceBySlug } from '@/config/services';
+
 import {
   isScopeComplete,
   schemaForScope,
@@ -23,6 +23,7 @@ import {
 } from '@/lib/booking-scope';
 import { validateAnswers, type FormField, type FormValue } from '@/lib/form-schema';
 import { deleteMediaFile } from '@/lib/media';
+import { useService } from '@/hooks/use-service';
 import { price, servicePricing, type BookingMediaItem } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
@@ -42,7 +43,7 @@ export default function JobScopeScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const draft = useBookingDraft();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const active = draft && draft.serviceSlug === slug ? draft : null;
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);

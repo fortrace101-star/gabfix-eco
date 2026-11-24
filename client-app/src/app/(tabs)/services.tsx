@@ -6,17 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ServicePhoto } from '@/components/service/service-photo';
 import { FilterChip } from '@/components/ui/filter-chip';
+import { useServiceCategories } from '@/hooks/use-service-categories';
 import { useServices } from '@/hooks/use-services';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { serviceCategories, servicePriceLabel, type Service } from '@/config/services';
+import { servicePriceLabel, type Service } from '@/config/services';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 
 type CategoryFilter = 'all' | string;
-
-const filters: readonly { value: CategoryFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  ...serviceCategories.map((category) => ({ value: category.id, label: category.name })),
-];
 
 /** Services shown per category before the customer expands the section. */
 const COLLAPSED_COUNT = 2;
@@ -69,6 +65,7 @@ function ServiceCard({ service }: { service: Service }) {
 export default function ServicesTab() {
   const insets = useSafeAreaInsets();
   const { services, error, refresh } = useServices();
+  const categories = useServiceCategories();
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   useStatusBarStyle('dark');
@@ -76,7 +73,14 @@ export default function ServicesTab() {
   const visible = services.filter(
     (service) => service.active !== false && (category === 'all' || service.categoryId === category),
   );
-  const groups = serviceCategories
+  const filters: readonly { value: CategoryFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    ...[...categories]
+      .sort((a, b) => a.order - b.order)
+      .map((group) => ({ value: group.id, label: group.name })),
+  ];
+  const groups = [...categories]
+    .sort((a, b) => a.order - b.order)
     .map((group) => ({
       ...group,
       services: visible.filter((service) => service.categoryId === group.id),

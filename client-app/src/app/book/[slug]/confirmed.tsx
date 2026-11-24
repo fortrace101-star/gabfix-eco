@@ -7,7 +7,7 @@ import { ScopeSummary } from '@/components/booking/scope-summary';
 import { slotLabel } from '@/components/booking/slot-chips';
 import { UploadStatus } from '@/components/booking/upload-status';
 import { Button } from '@/components/ui/button';
-import { serviceBySlug } from '@/config/services';
+
 import { supportsNativeDriver } from '@/lib/animation';
 import { prepareBookingUploads, retryBookingUploads, startBookingUploads } from '@/lib/media-upload';
 import { finalizeDraftMedia } from '@/lib/media';
@@ -18,6 +18,7 @@ import { addBooking, updateBooking } from '@/store/bookings';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
 import { scheduleAssignmentReminder } from '@/lib/local-notifications';
 import { addNotification } from '@/store/notifications';
+import { useService } from '@/hooks/use-service';
 import { colors, font, radius, space, text } from '@/theme';
 import { successHaptic } from '@/utils/haptics';
 import { ugx } from '@/utils/format';
@@ -60,7 +61,7 @@ export default function ConfirmedScreen() {
     await snoozePushPrePrompt();
   };
 
-  const service = serviceBySlug(slug || snapshot?.serviceSlug || '');
+  const service = useService(slug || snapshot?.serviceSlug || '');
   // H10: a quote request has no price yet, so nothing is charged or owed.
   // D6: hourly is a quote request too, so nothing is charged or owed at booking.
   const isQuote = params.quote === '1' || service?.pricingMode !== 'fixed';

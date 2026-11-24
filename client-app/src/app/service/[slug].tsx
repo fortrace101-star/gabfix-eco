@@ -29,7 +29,8 @@ import { RetryHint } from '@/components/ui/retry-hint';
 import { Skeleton } from '@/components/ui/skeleton';
 import { addOns } from '@/config/add-ons';
 import { hourlyRate, pricing } from '@/config/pricing';
-import { fromHourly, serviceBySlug, servicePriceLabel } from '@/config/services';
+import { fromHourly, servicePriceLabel } from '@/config/services';
+import { useService } from '@/hooks/use-service';
 import { useServiceContent } from '@/hooks/use-service-content';
 import { supportsNativeDriver } from '@/lib/animation';
 import { colors, font, radius, shadow, space, text } from '@/theme';
@@ -76,7 +77,7 @@ export default function ServiceLandingScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const insets = useSafeAreaInsets();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const { content, loading, error, refresh } = useServiceContent(slug);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrollY] = useState(() => new Animated.Value(0));

@@ -12,7 +12,8 @@ import { Card } from '@/components/ui/card';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { hourlyRate, pricing } from '@/config/pricing';
-import { serviceBySlug, servicePriceLabel } from '@/config/services';
+import { servicePriceLabel } from '@/config/services';
+import { useService } from '@/hooks/use-service';
 import { price, servicePricing, type BookingFrequency } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import { getBookingDraft, patchDetails, startDraft, useBookingDraft } from '@/store/booking';
@@ -61,7 +62,7 @@ export default function JobDetailsScreen() {
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const draft = useBookingDraft();
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   const active = draft && draft.serviceSlug === slug ? draft : null;
   const [summaryOpen, setSummaryOpen] = useState(false);
 

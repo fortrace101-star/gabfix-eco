@@ -80,18 +80,6 @@ async function session(c: Context): Promise<Session> {
 }
 
 const money = (value: unknown) => Number(value ?? 0);
-const camel = (row: Record<string, unknown>) => ({
-  id: row.id,
-  name: row.name,
-  description: row.description,
-  slug: row.slug,
-  pricingType: row.pricing_type,
-  price: money(row.price),
-  durationMinutes: row.duration_minutes,
-  categoryId: row.category_id,
-  imagePath: row.image_path,
-  active: row.active,
-});
 
 app.get('/health', (c) => c.json({ ok: true, service: 'gabfix-api' }));
 
@@ -100,59 +88,263 @@ app.get('/me', async (c) => {
   return c.json({ profile });
 });
 
-app.get('/catalogue', async (c) => {
-  const { db } = await session(c);
+const cataloguePayload = async () => {
+  const db = admin;
   const [categories, services, forms] = await Promise.all([
-    db.from('categories').select('id, parent_id, name, description, image_path, display_order, active')
-      .eq('active', true).order('display_order'),
-    db.from('services').select('id, category_id, name, description, slug, image_path, pricing_type, price, duration_minutes, active')
-      .eq('active', true).order('name'),
-    db.from('service_form_definitions').select('id, service_id, category_id, version, schema, is_current')
+    db
+      .from('categories')
+      .select('id, slug, parent_id, name, description, image_path, display_order, active')
+      .eq('active', true)
+      .order('display_order'),
+    db
+      .from('services')
+      .select('id, category_id, name, description, slug, image_path, pricing_type, price, duration_minutes, popular_rank, tag, active')
+      .eq('active', true)
+      .order('name'),
+    db
+      .from('service_form_definitions')
+      .select('id, service_id, category_id, version, schema, is_current')
       .eq('is_current', true),
   ]);
   const error = categories.error ?? services.error ?? forms.error;
   if (error) throw new HTTPException(500, { message: error.message, cause: 'catalogue_read' });
 
-  return c.json({
+  const categoryByUuid = new Map((categories.data ?? []).map((row) => [row.id, row]));
+
+  return {
     categories: (categories.data ?? []).map((row) => ({
-      id: row.id,
-      parentId: row.parent_id,
+      id: row.slug,
+      uuid: row.id,
       name: row.name,
+      caption: row.description ?? '',
       description: row.description,
-      imagePath: row.image_path,
+      order: row.display_order,
       displayOrder: row.display_order,
+      parentId: row.parent_id ? (categoryByUuid.get(row.parent_id)?.slug ?? row.parent_id) : undefined,
+      imagePath: row.image_path,
+      active: row.active,
     })),
-    services: (services.data ?? []).map((row) => camel(row)),
+    services: (services.data ?? []).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      tagline: row.description ?? '',
+      description: row.description,
+      categoryId: categoryByUuid.get(row.category_id)?.slug ?? row.category_id,
+      categoryUuid: row.category_id,
+      pricingMode: row.pricing_type,
+      pricingType: row.pricing_type,
+      fixedPrice: row.pricing_type === 'fixed' ? money(row.price) : undefined,
+      basePrice: money(row.price),
+      durationMinutes: row.duration_minutes,
+      popularRank: row.popular_rank ?? undefined,
+      tag: row.tag ?? undefined,
+      cardImage: row.image_path ?? undefined,
+      imagePath: row.image_path,
+      active: row.active,
+    })),
     forms: (forms.data ?? []).map((row) => ({
       id: row.id,
       serviceId: row.service_id,
-      categoryId: row.category_id,
+      categoryId: row.category_id
+        ? (categoryByUuid.get(row.category_id)?.slug ?? row.category_id)
+        : null,
       version: row.version,
       schema: row.schema,
     })),
-  });
+  };
+};
+
+app.get('/catalogue', async (c) => c.json(await cataloguePayload(c)));
+// Client discovery currently calls /services; keep it compatible.
+app.get('/services', async (c) => c.json(await cataloguePayload(c)));
+app.get('/service-categories', async (c) => {
+  const payload = await cataloguePayload(c);
+  return c.json({ categories: payload.categories });
 });
 
+// Public: the schedule step asks for bookable starts before sign-in on some paths.
+app.get('/availability', async (c) => {
+  const db = admin;
+  const slug = (c.req.query('service') ?? '').trim();
+  const dateISO = (c.req.query('date') ?? '').trim();
+  if (!slug) return fail(c, 400, 'invalid_request', 'Tell us which service you are booking.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+    return fail(c, 400, 'invalid_request', 'Use a date in YYYY-MM-DD format.');
+  }
+
+  const date = new Date(`${dateISO}T12:00:00+03:00`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dateISO) {
+    return fail(c, 400, 'invalid_request', 'That date does not exist.');
+  }
+
+  const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
+  if (dateISO < todayISO) return c.json({ slots: [] });
+
+  const { data: service, error: serviceError } = await db
+    .from('services')
+    .select('id, duration_minutes, required_skill_id')
+    .eq('slug', slug)
+    .eq('active', true)
+    .maybeSingle();
+  if (serviceError) throw new HTTPException(500, { message: serviceError.message, cause: 'service_read' });
+  if (!service) return fail(c, 404, 'not_found', 'That service is not available.');
+
+  const weekday = new Date(`${dateISO}T00:00:00Z`).getUTCDay();
+  const technicianSelect = service.required_skill_id
+    ? 'user_id, technician_availability(weekday, start_time, end_time), technician_skills!inner(skill_id)'
+    : 'user_id, technician_availability(weekday, start_time, end_time)';
+  let techniciansQuery = db
+    .from('technician_profiles')
+    .select(technicianSelect)
+    .eq('active', true);
+  if (service.required_skill_id) {
+    techniciansQuery = techniciansQuery.eq('technician_skills.skill_id', service.required_skill_id);
+  }
+
+  const { data: technicians, error: technicianError } = await techniciansQuery;
+  if (technicianError) throw new HTTPException(500, { message: technicianError.message, cause: 'availability_read' });
+
+  const technicianIds = (technicians ?? []).map((row) => row.user_id);
+  if (technicianIds.length === 0) return c.json({ slots: [] });
+
+  const dayStart = new Date(`${dateISO}T00:00:00+03:00`);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const [{ data: overrides, error: overrideError }, { data: assignments, error: assignmentError }] =
+    await Promise.all([
+      db
+        .from('technician_overrides')
+        .select('technician_id, is_off, start_time, end_time')
+        .eq('date', dateISO)
+        .in('technician_id', technicianIds),
+      db
+        .from('job_assignments')
+        .select('technician_id, bookings!inner(scheduled_start, scheduled_end, status)')
+        .in('technician_id', technicianIds)
+        .not('status', 'in', '(declined,removed)')
+        .gte('bookings.scheduled_start', dayStart.toISOString())
+        .lt('bookings.scheduled_start', dayEnd.toISOString()),
+    ]);
+  const readError = overrideError ?? assignmentError;
+  if (readError) throw new HTTPException(500, { message: readError.message, cause: 'availability_read' });
+
+  const overrideByTechnician = new Map((overrides ?? []).map((row) => [row.technician_id, row]));
+  const minutes = (value: string) => {
+    const [hours, mins] = value.split(':').map(Number);
+    return hours * 60 + mins;
+  };
+  const busyByTechnician = new Map<string, { start: number; end: number }[]>();
+  for (const row of assignments ?? []) {
+    const booking = Array.isArray(row.bookings) ? row.bookings[0] : row.bookings;
+    if (!booking?.scheduled_start || !booking?.scheduled_end) continue;
+    const list = busyByTechnician.get(row.technician_id) ?? [];
+    list.push({ start: Date.parse(booking.scheduled_start), end: Date.parse(booking.scheduled_end) });
+    busyByTechnician.set(row.technician_id, list);
+  }
+
+  const duration = Number(service.duration_minutes ?? 120);
+  // Same-day requests need a three-hour lead, matching the schedule screen.
+  const earliestStart = Date.now() + 3 * 60 * 60 * 1000;
+  const slots = Array.from({ length: 10 }, (_, index) => {
+    const hour = 7 + index;
+    const label = `${String(hour).padStart(2, '0')}:00`;
+    const startMinutes = hour * 60;
+    const endMinutes = startMinutes + duration;
+    if (endMinutes > 18 * 60) return { time: label, available: false, remaining: 0 };
+
+    const slotStart = new Date(`${dateISO}T${label}:00+03:00`).getTime();
+    const slotEnd = slotStart + duration * 60 * 1000;
+    if (slotStart < earliestStart) return { time: label, available: false, remaining: 0 };
+
+    const free = (technicians ?? []).filter((row) => {
+      const override = overrideByTechnician.get(row.user_id);
+      if (override?.is_off) return false;
+
+      const windows = override?.start_time && override?.end_time
+        ? [{ start_time: override.start_time, end_time: override.end_time }]
+        : (row.technician_availability ?? []).filter(
+            (window: { weekday: number }) => Number(window.weekday) === weekday,
+          );
+      const withinWindow = windows.some(
+        (window: { start_time: string; end_time: string }) =>
+          startMinutes >= minutes(window.start_time) && endMinutes <= minutes(window.end_time),
+      );
+      if (!withinWindow) return false;
+
+      return !(busyByTechnician.get(row.user_id) ?? []).some(
+        (busy) => busy.start < slotEnd && busy.end > slotStart,
+      );
+    }).length;
+
+    return { time: label, available: free > 0, remaining: Math.min(free, 9) };
+  });
+
+  return c.json({ slots });
+});
+
+app.get('/search', async (c) => {
+  const term = (c.req.query('q') ?? '').trim().toLowerCase();
+  if (!term) return c.json({ services: [] });
+  const payload = await cataloguePayload();
+  const services = payload.services.filter((service) =>
+    `${service.name} ${service.tagline} ${service.tag ?? ''} ${service.slug}`.toLowerCase().includes(term),
+  );
+  return c.json({ services });
+});
+
+// Public: the service landing page can open before sign-in.
 app.get('/services/:slug', async (c) => {
-  const { db } = await session(c);
+  const db = admin;
   const slug = c.req.param('slug');
   const { data: service, error } = await db
     .from('services')
-    .select('id, category_id, name, description, slug, image_path, pricing_type, price, duration_minutes, active')
+    .select('id, category_id, name, description, slug, image_path, pricing_type, price, duration_minutes, popular_rank, tag, active')
     .eq('slug', slug)
     .eq('active', true)
     .maybeSingle();
   if (error) throw new HTTPException(500, { message: error.message, cause: 'service_read' });
   if (!service) return fail(c, 404, 'not_found', 'That service is not available.');
 
-  const { data: form } = await db
-    .from('service_form_definitions')
-    .select('id, service_id, version, schema')
-    .eq('service_id', service.id)
-    .eq('is_current', true)
-    .maybeSingle();
+  const [{ data: form }, { data: category }] = await Promise.all([
+    db
+      .from('service_form_definitions')
+      .select('id, service_id, version, schema')
+      .eq('service_id', service.id)
+      .eq('is_current', true)
+      .maybeSingle(),
+    db.from('categories').select('slug').eq('id', service.category_id).maybeSingle(),
+  ]);
 
-  return c.json({ service: camel(service), form });
+  const servicePayload = {
+    id: service.id,
+    slug: service.slug,
+    name: service.name,
+    tagline: service.description ?? '',
+    description: service.description,
+    categoryId: category?.slug ?? service.category_id,
+    categoryUuid: service.category_id,
+    pricingMode: service.pricing_type,
+    fixedPrice: service.pricing_type === 'fixed' ? money(service.price) : undefined,
+    basePrice: money(service.price),
+    durationMinutes: service.duration_minutes,
+    popularRank: service.popular_rank ?? undefined,
+    tag: service.tag ?? undefined,
+    cardImage: service.image_path ?? undefined,
+    imagePath: service.image_path,
+    active: service.active,
+  };
+
+  return c.json({
+    service: servicePayload,
+    form,
+    content: {
+      slug: service.slug,
+      cardImage: service.image_path ?? undefined,
+      heroImage: service.image_path ?? undefined,
+      intro: service.description ?? '',
+    },
+  });
 });
 
 app.get('/bookings', async (c) => {

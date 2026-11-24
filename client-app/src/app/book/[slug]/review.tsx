@@ -29,7 +29,7 @@ import {
   savedCardLabel,
 } from '@/config/payments';
 import { hourlyRate, pricing } from '@/config/pricing';
-import { serviceBySlug } from '@/config/services';
+
 import { ScopeSummary } from '@/components/booking/scope-summary';
 import { snapshotScope } from '@/lib/booking-scope';
 import { createBooking } from '@/lib/api/bookings';
@@ -42,6 +42,7 @@ import {
 } from '@/lib/pricing';
 import { formatMomo, toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 import { totalAccountBalance } from '@/lib/wallet';
+import { useService } from '@/hooks/use-service';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
@@ -261,7 +262,7 @@ export default function ReviewScreen() {
   const savedCards = useSavedCards();
   const savedMobileMoney = useSavedMobileMoney();
   const accountBalance = totalAccountBalance(bookings);
-  const service = serviceBySlug(slug);
+  const service = useService(slug);
   // Quote services have no price to collect here: the request goes out for pricing (H10).
   // D6: hourly is quoted too. Only fixed-price services are payable at booking.
   const isQuote = service?.pricingMode !== 'fixed';

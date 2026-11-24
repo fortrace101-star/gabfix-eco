@@ -58,7 +58,7 @@ export default function ScheduleScreen() {
   const cap = data?.caps.length ? Math.min(...data.caps.map((s) => s.max_daily_hours)) : null;
 
   return (
-    <Screen title="Schedule" subtitle="Your working pattern">
+    <Screen title="Schedule" subtitle="Your working pattern and daily cap">
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.green500} />

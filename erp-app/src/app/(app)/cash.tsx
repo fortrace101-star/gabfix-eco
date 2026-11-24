@@ -1,10 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
+import { TextField } from '@/components/ui/text-field';
 import { formatMoney, formatTime } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
-import { colors, radius, space, text } from '@/theme';
+import { useAuth } from '@/store/auth';
+import { colors, radius, shadow, space, text } from '@/theme';
 
 function startOfTodayIso() {
   const now = new Date();
@@ -37,10 +41,51 @@ async function fetchCash() {
 }
 
 export default function CashScreen() {
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [handingOver, setHandingOver] = useState(false);
+
   const { data, error, isLoading } = useQuery({ queryKey: ['cash', 'today'], queryFn: fetchCash });
 
+  const handover = useMutation({
+    mutationFn: async () => {
+      const parsed = Number(amount.replace(',', '.'));
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('Enter a positive amount.');
+      }
+      const { error: rpcError } = await supabase.rpc('record_cash_handover', {
+        p_amount: parsed,
+        p_note: note.trim() || undefined,
+      });
+      if (rpcError) throw new Error(rpcError.message);
+      return parsed;
+    },
+    onSuccess: async (parsed) => {
+      setAmount('');
+      setNote('');
+      setHandingOver(false);
+      await queryClient.invalidateQueries({ queryKey: ['cash'] });
+      Alert.alert('Handover recorded', `${formatMoney(parsed)} is waiting for the desk to confirm.`);
+    },
+    onError: (mutationError) => {
+      Alert.alert('Could not record the handover', mutationError.message);
+    },
+  });
+
   return (
-    <Screen title="Cash" subtitle="Collected today">
+    <Screen
+      title="Cash"
+      subtitle="Collected today and handovers"
+      action={
+        data ? (
+          <View style={styles.headerAmount}>
+            <Text style={styles.headerAmountLabel}>Today</Text>
+            <Text style={styles.headerAmountValue}>{formatMoney(data.total)}</Text>
+          </View>
+        ) : undefined
+      }>
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.green500} />
@@ -52,14 +97,6 @@ export default function CashScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>Cash collected today</Text>
-            <Text style={styles.heroValue}>{formatMoney(data?.total ?? 0)}</Text>
-            <Text style={styles.heroHint}>
-              {data?.payments.length ?? 0} payment{data?.payments.length === 1 ? '' : 's'} recorded
-            </Text>
-          </View>
-
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Payments</Text>
             {data?.payments.length ? (
@@ -78,6 +115,46 @@ export default function CashScreen() {
               </Text>
             )}
           </View>
+
+          {role === 'technician' ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Hand over cash</Text>
+              {handingOver ? (
+                <View style={styles.form}>
+                  <TextField
+                    label="Amount received by the desk"
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g. 90000"
+                  />
+                  <TextField
+                    label="Note (optional)"
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="Who took it, where"
+                  />
+                  <Button
+                    label="Record handover"
+                    onPress={() => handover.mutate()}
+                    loading={handover.isPending}
+                  />
+                  <Button label="Cancel" variant="ghost" onPress={() => setHandingOver(false)} />
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.caption}>
+                    Cash you have handed to the desk. It stays unconfirmed until they check it.
+                  </Text>
+                  <Button
+                    label="Hand over cash"
+                    variant="secondary"
+                    onPress={() => setHandingOver(true)}
+                  />
+                </>
+              )}
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Handovers</Text>
@@ -108,15 +185,9 @@ export default function CashScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[6], gap: space[2] },
   content: { padding: space[4], gap: space[3], paddingBottom: space[8] },
-  heroCard: {
-    backgroundColor: colors.green700,
-    borderRadius: radius.card,
-    padding: space[5],
-    gap: space[1],
-  },
-  heroLabel: { ...text.caption, color: colors.whiteTextMuted },
-  heroValue: { ...text.display, color: colors.surface },
-  heroHint: { ...text.caption, color: colors.whiteTextMuted },
+  headerAmount: { alignItems: 'flex-end', gap: 0 },
+  headerAmountLabel: { ...text.caption },
+  headerAmountValue: { ...text.bodyM, color: colors.green700 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
@@ -124,8 +195,10 @@ const styles = StyleSheet.create({
     gap: space[2],
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.card,
   },
   sectionTitle: { ...text.caption, textTransform: 'uppercase', color: colors.textMuted },
+  form: { gap: space[2] },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space[3] },
   rowText: { flex: 1, gap: 2 },
   body: { ...text.bodyM },

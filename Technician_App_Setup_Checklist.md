@@ -124,7 +124,9 @@ the rows RLS allows.
         manager/admin. Hide tabs a role cannot use — the database still enforces it. Alerts is a
         route but not a tab (the bell on Home opens it).
       - `(app)/home.tsx`, `jobs/index.tsx`, `jobs/[id].tsx`, `schedule.tsx`, `cash.tsx`,
-        `notifications.tsx`, `profile.tsx`
+        `profile.tsx`
+      - `notifications.tsx` at the root of `src/app/` (outside `(app)`) so it is not a tab but is
+        still guarded by the signed-in stack; `href: null` on a tab route broke navigation.
       Add `Stack.Screen` titles/headers from the token header height, and keep typed routes.
 - [x] **B7. Supabase client + session**: `src/lib/supabase.ts` (React Native storage adapter on
       AsyncStorage, `detectSessionInUrl: false`, `autoRefreshToken: true`), auth store, session
@@ -134,10 +136,13 @@ the rows RLS allows.
       `role_capabilities` (fallback to a static map while the tables are empty), plus a
       `<RequireCapability>` guard for screens/buttons (assign job, confirm booking, enter job cost).
       Do not duplicate role logic per screen.
-- [ ] **B9. Offline and caching foundation** (§9, stack table): TanStack Query with AsyncStorage
+- [~] **B9. Offline and caching foundation** (§9, stack table): TanStack Query with AsyncStorage
       persistence, NetInfo-driven online banner and refetch, Zustand-persist queue for technician
       actions (status change, photo upload, cash record) replayed on reconnect, with an explicit
-      conflict rule (server timestamp wins; failed items surface in a "pending" list).
+      conflict rule (server timestamp wins; failed items surface in a "pending" list). **Done:**
+      AsyncStorage action queue (`src/lib/action-queue.ts`) for status changes and cash, replayed by
+      `SyncManager` on startup and reconnect alongside the existing photo queue. **Open:** TanStack
+      Query AsyncStorage persistence, a visible "pending" list and the conflict rule.
 - [x] **B10. Component kit** — first pass: Screen, Button, TextField, RequireCapability; Card/Chip/
       Sheet/EmptyState/Skeleton/Toast arrive with the screens that need them. Icons via
       `lucide-react-native` (tabs use Briefcase/CalendarDays/Banknote/Bell/UserRound).
@@ -191,19 +196,21 @@ and booking queries all hit `192.168.1.196:54321` with 200s and land on `/jobs`.
 ## C. Technician screens (first usable slice)
 
 - [x] **C1. Jobs list** — today/upcoming segments, lead vs helper chip, time window, service and
-      area, status pill, pull-to-refresh, empty and error states, offline banner.
+      area, status pill, pull-to-refresh, empty and error states, offline banner, page title at the
+      app-1 offset (`insets.top + space[4]`, 16px gutter, `text.h1` 26/34, muted subtitle at 54px).
 - [ ] **C2. Job detail** — customer display name, address with map link, phone (tap to call, no
       numbers shown to customers), service + form answers snapshot (`booking_form_snapshots`),
       crew list with lead marked, notes, and the action bar.
-- [~] **C3. Job flow** — `on the way` → `in progress` → `complete` via the §11 RPCs, each writing
+- [x] **C3. Job flow** — `on the way` → `in progress` → `complete` via the §11 RPCs, each writing
       `job_assignments.started_at/completed_at` and `booking_status_history`; completion asks for
-      before/after photos (block only if the service requires them) and billed hours for hourly
-      services. **Status flow and hourly billed-hours prompt are done; the photo gate lands with C4.**
+      before/after photos (soft gate: asks once, proceeds without) and billed hours for hourly
+      services. Offline status taps queue and replay on reconnect.
 - [x] **C4. Photos** — camera + library, JPEG at quality 0.6, upload to the private `job-photos`
       bucket as `booking_id/kind/uuid.jpg`, upload state, retry from the offline queue.
-- [ ] **C5. Cash** — record cash collected on a job (`payments` with `method: cash`,
+- [x] **C5. Cash** — record cash collected on a job (`payments` with `method: cash`,
       `recorded_by`), show today's total, and the handover screen that creates `cash_handovers`
-      (append-only).
+      (append-only). Job detail has a cash card (`record_cash_payment`, queued offline); `/cash`
+      lists today's cash payments with a technician “Hand over cash” form (`record_cash_handover`).
 - [ ] **C6. Schedule** — weekly pattern + date overrides read-only for the technician; show the
       next assigned block and the daily hours cap for their trade.
 - [ ] **C7. Notifications + profile** — in-app list from `notifications`, read state, sign out,
@@ -213,17 +220,23 @@ and booking queries all hit `192.168.1.196:54321` with 200s and land on `/jobs`.
 
 **Evidence (C1, C4, web build):** Home is the first tab and uses the client-app shape — green
 LinearGradient hero with greeting, bell (unread badge) and avatar, an overlapping stats card, a
-next-job card, today's work and quick actions. The tab bar is the client's `BrandTabBar` ported to
-`src/components/navigation/brand-tab-bar.tsx` (white surface, hairline top border, 48×30 yellow
-active pill, 22px icons, `max(inset, 8)` bottom padding) so app-2 sits at the same height and rhythm as app-1; Alerts is
-filtered out of the bar but still reachable from the bell. Jobs list has Today/Upcoming
+next-job card, today's work and quick actions. The tab bar is an exact port of app-1's `BrandTabBar`
+in `src/components/navigation/brand-tab-bar.tsx` (white surface, hairline top border, no side
+margins, 48×30 yellow active pill, 22px icons, `max(inset, 8)` bottom padding) — measured against
+app-1 in the same 500×805 web viewport, both bars sit at `left 0 → 805 bottom`, 65px tall, radius 0,
+1px top border. Tabs are Home·Jobs·Schedule·Cash·Profile; Alerts is not a tab and opens from the
+bell. The bell/avatar order and sizes match app-1 (avatar 36×36 before the bell), and page headers
+use the app-1 profile/services metrics — title at `insets.top + space[4]`, 16px gutter, `text.h1`
+26/34 Poppins 700, muted `text.body` subtitle 4px below. Jobs list has Today/Upcoming
 segments with counts, lead/helper chips and the shared `OfflineBanner` (`@react-native-community/netinfo`).
 Job detail's photo card takes before/after pictures with `expo-image-picker`, uploads to the private
 `job-photos` storage and inserts the `job_photos` row, and keeps failures in an
 AsyncStorage queue (`src/lib/photos.ts`) with a pending counter and one-tap retry; completing a job
-with no after photo asks once before proceeding. Driven on the dev server as `tech1@`: sign-in →
-`/home` with the hero and 5 tabs, bell → `/notifications`; `npx tsc --noEmit` and `npx eslint src`
-pass. Camera and native photo picking still need a device pass.
+with no after photo asks once before proceeding. Driven on the dev server as `tech1@` in a fresh browser profile: sign-in →
+`/home` with the hero and 5 tabs, bell → `/notifications`; home hero text reproduces app-1 exactly
+("Hello," 14/20 at 16,12 · name 20/28 at 16,32), and `/jobs` shows the title at 16,16 in 26/34 with
+the subtitle at 16,54. `npx tsc --noEmit` and `npx eslint src` pass. Camera and native photo picking
+still need a device pass.
 
 **Evidence (C3, web build):** `jobs/[id]` shows a sticky action bar driven by the booking status
 plus the technician's own assignment: `scheduled` → **On the way** (`set_booking_on_the_way`),
@@ -234,8 +247,14 @@ Driven end to end on the exported web build against the local stack as `tech1@`:
 Scheduled → On The Way → In Progress → (billed `2` hours) Completed, with
 `bookings.billed_hours = 2.00`, matching `booking_status_history` rows and
 `job_assignments.started_at/completed_at`; demo state restored afterwards. `npx tsc --noEmit` and
-`npx eslint src` pass. Still open in C3: the before/after **photo gate** (C4) and RPC failure copy
-(only an inline error today).
+`npx eslint src` pass. The before/after photo gate is a soft prompt (asks once, completes without).
+Still open in C3: RPC failure copy (only an inline error today).
+
+**Evidence (C5, web build):** job detail has a cash card that calls `record_cash_payment` and queues
+the amount offline; `/cash` shows today's total, the payments list and a “Hand over cash” form that
+calls `record_cash_handover`. Verified on the dev server as `tech1@`: recorded UGX 5,000 on
+`GBX-DUE1` → a `payments` row with `method = cash` and the chip flipped to “paid”; test row deleted
+afterwards.
 
 **Done when:** a technician can go from sign-in to a completed job with photos and cash recorded
 entirely against the local stack, and the same flow survives airplane mode + reconnect.
@@ -257,6 +276,9 @@ entirely against the local stack, and the same flow survives airplane mode + rec
       `--r-btn 14px`), and align the shared components (buttons, chips, KPI cards, tables, drawers,
       empty states, dialogs) with the client kit: same radii, shadow, 1px `--border`, Inter body
       text, Poppins headings. Add a `src/ui/` layer only for components used by two or more pages.
+      **Done:** typography matches the client — `index.html` loads Inter 400/500/600 and Poppins
+      400–700; `h1` 26/34 Poppins 700, `h2` 20/28 Poppins 600, `h3` 17/24 Poppins 600, `.eyebrow`
+      12/16, `.btn` Inter 13/600. **Open:** chips/cards/tables/drawers still use the old spacing.
       **First pass done:** the sidebar's active item is now the client-app yellow pill (dark green
       text, the badge inverts on it) instead of a translucent white block, and Overview opens with a
       `.page-hero` band — green gradient, white Poppins heading, yellow primary CTA and a four-up

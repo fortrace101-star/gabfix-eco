@@ -148,6 +148,14 @@ export default function HomeScreen() {
             <View style={styles.heroActions}>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={`Account menu, signed in as ${displayName}`}
+                onPress={() => router.push('/profile')}
+                hitSlop={8}
+                style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
                 accessibilityLabel={
                   data?.unread ? `Alerts, ${data.unread} unread` : 'Alerts'
                 }
@@ -162,14 +170,6 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 ) : null}
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Account menu, signed in as ${displayName}`}
-                onPress={() => router.push('/profile')}
-                hitSlop={8}
-                style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}>
-                <Text style={styles.avatarText}>{initials}</Text>
               </Pressable>
             </View>
           </View>
@@ -364,15 +364,15 @@ const styles = StyleSheet.create({
   },
   bellBadgeText: { fontFamily: font.bodySemi, fontSize: 10, lineHeight: 12, color: colors.green900 },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
     backgroundColor: colors.yellow500,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPressed: { opacity: 0.75 },
-  avatarText: { fontFamily: font.poppinsSemi, fontSize: 14, lineHeight: 20, color: colors.green900 },
+  avatarText: { fontFamily: font.poppinsSemi, fontSize: 13, lineHeight: 18, color: colors.green900 },
   areaPill: {
     alignSelf: 'flex-start',
     height: 32,

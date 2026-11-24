@@ -1,7 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import {
   Banknote,
-  Bell,
   Briefcase,
   CalendarDays,
   House,
@@ -12,15 +11,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, font, radius, shadow, size, space } from '@/theme';
 
-/** Routes that stay reachable (the bell on Home) but never take a slot in the bar. */
-const HIDDEN_TABS = new Set(['notifications']);
-
 const tabIcons: Record<string, LucideIcon> = {
   home: House,
   jobs: Briefcase,
   schedule: CalendarDays,
   cash: Banknote,
-  notifications: Bell,
   profile: UserRound,
 };
 
@@ -39,7 +34,6 @@ export function BrandTabBar({
   return (
     <View role="tablist" style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space[2]) }]}>
       {state.routes.map((route, index) => {
-        if (HIDDEN_TABS.has(route.name)) return null;
         const focused = state.index === index;
         const options = descriptors[route.key].options;
         const label = typeof options.title === 'string' ? options.title : route.name;

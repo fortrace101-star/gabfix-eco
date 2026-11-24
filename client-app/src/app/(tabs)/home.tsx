@@ -358,6 +358,17 @@ export default function HomeTab() {
             <View style={styles.heroActions}>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={`Account menu, signed in as ${displayName}`}
+                accessibilityHint="Opens account options"
+                hitSlop={8}
+                onPress={() => setMenuOpen(true)}
+                style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}>
+                <Text style={styles.avatarText} maxFontSizeMultiplier={1.2}>
+                  {initials}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
                 accessibilityLabel={
                   unreadNotifications > 0
                     ? `Notifications, ${unreadNotifications} unread`
@@ -377,17 +388,6 @@ export default function HomeTab() {
                     </Text>
                   </View>
                 ) : null}
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Account menu, signed in as ${displayName}`}
-                accessibilityHint="Opens account options"
-                hitSlop={8}
-                onPress={() => setMenuOpen(true)}
-                style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}>
-                <Text style={styles.avatarText} maxFontSizeMultiplier={1.2}>
-                  {initials}
-                </Text>
               </Pressable>
             </View>
           </View>
@@ -1184,8 +1184,8 @@ const styles = StyleSheet.create({
     color: colors.green900,
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
     backgroundColor: colors.yellow500,
     alignItems: 'center',
@@ -1194,8 +1194,8 @@ const styles = StyleSheet.create({
   avatarPressed: { opacity: 0.75 },
   avatarText: {
     fontFamily: font.poppinsSemi,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.green900,
   },
   areaPill: {

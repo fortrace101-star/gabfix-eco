@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SyncManager } from '@/components/sync-manager';
 import { AuthProvider, useAuth } from '@/store/auth';
 import { colors } from '@/theme';
 
@@ -39,6 +40,7 @@ function RootNavigator() {
       <Stack.Screen name="index" />
       <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="(app)" />
+        <Stack.Screen name="notifications" />
       </Stack.Protected>
       <Stack.Protected guard={status === 'signedOut'}>
         <Stack.Screen name="(auth)" />
@@ -67,6 +69,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <StatusBar style="dark" />
+            <SyncManager />
             <RootNavigator />
           </AuthProvider>
         </QueryClientProvider>

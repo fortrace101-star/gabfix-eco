@@ -49,8 +49,6 @@ export default function AppLayout() {
         options={{ title: 'Schedule', href: visible('schedule') ? undefined : null }}
       />
       <Tabs.Screen name="cash" options={{ title: 'Cash', href: visible('cash') ? undefined : null }} />
-      {/* Alerts are reached from the bell on Home; BrandTabBar keeps this route out of the bar. */}
-      <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', href: visible('profile') ? undefined : null }}

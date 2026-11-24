@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, Phone } from 'lucide-react-native';
+import { ArrowLeft, Banknote, MapPin, Phone } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { JobPhotos } from '@/components/job-photos';
+import { isOfflineError, queueAction } from '@/lib/action-queue';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
@@ -41,6 +42,7 @@ type JobDetail = {
     services: { name: string; description: string | null; pricing_type: string } | null;
   }[];
   job_assignments: { crew_role: string; status: string; technician_id: string }[];
+  payments: { amount: number; method: string; status: string; paid_at: string | null }[];
   booking_status_history: { from_status: string | null; to_status: string; changed_at: string }[];
 };
 
@@ -48,7 +50,7 @@ async function fetchJob(id: string): Promise<JobDetail> {
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, reference, status, source, scheduled_start, scheduled_end, total_price, billed_hours, customer_name, customer_phone, notes, addresses(line1, line2, area, notes), booking_items(quantity, price, services(name, description, pricing_type)), job_assignments(crew_role, status, technician_id), booking_status_history(from_status, to_status, changed_at)',
+      'id, reference, status, source, scheduled_start, scheduled_end, total_price, billed_hours, customer_name, customer_phone, notes, addresses(line1, line2, area, notes), booking_items(quantity, price, services(name, description, pricing_type)), job_assignments(crew_role, status, technician_id), payments(amount, method, status, paid_at), booking_status_history(from_status, to_status, changed_at)',
     )
     .eq('id', id)
     .single();
@@ -78,6 +80,7 @@ export default function JobDetailScreen() {
   const { profile } = useAuth();
   const [finishing, setFinishing] = useState(false);
   const [hours, setHours] = useState('');
+  const [cash, setCash] = useState('');
 
   const { data, error, isLoading } = useQuery({
     queryKey: ['job', id],
@@ -104,10 +107,69 @@ export default function JobDetailScreen() {
         queryClient.invalidateQueries({ queryKey: ['jobs'] }),
       ]);
     },
-    onError: (mutationError) => {
+    onError: async (mutationError, variables) => {
+      if (isOfflineError(mutationError.message)) {
+        await queueAction({
+          kind: 'rpc',
+          name: ACTION_RPCS[variables.action],
+          params: {
+            p_booking: id,
+            ...(variables.billedHours != null ? { p_billed_hours: variables.billedHours } : {}),
+          },
+          label: `${ACTION_LABELS[variables.action]} · ${data?.reference ?? id}`,
+        });
+        setFinishing(false);
+        setHours('');
+        Alert.alert(
+          'Saved on this device',
+          'You are offline. The status change will sync automatically when the connection is back.',
+        );
+        return;
+      }
       Alert.alert('Could not update the job', mutationError.message);
     },
   });
+
+  const cashMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      const { error: rpcError } = await supabase.rpc('record_cash_payment', {
+        p_booking: id,
+        p_amount: amount,
+      });
+      if (rpcError) throw new Error(rpcError.message);
+      return amount;
+    },
+    onSuccess: async () => {
+      setCash('');
+      await queryClient.invalidateQueries({ queryKey: ['job', id] });
+      await queryClient.invalidateQueries({ queryKey: ['cash'] });
+    },
+    onError: async (mutationError, amount) => {
+      if (isOfflineError(mutationError.message)) {
+        await queueAction({
+          kind: 'cash',
+          params: { p_booking: id, p_amount: amount },
+          label: `Cash · ${data?.reference ?? id}`,
+        });
+        setCash('');
+        Alert.alert(
+          'Cash saved on this device',
+          'You are offline. The payment will be recorded when the connection is back.',
+        );
+        return;
+      }
+      Alert.alert('Could not record the cash', mutationError.message);
+    },
+  });
+
+  const recordCash = () => {
+    const parsed = Number(cash.replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      Alert.alert('Check the amount', 'Enter a positive amount of cash received.');
+      return;
+    }
+    cashMutation.mutate(parsed);
+  };
 
   const myAssignment = data?.job_assignments.find((row) => row.technician_id === profile?.id);
   const hourly = data?.booking_items.some((line) => line.services?.pricing_type === 'hourly');
@@ -236,6 +298,39 @@ export default function JobDetailScreen() {
             {data.notes ? <Text style={styles.notes}>{data.notes}</Text> : null}
           </View>
 
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Cash</Text>
+            {data.payments.filter((row) => row.method === 'cash').length ? (
+              data.payments
+                .filter((row) => row.method === 'cash')
+                .map((row, index) => (
+                  <View key={`cash-${index}`} style={styles.cashRow}>
+                    <Text style={styles.body}>{formatMoney(Number(row.amount))}</Text>
+                    <Text style={styles.caption}>{row.status}</Text>
+                  </View>
+                ))
+            ) : (
+              <Text style={styles.caption}>No cash recorded on this job yet.</Text>
+            )}
+            <View style={styles.cashRow}>
+              <Banknote size={16} color={colors.green700} />
+              <Text style={styles.caption}>Record what the customer paid in cash.</Text>
+            </View>
+            <TextField
+              label="Cash received"
+              value={cash}
+              onChangeText={setCash}
+              keyboardType="decimal-pad"
+              placeholder="e.g. 45000"
+            />
+            <Button
+              label="Record cash"
+              variant="secondary"
+              onPress={recordCash}
+              loading={cashMutation.isPending}
+            />
+          </View>
+
           <JobPhotos bookingId={data.id} />
 
           <View style={styles.card}>
@@ -348,6 +443,7 @@ const styles = StyleSheet.create({
   caption: { ...text.caption },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   link: { ...text.bodyM, color: colors.green500 },
+  cashRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] },
   line: { gap: 2 },
   notes: { ...text.body, backgroundColor: colors.bg, borderRadius: radius.input, padding: space[3], marginTop: space[1] },
   errorTitle: { ...text.h3 },

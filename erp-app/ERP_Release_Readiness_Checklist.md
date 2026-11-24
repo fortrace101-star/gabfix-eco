@@ -6,7 +6,7 @@ Android APK. This is the release gate that follows the build-out in
 
 Legend: `[x]` done and verified · `[~]` done on web/build only, or partially done · `[ ]` open.
 
-Last updated: 2026-11-24.
+Last updated: 2026-11-24 (next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13; no new ERP release verification this session).
 
 ---
 

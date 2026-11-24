@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-24 by engineering (Codebuff session; the Phase 1 mock API + `check:style` gate + gallery sign-off closed Phase 1, the D25 07-only phone rule was applied in `client-app`, `erp-app` and `admin-web`, D6 fixed pricing and D9 inspection request stages landed, and this file was repaired from its parent commit after being committed as 227 KB of NUL bytes) |
+| **Last updated** | 2026-11-24 by engineering (Codebuff session; Phase 1 closed, D25/D6/D9 code gaps landed, catalogue/services client reads cut over to Hono behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback, `GET /availability` added and smoke-tested locally, and next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13; no device/staging verification claimed) |
 | **Expo SDK version** | 58.0.26 (Expo Router 58.0.32 · React Native 0.88.1 · React 19.3.0) |
 | **Guidelines versions** | Part 1 v1.3 · Part 2 v2.0 · Plan v1.0 · Page_refactor v1.0 |
 | **Current phase** | Phase 6 (Supporting and Account) in progress; Phase 7 web admin built alongside it; P4 to P14 built (P13/P14 simulated locally), P15a–P15c, P16–P27g built locally; all 40 page builds complete |
@@ -69,6 +69,7 @@ Report this figure at the end of every session that changes the build. It is a w
 | 2026-11-23 | E6 wallet search & filters, G4 verified, universal draft exit (12.1/C2) | **66%** | +0 | Transaction search, Filters drawer, result count and clear-filters on P27b backed by `queryTransactions` with 8 tests; `?focus=balance-due` ring confirmed in the browser; `useDraftGuard` on all six booking steps with `dismissTo` for Save draft, Discard and the guard. Typecheck, lint and 13 suites / 105 tests pass; no device pass |
 | 2026-11-23 | E7 closed: every sheet on the shared `BottomSheet` | **66%** | +0 | The P24 address action menu and its delete confirm, `CancelSheet`, `RescheduleSheet`, `PlanSheet` (menu/pause/end/done) and `MediaSheet` (list/picker) dropped their hand-rolled `Modal` + backdrop + handle chrome for the shared shell, which brings the pinned header/close, safe-area inset and scrolling body with it. Typecheck and lint pass; a browser pass opened each sheet at 390 × 844 and found no console errors. No device pass |
 | 2026-11-24 | Phase 1 closed, D6/D9/D25 code gaps, mock API | **69%** | +3 | Mock API server (auth/discovery/availability/bookings/tracking), `check:style` CI gate, complete `/dev` gallery verified at 360/390/430 dp, D25 07-only phone rule copied to `erp-app`/`admin-web`, D6 fixed pricing, D9 inspection request stages. Typecheck, lint, 15 suites / 112 tests and both staff-app typechecks pass; no device or backend pass |
+| 2026-11-24 | Catalogue/availability cutover + next-session plan | **69%** | +0 | Client categories/services/detail read from Hono when `EXPO_PUBLIC_API_BASE_URL` is set (bundled fallback kept); `GET /availability` added locally and smoke-tested. No device/staging verification. Next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13 and mirrored across progress docs. |
 
 ### Next Up Checklist
 

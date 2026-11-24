@@ -17,6 +17,8 @@ architecture, the architecture wins (architecture §13, documentation rule).
 | **Companion docs** | `Technician_App_Setup_Checklist.md` (build backlog), `gabfix-eco-progress.md` (ecosystem status) |
 | **Legend** | ✅ aligned · 🟨 edit required · ⬜ not written · 🚫 blocked by an open decision |
 
+**Progress note (2026-11-24):** Client catalogue/services/detail reads are API-backed behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback; `GET /availability` is live locally in Hono. Next-session plan is recorded in `../Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13; progress mirrored across plan documents for redundancy.
+
 ---
 
 ## 1. The four apps and the one backend

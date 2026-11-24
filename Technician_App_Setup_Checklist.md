@@ -13,6 +13,7 @@ Legend: `[x]` done and verified · `[ ]` open · `[~]` partially done in the exi
 
 ## 0. Current state (checked 2026-11-24)
 
+- [x] **Hono client API and catalogue/availability cutover (local, 2026-11-24).** `backend/supabase/functions/api/index.ts` now serves health/profile/catalogue/services/service-categories/search/availability/bookings/quotes/support/notifications. `client-app` reads categories/services/detail through API-backed hooks behind `EXPO_PUBLIC_API_BASE_URL`, with bundled config as offline fallback. Local smoke checks passed for availability; booking creation does not yet enforce availability/capacity server-side. Next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13.
 - [x] **admin-web import error fixed.** The reported failure
       `Failed to resolve import "@mobile/config/services" from "src/pages/Services.tsx"` was a path
       bug, not a missing module. `admin-web/vite.config.ts` aliased `@mobile` to

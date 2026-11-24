@@ -6,6 +6,8 @@
 
 **Created:** 2026-11-24. **Status:** code-level, from the working tree; no device, EAS, production-backend or store verification is claimed.
 
+**Progress note (2026-11-24):** Client catalogue/service reads are cut over to Hono behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback; `GET /availability` is implemented and smoke-tested locally. The next-session plan is recorded in `../Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13 and mirrored across ecosystem plan/progress documents.
+
 ---
 
 ## 0. How this document works

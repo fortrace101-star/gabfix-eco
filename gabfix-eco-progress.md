@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Last updated** | 2026-11-24 |
-| **Session** | Client-app Phase 1 closed (mock API, style gate, gallery sign-off) and the D6 fixed-pricing / D9 inspection / D25 phone code gaps landed across `client-app`, `erp-app` and `admin-web`; setup checklist 24/42 |
+| **Session** | Client catalogue/services now read from Hono when API base URL is set (bundled fallback retained); `GET /availability` added and smoke-tested locally; next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13 |
 
 **Living document.** Ecosystem-level view across the three apps, the backend and the architecture
 decisions. Updated at the end of every session that changes more than one area, and whenever a
@@ -11,7 +11,7 @@ milestone on the setup checklist closes.
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-24 (client-app Phase 1 closed, D6/D9/D25 code gaps across three apps, ERP checklist linked) |
+| **Last updated** | 2026-11-24 (catalogue/availability API cutover local; next-session plan in authoritative plan §13) |
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |

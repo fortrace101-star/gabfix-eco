@@ -3,6 +3,7 @@
 **Derived from:** `Gabfix_App_Ui_1.md` (design guide v1.3) and `Gabfix_App_Ui_2.md` (implementation specs v2.0)
 **Stack:** React Native + Expo (TypeScript, Expo Router), iOS and Android
 **Status:** Draft v1.0 | **Owner:** Product and design lead
+**Progress note (2026-11-24):** Catalogue/services client reads are now API-backed behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback; `GET /availability` exists locally in Hono and was smoke-tested. Next-session plan is recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13. No device/staging verification claimed.
 
 ---
 

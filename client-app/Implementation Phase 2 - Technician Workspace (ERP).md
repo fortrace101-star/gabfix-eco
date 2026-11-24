@@ -1,8 +1,23 @@
 # Implementation Phase 2 - Technician Workspace (embedded in the ERP)
 
-The field-staff side of Gabfix: how a cleaner or technician sees jobs, travels, works, finishes, confirms cash and shares location, **built inside the existing ERP (`admin/`) rather than as a separate system**. It answers Q44 of the Live Tracking Addendum (LT) and extends S4 (backend), S5 (release) and the Dashboard Addendum. It repeats none of them. Written 2026-11-21 against the repo snapshot; nothing was compiled or run, and external APIs marked **confirm** must be checked in the step that uses them.
+The field-staff side of Gabfix: how a cleaner or technician sees jobs, travels, works, finishes, confirms cash and shares location. It answers Q44 of the Live Tracking Addendum (LT) and extends S4 (backend), S5 (release) and the Dashboard Addendum. It repeats none of them. Written 2026-11-21 against the repo snapshot; nothing was compiled or run, and external APIs marked **confirm** must be checked in the step that uses them.
 
-"Technician" below means both cleaners and technicians (S4 `cleaners.kind`).
+> **Delivery update (2026-11-24).** The original premise — a technician shell **inside the existing
+> web ERP (`admin/`)** — is superseded by `Full_App_Architecture_2.md` §1/D7: there is **one Expo
+> ERP app for all staff** (`erp-app/`), and `admin-web/` is the desk surface for admin, manager and
+> customer relations. The workflows below remain the specification; the delivery surface splits:
+>
+> | This document's area | Delivered in |
+> |---|---|
+> | Job list, job detail, accept/start/complete, photos, cash confirmation, technician schedule and profile | `erp-app/` (role-filtered tabs) |
+> | Dispatch/assignment, cash handover confirmation, dispute resolution, customer and booking management | `admin-web/` (manager/admin) |
+> | Guest job-complete page and receipt links (Sections 17–18) | Backend/public route; D15 and D12 are still open |
+>
+> The build status, evidence and open items live in `Technician_App_Setup_Checklist.md` and
+> `gabfix-eco-progress.md`, not here. The client-document alignment checklist is
+> `Client_App_Ecosystem_Alignment.md`.
+
+"Technician" below means both cleaners and technicians (`technician_profiles.kind` in the current schema; S4 called the table `cleaners`).
 
 ---
 

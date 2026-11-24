@@ -1,5 +1,10 @@
 # Implementation Phase 2 - Index and coverage map
 
+> **Superseded — historical only.** Use `Implementation Phase 2 - Index (2).md`, which adds the
+> Dashboard Addendum, the Live Tracking Addendum, the Technician Workspace and the current reading
+> order. `Full_App_Architecture_2.md` is the authority for decisions D1–D25, and
+> `Client_App_Ecosystem_Alignment.md` lists the cross-app edits still owed in this folder.
+
 One page that shows **every request you have made, and which guide section specifies it**. It adds no new instructions. Read it first, then open the section it points to. Written 2026-11-21. Section numbers were taken from the headings of the uploaded files; nothing was compiled or run.
 
 **Rule for conflicts:** Stage 3 corrects Stage 1 (S3 Section 2, C1 to C11), and Stage 3 Section 5 replaces Stage 1's order of work. Where S1, S2 and S3 disagree, the later stage wins.

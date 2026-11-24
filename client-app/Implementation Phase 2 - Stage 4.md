@@ -4,6 +4,24 @@ Builds on **Stage 1 (S1)**, **Stage 2 (S2)** and **Stage 3 (S3)**. It adds **no 
 
 > **Status.** Written 2026-11-20. Nothing here was compiled or run: no `node_modules`, no network, no Supabase project was available. SQL and Edge Function code are **unverified**. Supabase, Expo and Firebase APIs marked **confirm** must be checked against their current docs in the step that uses them.
 
+> **Authority update (2026-11-24).** This document predates decisions D1, D3, D9 and D10. Its
+> **mock inventory (§1)** and **verification rows (§7)** are still the client-side cutover list. These
+> parts are superseded by `Full_App_Architecture_2.md` and must not be copied into new work:
+>
+> | This document says | Architecture now says |
+> |---|---|
+> | The client connects to Supabase tables directly | The client calls **one Hono `api` function** and holds no Supabase client (D1); Hono uses Supabase server-side |
+> | `/auth/login` wraps Supabase Auth; `/auth/2fa/*`; `sessions` table | Password sign-in at launch (D3); phone-code verification and 2FA are later; Supabase Auth owns sessions |
+> | `cleaners` | `technician_profiles`, `profiles`, `skills`, `technician_skills`, `technician_availability` |
+> | `service_categories` | `categories` |
+> | A mutable `form_schema` on the service | `service_form_definitions` plus `booking_form_snapshots` (D4) |
+> | Assignment mock replaced by admin/dispatch | Dispatch in `admin-web/`; the technician's accept/start/complete actions in `erp-app/` (D7/D9) |
+> | Cash confirmed in "the partner app" | `record_cash_payment` in `erp-app/`, with `cash_handovers` and `cash_disputes` (D10) |
+>
+> The schema, RLS, RPCs and storage buckets now live in `backend/supabase/migrations/` (24 tables,
+> seeded locally). The Hono `api` function, push sender and the cutover itself are **not built**. The
+> per-document checklist and title-to-table map are in `Client_App_Ecosystem_Alignment.md`.
+
 **Precondition (S1 D15):** this stage starts only after the front end is finished and `npx tsc --noEmit` passes on a clean install (S3 8.3 item 3).
 
 ---

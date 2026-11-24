@@ -10,6 +10,14 @@
 
 **Whole-system architecture and the end-to-end job workflow are in Section 14** (customer app, technician app, console PWA, Express and the Supabase backend, with the integration phases after the customer front end).
 
+> **Superseded framing (2026-11-24).** The three-way split above is now: the customer app is
+> `client-app/`, the technician app is the staff app **`erp-app/`** (one Expo app for every staff
+> role, not a technician-only app), and the admin console is **`admin-web/`** (React + Vite, not an
+> installable PWA inside `admin/`). The **workflow, status machine, ordered offline queue, version
+> gate and customer-contact rule in this document remain the design base** for `erp-app/`; the
+> "console PWA" wording in Section 14 is historical. `Full_App_Architecture_2.md` §1/D7 is the
+> authority, and the build status is in `Technician_App_Setup_Checklist.md`.
+
 This document **replaces** the web technician workspace as the main route. It supersedes Technician Workspace (TW) Sections 2, 3, 5, 8 and 11 and the technician parts of Sections 12 to 14. Everything else in TW stands: job lifecycle (TW 7), data model (TW 4), ERP-side dispatch and cash (TW 6), `area` removal (TW 9), security (TW 10), guest job-complete page and Express note (TW 17 and 18). Written 2026-11-21; nothing was compiled or run, and items marked **confirm** must be checked against current docs when built.
 
 ---

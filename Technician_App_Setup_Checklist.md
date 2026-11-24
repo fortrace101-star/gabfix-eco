@@ -11,7 +11,7 @@ Legend: `[x]` done and verified · `[ ]` open · `[~]` partially done in the exi
 
 ---
 
-## 0. Current state (checked 2026-11-23)
+## 0. Current state (checked 2026-11-24)
 
 - [x] **admin-web import error fixed.** The reported failure
       `Failed to resolve import "@mobile/config/services" from "src/pages/Services.tsx"` was a path
@@ -27,7 +27,8 @@ Legend: `[x]` done and verified · `[ ]` open · `[~]` partially done in the exi
       Verified: `npx supabase db reset` applied all five migrations and the seed; sign-in with the
       anon key, RLS-scoped reads and the job RPCs were exercised over the REST API (see A1–A9).
 - [~] **`erp-app/` now has a real foundation**: client-app theme tokens, fonts, auth gate,
-      role-filtered tabs and live Supabase reads for jobs/schedule/cash/alerts/profile. Screens are
+      role-filtered tabs, live Supabase reads for jobs/schedule/cash/alerts/profile, action replay and
+      Query cache persistence with a Profile "Waiting to sync" list. Screens are
       functional but not yet designed to the client-app page standard (track C), and no device or
       simulator sign-in has been done.
 - [~] **`admin-web/` is a working demo on mock data**: `src/data.ts` + `src/lib/auth.ts` with two
@@ -136,13 +137,16 @@ the rows RLS allows.
       `role_capabilities` (fallback to a static map while the tables are empty), plus a
       `<RequireCapability>` guard for screens/buttons (assign job, confirm booking, enter job cost).
       Do not duplicate role logic per screen.
-- [~] **B9. Offline and caching foundation** (§9, stack table): TanStack Query with AsyncStorage
+- [x] **B9. Offline and caching foundation** (§9, stack table): TanStack Query with AsyncStorage
       persistence, NetInfo-driven online banner and refetch, Zustand-persist queue for technician
       actions (status change, photo upload, cash record) replayed on reconnect, with an explicit
       conflict rule (server timestamp wins; failed items surface in a "pending" list). **Done:**
       AsyncStorage action queue (`src/lib/action-queue.ts`) for status changes and cash, replayed by
-      `SyncManager` on startup and reconnect alongside the existing photo queue. **Open:** TanStack
-      Query AsyncStorage persistence, a visible "pending" list and the conflict rule.
+      `SyncManager` on startup and reconnect alongside the existing photo queue; Query cache
+      persistence in `src/lib/query-persistence.ts` (restore before paint, debounced save, clear on
+      sign-out); a Profile "Waiting to sync" card listing pending actions with a manual Retry sync.
+      **Still open:** the conflict rule is still the simple default (server wins on the next read;
+      failed replay items remain visible) and push/B11 is separate.
 - [x] **B10. Component kit** — first pass: Screen, Button, TextField, RequireCapability; Card/Chip/
       Sheet/EmptyState/Skeleton/Toast arrive with the screens that need them. Icons via
       `lucide-react-native` (tabs use Briefcase/CalendarDays/Banknote/Bell/UserRound).
@@ -265,12 +269,18 @@ entirely against the local stack, and the same flow survives airplane mode + rec
 
 - [x] **D1. Fix the Vite import error** (see §0) — alias/`fs.allow`/tsconfig corrected, build and
       typecheck pass.
-- [ ] **D2. Supabase client + real auth**: add `@supabase/supabase-js`, `src/lib/supabase.ts`, and
+- [x] **D2. Supabase client + real auth**: add `@supabase/supabase-js`, `src/lib/supabase.ts`, and
       replace `src/lib/auth.ts` demo accounts with `signInWithPassword` against `profiles` (role
       lookup), keeping the demo accounts behind a `VITE_DEMO_AUTH` flag only until A6 is seeded.
-- [ ] **D3. Replace mock reads**: move the arrays in `src/data.ts` to queries
+      **Done:** `src/lib/supabase.ts` + `src/lib/auth.tsx` use Supabase Auth and `profiles` role/status;
+      role mapping `admin→admin`, `manager→operations`, `customer_relations→support`; support sees
+      Overview/Bookings/Payments/Customers only.
+- [~] **D3. Replace mock reads**: move the arrays in `src/data.ts` to queries
       (`bookings`, `payments`, `technician_profiles`, `customers`, `services`, `promos`), keep the
-      mock module behind the same interface so pages can be migrated one at a time.
+      mock module behind the same interface so pages can be migrated one at a time. **Done:** live
+      bookings, booking_items, job_assignments, addresses, profiles, technician_profiles, payments,
+      cash_handovers and cash_disputes. **Still mock:** promos, rate card, settings, notifications and
+      the static catalogue scaffolding where no table exists yet.
 - [~] **D4. Design-system alignment**: keep the existing CSS variables (they already match the
       client token values — `--green-500 #118E45`, `--yellow-500 #F7EB15`, `--r-card 20px`,
       `--r-btn 14px`), and align the shared components (buttons, chips, KPI cards, tables, drawers,
@@ -291,8 +301,12 @@ entirely against the local stack, and the same flow survives airplane mode + rec
 - [ ] **D6. Role gating in the UI** — Settings/invites/costs admin-only, confirm/cancel/assign
       manager-only, cancellation requests visible to manager, customer-relations read-and-create
       only. The RLS from A4 remains the real gate.
-- [ ] **D7. Verify** — `npm run build`, `npm run typecheck`, and a browser pass of the changed pages
-      against seeded data; fix console errors before calling it done.
+- [~] **D7. Verify** — `npm run build`, `npm run typecheck`, and a browser pass of the changed pages
+      against seeded data; fix console errors before calling it done. **Done:** `npm run typecheck` and
+      `npx vite build` pass; browser-verified at `http://localhost:5173` — admin sees the full nav and
+      live KPIs/bookings, support (`desk@gabfix.ug`) sees only Overview/Bookings/Payments/Customers, no
+      console errors on the checked pages. **Open:** a full page-by-page a11y/browser pass after the
+      remaining mock-to-live and design-alignment work.
 
 ---
 
@@ -332,8 +346,9 @@ entirely against the local stack, and the same flow survives airplane mode + rec
    and photos; defer laundry, sales leads and support tables until their screens exist.
 3. **B1–B8** (identity, tokens, fonts, routes, auth, capability gate).
 4. **C1–C4** (jobs list → detail → flow → photos) — the first demoable technician slice.
-5. **D2–D4** (admin-web real auth + queries + design alignment), then D5–D7.
-6. **B9–B11, C5–C8** (offline queue, push, cash, schedule) and **E1–E3**.
+5. **D3 tail + D4/D5–D7** (finish mock-to-live reads, design alignment, page pass, role gating and
+   verification) for `admin-web`.
+6. **B11, C2/C6–C8** (push, booking creation/confirmation, disputes, schedule) and **E1–E3**.
 
 Assumptions to confirm with the owner: the ERP app title and role-tab wording; whether the
 technician signs in with email/password at launch (D3 says password sign-in, invite codes are

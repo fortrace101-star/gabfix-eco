@@ -2,6 +2,14 @@
 
 Extends **S4** (backend) and **S5** (permissions, privacy) for one feature: showing the assigned cleaner or technician moving on a Google map on `/booking/[id]/track`. It adds no unrelated screens and repeats nothing from S1 to S5. Written 2026-11-21 against the repo snapshot. Nothing was compiled or run, and I did not check current Google or Expo docs, so every item marked **confirm** must be verified in the step that uses it.
 
+> **Ownership and status (2026-11-24).** D21 (live tracking) and D23 (staff GPS trail) are still
+> **open decisions**, so this addendum describes a provisional contract, not a settled one. The
+> customer-side polling contract is implemented; the position sender is **`erp-app/`**, not a browser
+> page and not `admin-web/`. Because a native app is the only trustworthy background-location source,
+> the "admin web page on the technician's phone" option below is a demo fallback only. D10 (cash)
+> and D9 (stages) already fix the status values this screen consumes. The cross-document status is
+> tracked in `Client_App_Ecosystem_Alignment.md`.
+
 ---
 
 ## 1. What already exists (checked in the repo)
@@ -89,7 +97,7 @@ There is no technician app in S1 to S5. Choose one (Q44, default **separate smal
 |---|---|
 | **Separate technician app (default)** | Own Expo project and store listing; sign-in for staff only; a "My jobs" list, a status button ("Start trip", "Arrived", "Complete"), and the location sender below |
 | Technician mode inside the customer app | Fewer builds but forces background-location permission and the Play declaration onto all customers; not recommended |
-| Admin web page on the technician's phone | Browser geolocation stops when the page is in the background; unsuitable for a drive |
+| A browser page on the technician's phone, including `admin-web` | Browser geolocation stops when the page is in the background; unsuitable for a drive. Demo only — the delivered sender is `erp-app/` (D23 open) |
 
 **Location sender rules (technician app):**
 

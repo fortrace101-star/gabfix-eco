@@ -1,5 +1,10 @@
 # Gabfix Ecosystem Progress
 
+| | |
+|---|---|
+| **Last updated** | 2026-11-24 |
+| **Session** | Client-app doc alignment to `Full_App_Architecture_2.md`; admin-web live Supabase auth/reads confirmed; ERP offline Query persistence + pending-sync list added; setup checklist 24/42 |
+
 **Living document.** Ecosystem-level view across the three apps, the backend and the architecture
 decisions. Updated at the end of every session that changes more than one area, and whenever a
 milestone on the setup checklist closes.
@@ -24,10 +29,10 @@ restate them.
 |---|---|---|---|---|
 | **Architecture decisions** | 25 numbered decisions (D1–D25) | **52%** (13/25) | 🟨 | Decided: D1–D10, D20, D24, D25. Open: D11–D19, D21–D23. Source: `Full_App_Architecture_2.md` |
 | **Client app** (`client-app/`) | Customer Expo app, 40 page builds | **66%** (65.9% weighted) | 🟨 | All 40 page builds exist and pass tsc/lint; 0 of 40 device-verified; 13 Jest suites / 105 tests pass. Source: its own progress doc |
-| **Admin web** (`admin-web/`) | React 19 + Vite 7 SPA for admin, manager, customer relations | **~20%** of its checklist (1.4/7) | 🟨 | All 10 pages built on mock data with demo sign-in; build + typecheck pass; DB types generated, but no Supabase client or real auth yet |
-| **ERP / technician app** (`erp-app/`) | Expo SDK 58 staff app, all roles, per-role screens | **~63%** (12/19 checklist items) | 🟨 | Foundation done: client-app tokens/fonts, auth gate, role-filtered tabs, live queries for jobs/schedule/cash/alerts/profile. The shell is now a measured match for app-1: same 65px flush tab bar, bell/avatar order, home hero offsets and 16px/26-34px page-title metrics; Alerts is no longer a tab. Jobs run On the way → Start → Complete with photos, cash on a job (`record_cash_payment`), a cash+handover screen, and an AsyncStorage action queue that replays status/cash on reconnect. Open: push, query persistence/pending list, native pass |
-| **Backend** (`backend/`) | Supabase local stack + migrations, seed, functions | **~70%** of M2 scope | 🟨 | 6 migrations, 24 tables, RLS everywhere, capabilities/RPCs, storage buckets, seed and "`npx supabase db reset` clean; Hono `api` function and laundry/leads/support tables still open |
-| **Setup checklist** | `Technician_App_Setup_Checklist.md` | **23/42 items** | 🟨 | A1–A10, B1–B8, B10, C1, C3 (photo gate live), C4, C5 and D1 closed; B9/B11, C2/C6–C8, D2+ and E/F open |
+| **Admin web** (`admin-web/`) | React 19 + Vite 7 SPA for admin, manager, customer relations | **~43%** of its checklist (3/7) | 🟨 | Supabase Auth, role mapping (admin/manager/customer_relations→support), live bookings/items/assignments/addresses/profiles/technicians/payments/handovers/disputes, client typography; promos/rate card/settings/notifications still mock; audit log, report export, browser a11y pass and deploy open |
+| **ERP / technician app** (`erp-app/`) | Expo SDK 58 staff app, all roles, per-role screens | **~68%** (13/19 checklist items) | 🟨 | Foundation done: client-app tokens/fonts, auth gate, role-filtered tabs, live queries for jobs/schedule/cash/alerts/profile. Shell matches app-1 (65px flush tab bar, bell/avatar order, home hero, 16px/26-34px page titles); Alerts is a hidden route, not a tab. Jobs run On the way → Start → Complete with photos, cash on a job (`record_cash_payment`), cash+handover screen, AsyncStorage action queue replaying status/cash on reconnect, and Query cache persistence with a Profile "Waiting to sync" list. Open: push (B11), native pass, inspection capture, sales screens |
+| **Backend** (`backend/`) | Supabase local stack + migrations, seed, functions | **~70%** of M2 scope | 🟨 | 6 migrations, 24 tables, RLS everywhere, capabilities/RPCs, storage buckets, seed and `npx supabase db reset` clean; Hono `api` function and laundry/leads/support tables still open |
+| **Setup checklist** | `Technician_App_Setup_Checklist.md` | **24/42 items** | 🟨 | A1–A10, B1–B9, B10, C1, C3 (photo gate live), C4, C5 and D1 closed; B11, C2/C6–C8, D2+ and E/F open |
 
 **Reading the numbers:** the 66% client-app figure is a weighted score across five tracks, where
 "screen builds" (45% weight) is already 100% but device acceptance (15%) is 25% and backend contracts

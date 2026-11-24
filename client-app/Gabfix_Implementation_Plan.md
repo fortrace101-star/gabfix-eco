@@ -71,7 +71,30 @@ Expo publishes official guidance on building native-feeling interfaces (the **Ex
 | Payment model (MTN, Airtel, Visa, Cash, deposits) | Part 2, Section 3 |
 | Dummy pricing, 18% VAT, deposit and late-fee rules | Part 1, 15.12 and Part 2, Section 0 |
 
-**Out of scope for this plan:** backend services, the cleaner (partner) app and dark mode. The plan lists the **backend dependencies** the UI needs, so they can be scheduled in parallel.
+**Out of scope for this plan:** backend services, the staff apps and dark mode. This plan covers the customer app only; the backend, `erp-app/` and `admin-web/` have their own backlogs and are delivered in their own folders, not as part of `client-app/`. The plan lists the **backend dependencies** the UI needs, so they can be scheduled in parallel.
+
+### 2.1 Ecosystem context and document map
+
+All four applications share one Supabase backend but not each other's code (architecture §1–§2).
+Where a page in this plan depends on another app, the dependency is named here rather than
+re-specified in a client screen.
+
+| App | Folder | Who uses it | How it reaches the data | Its own documents |
+|---|---|---|---|---|
+| Customer app | `client-app/` | Customers | One Hono `api` function (D1); no Supabase client in the bundle | This plan, the Phase 2 stages S1–S5, the UI guides and `Gabfix_UI_Progress.md` |
+| Staff ERP app | `erp-app/` | All staff, screens by role | Supabase client directly, RLS in charge | `Technician_App_Setup_Checklist.md`, `Implementation Phase 2 - Technician Mobile App.md` |
+| Admin web | `admin-web/` | Admin, manager, customer relations | Supabase client directly; rule-bearing writes through functions | `Full_App_Architecture_2.md` §13, setup checklist §D |
+| Backend | `backend/` | — | Postgres, Auth, Storage, Realtime, Edge Functions | `Full_App_Architecture_2.md`, `supabase-guidelines.md` |
+
+**Conflict rule:** `Full_App_Architecture_2.md` decisions D1–D25 govern. The per-document alignment
+status and the ordered documentation edits live in `Client_App_Ecosystem_Alignment.md`; the build
+backlog for the staff side lives in `Technician_App_Setup_Checklist.md`. This plan does not get to
+redefine the backend, the staff surfaces or another app's screens.
+
+**Cross-app touchpoints this plan relies on:** staff-created bookings and the manager confirmation
+call (D7/D9), cash confirmed by the technician in `erp-app/` (D10), inspection reports captured in
+`erp-app/` for quote and hourly jobs (D6a/D9), the customer notification list fed by the backend
+(D20), and the technician location source for live tracking (D21, still open).
 
 ---
 
@@ -135,7 +158,7 @@ Estimates below are **planning estimates in working weeks for this team** and sh
 | Key work | Notes |
 |---|---|
 | Slides pager, dots animation, illustrations | Prefetch images in the splash phase |
-| Forms with `react-hook-form` and `zod` | Phone rule `^7\d{8}$` |
+| Forms with `react-hook-form` and `zod` | Phone rule: exactly 10 digits starting `07` (D25), displayed `0772 123 456` |
 | OTP with SMS autofill | iOS `oneTimeCode`, Android `sms-otp` |
 | Biometric login option | `expo-local-authentication` |
 | Area selector with location permission pre-prompt | Part 2, P3 |
@@ -212,9 +235,13 @@ Estimates below are **planning estimates in working weeks for this team** and sh
 
 ### Phase 7: Web Admin Dashboard (parallel, Weeks 8 to 14)
 
-**Page:** P27g (real CSS). Can run in parallel with Phases 4 to 6 by a separate engineer.
+**Page:** P27g (real CSS). Delivered as the separate `admin-web/` app (React + Vite), not a folder
+inside `client-app/`. It can run in parallel with Phases 4 to 6 by a separate engineer.
 
-Modules: Overview, Bookings (assign cleaner), Payments, **Cash collections**, Customers, Cleaners, Services and pricing, Promos, Reports. Specs in Part 2, Section 12.
+Modules: Overview, Bookings (assign technician), Payments, **Cash collections**, Customers,
+Technicians, Services and pricing, Promos, Reports. Specs in Part 2, Section 12; the live-data,
+auth and role work is tracked in `Technician_App_Setup_Checklist.md` §D, and the staff mobile side
+in `erp-app/` is tracked in the same checklist §B–§C.
 
 ---
 
@@ -254,7 +281,7 @@ Total: about **16 working weeks** to a release candidate, depending on backend r
 | Native tabs cannot match the brand tab bar | Visual deviation | Decision gate in Phase 1; keep a custom tab bar and log it |
 | Expo SDK changes break libraries | Delays | Pin the SDK, upgrade between phases only, test in EAS builds |
 | Low-end Android performance | Poor experience in target market | Test early (Phase 3), use `FlashList` and `expo-image`, lazy-load maps |
-| Cash handling and remittance process undefined | Admin and cleaner-app gaps | Decide in Phase 0; schedule the partner app flow |
+| Cash handling and remittance process undefined | Admin and staff-app gaps | Decided in D10: cash is confirmed by the technician in `erp-app/` via `record_cash_payment`; handover/disputes are handled in `admin-web` |
 | Pricing and policy values change | Rework | All values in config files; never hard-coded in UI |
 | Mobile Money delays and timeouts | Failed or duplicate payments | Idempotency keys, polling with timeout, clear retry states |
 

@@ -474,7 +474,7 @@ export function nextAssignmentDelay(now: Date = new Date()): number | null {
 
 ### 4.4 Form engine core (`src/lib/form-schema.ts`, S1 14.4)
 
-Paste the types `FormValue`, `FieldOption`, `FormField`, `FormSection`, `FormSchema`, `ScopeSnapshotRow` from S1 14.4 at the top of the file. No React Native imports (the admin web app imports this file).
+Paste the types `FormValue`, `FieldOption`, `FormField`, `FormSection`, `FormSchema`, `ScopeSnapshotRow` from S1 14.4 at the top of the file. No React Native imports, so the file stays portable. The staff apps keep their **own copies** rather than importing this one (architecture §2, D4: no shared code between apps).
 
 ```ts
 export const schemaLimits = {

@@ -8,15 +8,18 @@ One page that shows **every request you have made, and which guide section speci
 
 | Order | Document | Use it for |
 |---|---|---|
-| 1 | This index | Finding where a request lives |
-| 2 | S1 (`Implementation Phase 2 - Stage 1.md`) | Screen layouts, copy, data models, per-file checklists, acceptance criteria |
-| 3 | S2 (`... Stage 2.md`) | Only Sections 1 and 2: recap and Q17 to Q29 defaults. **The uploaded file stops there**; its promised Sections 3 to 9 were carried into S3 |
-| 4 | S3 (`... Stage 3.md`) | Corrections to S1, final job-scope contract, working code, the single build order, device matrix |
-| 5 | S4 (`... Stage 4.md`) | Backend contract: Supabase, storage, Edge Functions, Expo/Firebase push, cutover |
-| 6 | S5 (`... Stage 5.md`) | Build profiles, permissions, privacy and deletion, store plan, monitoring, rollback |
-| 7 | Dashboard Addendum (`Implementation Phase 2 - Dashboard Addendum.md`) | Final Home block order, quick actions, action-card stack; amends S1 Section 13 and S3 step 17 |
-| 8 | Live Tracking Addendum (`... Live Tracking Addendum.md`) | Technician on the Google map: map fixes, tables, endpoints, privacy; extends S4 and S5 |
-| 9 | Technician Workspace (`... Technician Workspace (ERP).md`) | Field-staff side inside the ERP (Sections 1 to 16), guest job-complete page (Section 17), Express SSR note (Section 18) |
+| 1 | `Full_App_Architecture_2.md` | **Authority.** Decisions D1–D25, roles, tables, data paths and the cross-app documentation rule |
+| 2 | `Client_App_Ecosystem_Alignment.md` | Where the client documents still disagree with the architecture, and the ordered edits |
+| 3 | This index | Finding where a request lives |
+| 4 | S1 (`Implementation Phase 2 - Stage 1.md`) | Screen layouts, copy, data models, per-file checklists, acceptance criteria |
+| 5 | S2 (`... Stage 2.md`) | Only Sections 1 and 2: recap and Q17 to Q29 defaults. **The uploaded file stops there**; its promised Sections 3 to 9 were carried into S3 |
+| 6 | S3 (`... Stage 3.md`) | Corrections to S1, final job-scope contract, working code, the single build order, device matrix |
+| 7 | S4 (`... Stage 4.md`) | Client-side cutover inventory: which mock each backend route replaces, storage, push and the mock-switch list. Table names and the data path are corrected by D1/D3/D9/D10 and the banner at the top |
+| 8 | S5 (`... Stage 5.md`) | Build profiles, permissions, privacy and deletion, store plan, monitoring, rollback |
+| 9 | Dashboard Addendum (`Implementation Phase 2 - Dashboard Addendum.md`) | Final Home block order, quick actions, action-card stack; amends S1 Section 13 and S3 step 17 |
+| 10 | Live Tracking Addendum (`... Live Tracking Addendum.md`) | Customer map, polling contract, privacy; the staff-side sender is `erp-app` (D21 open) |
+| 11 | Technician Mobile App (`... Technician Mobile App.md`) | Design base for `erp-app/`: shared status machine, ordered offline queue, version gate, contact rule |
+| 12 | Technician Workspace (`... Technician Workspace (ERP).md`) | Field workflows and the guest job-complete page; delivered through `erp-app/` and `admin-web/`, not a web workspace inside `admin/` |
 | Skip | `Implementation Phase 2.md` (first draft) | Superseded by S1 |
 
 ## 2. Your first message (the original brief)
@@ -75,6 +78,7 @@ One page that shows **every request you have made, and which guide section speci
 | Guest job-complete link: Active and App-only states, feedback once, 30-day limit, clean-up; Q56 to Q60 | Technician Workspace, Section 17 |
 | Express modular SSR (guest page, receipts and PDFs, legal pages); Q61 to Q63 | Technician Workspace, Section 18 |
 | Receipt and invoice link lifetime (permanent in-app copy, revocable shareable link) | Technician Workspace, Section 17.3 |
+| Cross-app authority, stale references and the ordered doc edits | `Full_App_Architecture_2.md`; `Client_App_Ecosystem_Alignment.md` |
 
 ## 5. Gaps that remain in the documents
 
@@ -83,9 +87,9 @@ One page that shows **every request you have made, and which guide section speci
 3. **Unchecked APIs:** `FileSystem.createUploadTask`, `StorageAccessFramework.createFileAsync`, the `expo-notifications` time-interval trigger (S3 8.3), plus the "confirm" items in S4 and S5. Each is checked in the step that uses it.
 4. **Decisions deferred by you:** SMS provider (S4 Q30) and mobile money gateway (S4 Q31). Neither blocks anything until the backend stage. Until the SMS provider is chosen, guest links and technician invites go by WhatsApp and email.
 5. **Nothing is compiled:** the first task when implementing is `npx tsc --noEmit` on a clean install. The `admin/` project has its own check, `npm run typecheck`.
-6. **No technician app in the customer repo:** the field-staff side is the ERP workspace (Technician Workspace Section 2). Background location cannot be guaranteed from a web page; the pilot test T9 decides whether a small native companion app is needed.
+6. **The technician app now exists as `erp-app/`:** one Expo app for all staff, with role-filtered screens, tracked in `Technician_App_Setup_Checklist.md`. The "ERP workspace inside `admin/`" wording in the Technician Workspace document is superseded by architecture §1/D7; `admin-web/` remains the desk surface. Background location comes from the native app, not a browser page (D23 still open).
 7. **Guest link wording:** Technician Workspace Section 17.3 (App-only page) replaces any earlier "link ended" or permanent-receipt-link idea, including in the Express note.
-8. **Demo ERP logins:** `admin/src/lib/auth.ts` still holds hard-coded accounts and passwords; they must be removed before real data (Technician Workspace Section 10).
+8. **Demo ERP logins are gone:** `admin-web` now signs in through Supabase Auth (`signInWithPassword`) and reads the role from `profiles`; the hard-coded accounts were removed (setup checklist D2). The client app's own mock auth remains behind an unset `EXPO_PUBLIC_API_BASE_URL` until the Hono `api` function exists.
 9. **Questions added since S5:** Q40 to Q63 are listed in the addenda and Technician Workspace, each with a default.
 
 ## 6. Where the code stood when this index was written

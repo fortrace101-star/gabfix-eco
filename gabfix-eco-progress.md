@@ -6,7 +6,7 @@ milestone on the setup checklist closes.
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-23 (ERP job status flow wired to the RPCs and verified in the browser build) |
+| **Last updated** | 2026-11-24 (ERP home + brand tab bar, jobs segments, job photos; admin-web hero/nav restyle) |
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |
@@ -25,9 +25,9 @@ restate them.
 | **Architecture decisions** | 25 numbered decisions (D1–D25) | **52%** (13/25) | 🟨 | Decided: D1–D10, D20, D24, D25. Open: D11–D19, D21–D23. Source: `Full_App_Architecture_2.md` |
 | **Client app** (`client-app/`) | Customer Expo app, 40 page builds | **66%** (65.9% weighted) | 🟨 | All 40 page builds exist and pass tsc/lint; 0 of 40 device-verified; 13 Jest suites / 105 tests pass. Source: its own progress doc |
 | **Admin web** (`admin-web/`) | React 19 + Vite 7 SPA for admin, manager, customer relations | **~20%** of its checklist (1.4/7) | 🟨 | All 10 pages built on mock data with demo sign-in; build + typecheck pass; DB types generated, but no Supabase client or real auth yet |
-| **ERP / technician app** (`erp-app/`) | Expo SDK 58 staff app, all roles, per-role screens | **~50%** (9/19 checklist items, C3 half-closed) | 🟨 | Foundation done: client-app tokens/fonts, auth gate, role-filtered tabs, live queries for jobs/schedule/cash/alerts/profile. Job detail now runs On the way → Start → Complete through the RPCs with a billed-hours prompt for hourly services. Screens are functional, not yet designed to client-app standard; photos, offline queue and push open |
+| **ERP / technician app** (`erp-app/`) | Expo SDK 58 staff app, all roles, per-role screens | **~60%** (11/19 checklist items) | 🟨 | Foundation done: client-app tokens/fonts, auth gate, role-filtered tabs, live queries for jobs/schedule/cash/alerts/profile. Home tab and the client's brand tab bar now match app-1's shell (green gradient hero, yellow active pill, bell instead of an Alerts tab); jobs list has Today/Upcoming segments and an offline banner; job detail runs On the way → Start → Complete, takes before/after photos with an offline retry queue. Open: cash on job, offline action queue, push |
 | **Backend** (`backend/`) | Supabase local stack + migrations, seed, functions | **~70%** of M2 scope | 🟨 | 6 migrations, 24 tables, RLS everywhere, capabilities/RPCs, storage buckets, seed and "`npx supabase db reset` clean; Hono `api` function and laundry/leads/support tables still open |
-| **Setup checklist** | `Technician_App_Setup_Checklist.md` | **20/42 items** | 🟨 | A1–A10, B1–B8, B10 and D1 closed; B9/B11, C, D2+ and E/F open |
+| **Setup checklist** | `Technician_App_Setup_Checklist.md` | **22/42 items** | 🟨 | A1–A10, B1–B8, B10, C1, C3 (photo gate now live), C4 and D1 closed; B9/B11, C2/C5–C8, D2+ and E/F open |
 
 **Reading the numbers:** the 66% client-app figure is a weighted score across five tracks, where
 "screen builds" (45% weight) is already 100% but device acceptance (15%) is 25% and backend contracts
@@ -58,6 +58,13 @@ Only work with a passing check is listed here.
   Supabase URL to the page/Metro host, so `http://192.168.1.196:8082` signs in against
   `192.168.1.196:54321` (all 200s, lands on `/jobs`). Not verified: the native runtime (fonts,
   splash, tab bar) — no device or simulator run yet.
+- **ERP shell, latest pass:** `/` → `/home` as `tech1@`; home hero shows "Hello, Daniel Cleaner",
+  stats 0/1/1, the next job and quick actions; tab bar renders Home · Jobs · Schedule · Cash ·
+  Profile (65px, flush to the bottom, same metrics as app-1) and the bell opens `/notifications`
+  without giving Alerts a tab slot. Jobs list segments read Today · 0 / Upcoming · 1. The photo
+  card compiles and queries `job_photos`; camera/library capture itself still needs a device.
+- **Admin web:** `npm run typecheck` passes; in the browser the active sidebar item computes to
+  `rgb(247, 235, 21)` and Overview renders the gradient hero with greeting and four stats.
 - **Admin web:** `npx vite build` → 54 modules, built in 11.65s; `npm run typecheck` clean, both
   after the alias repair.
 - **Backend:** all containers healthy; `npx supabase db reset` applied migrations

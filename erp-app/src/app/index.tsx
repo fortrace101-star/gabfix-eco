@@ -7,5 +7,5 @@ export default function Index() {
 
   if (status === 'loading') return null;
 
-  return <Redirect href={status === 'signedIn' ? '/jobs' : '/sign-in'} />;
+  return <Redirect href={status === 'signedIn' ? '/home' : '/sign-in'} />;
 }

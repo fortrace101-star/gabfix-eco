@@ -257,6 +257,7 @@ export default function App() {
               cleaners={cleaners}
               cash={cash}
               dateRange={dateRange}
+              userName={user.name}
               onNavigate={navigate}
               onAssign={assignBooking}
               notify={notify}

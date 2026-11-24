@@ -251,21 +251,21 @@ h3 {
   color: #fff;
 }
 
+/* Active nav uses the client-app tab treatment: a yellow pill with dark green content. */
 .nav-item.active {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
+  background: var(--yellow-500);
+  color: var(--green-900);
   font-weight: 600;
 }
 
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: -16px;
-  top: 8px;
-  bottom: 8px;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
+.nav-item.active:hover {
   background: var(--yellow-500);
+  color: var(--green-900);
+}
+
+.nav-item.active .nav-badge {
+  background: var(--green-900);
+  color: var(--yellow-500);
 }
 
 .nav-badge {
@@ -716,6 +716,99 @@ h3 {
   justify-content: space-between;
   gap: 24px;
   padding: 4px 0 8px;
+}
+
+/* Overview hero — the client-app home band: green gradient, white type, yellow accent CTA. */
+.page-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  padding: 26px 28px 24px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, var(--green-500) 0%, var(--green-700) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.page-hero::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -90px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.page-hero .eyebrow {
+  color: var(--yellow-200);
+}
+
+.page-hero h1 {
+  color: #fff;
+}
+
+.page-hero .page-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.page-hero .btn-secondary {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.page-hero .btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+.page-hero .btn-primary {
+  background: var(--yellow-500);
+  color: var(--green-900);
+  box-shadow: none;
+}
+
+.page-hero .btn-primary:hover:not(:disabled) {
+  background: var(--yellow-200);
+}
+
+.hero-stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+}
+
+.hero-stat {
+  flex: 1 1 150px;
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.hero-stat strong {
+  font-family: 'Poppins', sans-serif;
+  font-size: 20px;
+  line-height: 26px;
+  color: #fff;
+}
+
+.hero-stat span {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .eyebrow {

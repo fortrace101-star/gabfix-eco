@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JobPhotos } from '@/components/job-photos';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
@@ -116,6 +117,30 @@ export default function JobDetailScreen() {
     !!myAssignment && (status === 'on_the_way' || status === 'scheduled');
   const canComplete = !!myAssignment && status === 'in_progress';
 
+  const startCompletion = async () => {
+    const { count } = await supabase
+      .from('job_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('booking_id', id)
+      .eq('kind', 'after');
+
+    const proceed = () => (hourly ? setFinishing(true) : running.mutate({ action: 'complete_job' }));
+
+    if ((count ?? 0) > 0) {
+      proceed();
+      return;
+    }
+
+    Alert.alert(
+      'No completion photos',
+      'Add an after photo so the customer can see the finished work. You can still complete without one.',
+      [
+        { text: 'Add photos', style: 'cancel' },
+        { text: 'Complete anyway', style: 'destructive', onPress: proceed },
+      ],
+    );
+  };
+
   const submitFinish = () => {
     const parsed = hours.trim() ? Number(hours.replace(',', '.')) : null;
     if (parsed !== null && (!Number.isFinite(parsed) || parsed <= 0)) {
@@ -211,6 +236,8 @@ export default function JobDetailScreen() {
             {data.notes ? <Text style={styles.notes}>{data.notes}</Text> : null}
           </View>
 
+          <JobPhotos bookingId={data.id} />
+
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Crew</Text>
             {data.job_assignments.map((assignment) => (
@@ -277,7 +304,7 @@ export default function JobDetailScreen() {
             {canComplete ? (
               <Button
                 label={ACTION_LABELS.complete_job}
-                onPress={() => (hourly ? setFinishing(true) : running.mutate({ action: 'complete_job' }))}
+                onPress={() => void startCompletion()}
                 loading={running.isPending && running.variables?.action === 'complete_job'}
                 disabled={running.isPending}
               />

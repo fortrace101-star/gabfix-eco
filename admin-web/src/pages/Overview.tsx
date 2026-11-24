@@ -6,7 +6,6 @@ import {
   Avatar,
   Button,
   KpiCard,
-  PageHeader,
   SectionCard,
   StatusChip,
 } from '../components/ui';
@@ -25,6 +24,7 @@ export function Overview({
   cleaners,
   cash,
   dateRange,
+  userName,
   onNavigate,
   onAssign,
   notify,
@@ -33,6 +33,7 @@ export function Overview({
   cleaners: Cleaner[];
   cash: CashCollection[];
   dateRange: DateRange;
+  userName: string;
   onNavigate: (page: PageId) => void;
   onAssign: (bookingId: string, cleanerId: string) => void;
   notify: (message: string) => void;
@@ -62,23 +63,49 @@ export function Overview({
   const cleanerFor = (booking: Booking) =>
     cleaners.find((cleaner) => cleaner.id === booking.cleanerId);
 
+  const firstName = userName.trim().split(/\s+/)[0] || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
     <div className="page">
-      <PageHeader
-        eyebrow="Friday, 20 November 2026"
-        title="Operations overview"
-        subtitle="The live picture across Kampala. Jobs, money and the queues that need a human."
-        actions={
-          <>
+      <section className="page-hero" aria-labelledby="overview-hero-title">
+        <div>
+          <p className="eyebrow">Friday, 20 November 2026 · {rangeLabel}</p>
+          <h1 id="overview-hero-title">
+            {greeting}, {firstName}
+          </h1>
+          <p className="page-subtitle">
+            The live picture across Kampala. Jobs, money and the queues that need a human.
+          </p>
+          <div className="page-actions" style={{ justifyContent: 'flex-start', marginTop: 16 }}>
             <Button icon="reports" onClick={() => onNavigate('reports')}>
               Export report
             </Button>
             <Button variant="primary" icon="bookings" onClick={() => onNavigate('bookings')}>
               Open bookings
             </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+        <div className="hero-stats">
+          <div className="hero-stat">
+            <strong>{liveBookings.length}</strong>
+            <span>Jobs today</span>
+          </div>
+          <div className="hero-stat">
+            <strong>{unassigned.length}</strong>
+            <span>Need a cleaner</span>
+          </div>
+          <div className="hero-stat">
+            <strong>{unconfirmedCash.length}</strong>
+            <span>Cash to confirm</span>
+          </div>
+          <div className="hero-stat">
+            <strong>{compactUgx(revenue)}</strong>
+            <span>Revenue · {dateRange}</span>
+          </div>
+        </div>
+      </section>
 
       <div className="overview-layout">
         <div className="overview-main">

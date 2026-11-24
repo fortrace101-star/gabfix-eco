@@ -119,10 +119,11 @@ the rows RLS allows.
       the token port replaces. Keep `global.css` only if web export stays on.
 - [x] **B6. Route skeleton** (Expo Router under `src/app/`, per `erp-app/AGENTS.md`):
       - `(auth)/sign-in.tsx`
-      - `(app)/_layout.tsx` with role-aware tabs: Jobs, Schedule, Cash, Notifications, Profile for
+      - `(app)/_layout.tsx` with role-aware tabs: Home, Jobs, Schedule, Cash, Profile for
         technicians; Orders/Machines for laundry operator; Leads/Proposals for sales; Everything for
-        manager/admin. Hide tabs a role cannot use — the database still enforces it.
-      - `(app)/jobs/index.tsx`, `jobs/[id].tsx`, `schedule.tsx`, `cash.tsx`,
+        manager/admin. Hide tabs a role cannot use — the database still enforces it. Alerts is a
+        route but not a tab (the bell on Home opens it).
+      - `(app)/home.tsx`, `jobs/index.tsx`, `jobs/[id].tsx`, `schedule.tsx`, `cash.tsx`,
         `notifications.tsx`, `profile.tsx`
       Add `Stack.Screen` titles/headers from the token header height, and keep typed routes.
 - [x] **B7. Supabase client + session**: `src/lib/supabase.ts` (React Native storage adapter on
@@ -189,8 +190,8 @@ and booking queries all hit `192.168.1.196:54321` with 200s and land on `/jobs`.
 
 ## C. Technician screens (first usable slice)
 
-- [ ] **C1. Jobs list** — today/upcoming tabs, lead vs helper chip, time window, service and area,
-      status pill, pull-to-refresh, empty and error states, offline banner.
+- [x] **C1. Jobs list** — today/upcoming segments, lead vs helper chip, time window, service and
+      area, status pill, pull-to-refresh, empty and error states, offline banner.
 - [ ] **C2. Job detail** — customer display name, address with map link, phone (tap to call, no
       numbers shown to customers), service + form answers snapshot (`booking_form_snapshots`),
       crew list with lead marked, notes, and the action bar.
@@ -198,8 +199,8 @@ and booking queries all hit `192.168.1.196:54321` with 200s and land on `/jobs`.
       `job_assignments.started_at/completed_at` and `booking_status_history`; completion asks for
       before/after photos (block only if the service requires them) and billed hours for hourly
       services. **Status flow and hourly billed-hours prompt are done; the photo gate lands with C4.**
-- [ ] **C4. Photos** — camera + library, compress, upload to the private `job-photos` bucket as
-      `booking_id/kind/uuid.jpg`, show upload progress, retry from the offline queue.
+- [x] **C4. Photos** — camera + library, JPEG at quality 0.6, upload to the private `job-photos`
+      bucket as `booking_id/kind/uuid.jpg`, upload state, retry from the offline queue.
 - [ ] **C5. Cash** — record cash collected on a job (`payments` with `method: cash`,
       `recorded_by`), show today's total, and the handover screen that creates `cash_handovers`
       (append-only).
@@ -209,6 +210,20 @@ and booking queries all hit `192.168.1.196:54321` with 200s and land on `/jobs`.
       app version, and a support/contact row using the shared contact details.
 - [ ] **C8. States and copy** — every screen has loading, empty, error and offline variants, using
       the token palette; 48dp touch targets; no colour invented outside `colors`.
+
+**Evidence (C1, C4, web build):** Home is the first tab and uses the client-app shape — green
+LinearGradient hero with greeting, bell (unread badge) and avatar, an overlapping stats card, a
+next-job card, today's work and quick actions. The tab bar is the client's `BrandTabBar` ported to
+`src/components/navigation/brand-tab-bar.tsx` (white surface, hairline top border, 48×30 yellow
+active pill, 22px icons, `max(inset, 8)` bottom padding) so app-2 sits at the same height and rhythm as app-1; Alerts is
+filtered out of the bar but still reachable from the bell. Jobs list has Today/Upcoming
+segments with counts, lead/helper chips and the shared `OfflineBanner` (`@react-native-community/netinfo`).
+Job detail's photo card takes before/after pictures with `expo-image-picker`, uploads to the private
+`job-photos` storage and inserts the `job_photos` row, and keeps failures in an
+AsyncStorage queue (`src/lib/photos.ts`) with a pending counter and one-tap retry; completing a job
+with no after photo asks once before proceeding. Driven on the dev server as `tech1@`: sign-in →
+`/home` with the hero and 5 tabs, bell → `/notifications`; `npx tsc --noEmit` and `npx eslint src`
+pass. Camera and native photo picking still need a device pass.
 
 **Evidence (C3, web build):** `jobs/[id]` shows a sticky action bar driven by the booking status
 plus the technician's own assignment: `scheduled` → **On the way** (`set_booking_on_the_way`),
@@ -237,11 +252,17 @@ entirely against the local stack, and the same flow survives airplane mode + rec
 - [ ] **D3. Replace mock reads**: move the arrays in `src/data.ts` to queries
       (`bookings`, `payments`, `technician_profiles`, `customers`, `services`, `promos`), keep the
       mock module behind the same interface so pages can be migrated one at a time.
-- [ ] **D4. Design-system alignment**: keep the existing CSS variables (they already match the
+- [~] **D4. Design-system alignment**: keep the existing CSS variables (they already match the
       client token values — `--green-500 #118E45`, `--yellow-500 #F7EB15`, `--r-card 20px`,
       `--r-btn 14px`), and align the shared components (buttons, chips, KPI cards, tables, drawers,
       empty states, dialogs) with the client kit: same radii, shadow, 1px `--border`, Inter body
       text, Poppins headings. Add a `src/ui/` layer only for components used by two or more pages.
+      **First pass done:** the sidebar's active item is now the client-app yellow pill (dark green
+      text, the badge inverts on it) instead of a translucent white block, and Overview opens with a
+      `.page-hero` band — green gradient, white Poppins heading, yellow primary CTA and a four-up
+      stats strip — mirroring app-1's home. Verified in the browser at `localhost:5173` as
+      `admin@gabfix.ug`: active nav computes to `rgb(247, 235, 21)`, hero renders
+      "Good morning, Manuel" with the stats, `npm run typecheck` passes.
 - [ ] **D5. Page-by-page pass** — Overview, Bookings, Customers, Cleaners → Technicians, Services,
       Payments, Cash, Promos, Reports, Settings: spacing on the 4/8/12/16/24 scale, one primary
       action per header, consistent status chips, and real loading/empty/error states.

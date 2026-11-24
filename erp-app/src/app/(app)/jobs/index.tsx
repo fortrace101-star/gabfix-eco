@@ -1,30 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ChevronRight, MapPin } from 'lucide-react-native';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
+import { OfflineBanner } from '@/components/offline-banner';
 import { Screen } from '@/components/ui/screen';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
+import { ACTIVE_STATUSES, statusChip } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
-import { colors, radius, shadow, space, text } from '@/theme';
-
-const ACTIVE_STATUSES = [
-  'requested',
-  'awaiting_confirmation',
-  'confirmed',
-  'scheduled',
-  'on_the_way',
-  'in_progress',
-] as const;
-
-const STATUS_STYLES: Record<string, { bg: string; fg: string; label: string }> = {
-  requested: { bg: colors.infoBg, fg: colors.info, label: 'Requested' },
-  awaiting_confirmation: { bg: colors.warningBg, fg: colors.warning, label: 'Awaiting confirmation' },
-  confirmed: { bg: colors.infoBg, fg: colors.info, label: 'Confirmed' },
-  scheduled: { bg: colors.green50, fg: colors.green700, label: 'Scheduled' },
-  on_the_way: { bg: colors.yellow50, fg: colors.yellow800, label: 'On the way' },
-  in_progress: { bg: colors.yellow50, fg: colors.yellow800, label: 'In progress' },
-};
+import { colors, font, radius, shadow, space, text } from '@/theme';
 
 type JobRow = {
   id: string;
@@ -37,6 +30,18 @@ type JobRow = {
   addresses: { line1: string; area: string | null } | null;
   booking_items: { quantity: number; services: { name: string } | null }[];
   job_assignments: { crew_role: string; status: string }[];
+};
+
+type Segment = 'today' | 'upcoming';
+
+const isToday = (iso: string) => {
+  const date = new Date(iso);
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
 };
 
 async function fetchJobs(): Promise<JobRow[]> {
@@ -54,13 +59,40 @@ async function fetchJobs(): Promise<JobRow[]> {
 
 export default function JobsScreen() {
   const router = useRouter();
+  const [segment, setSegment] = useState<Segment>('today');
   const { data, error, isLoading, isRefetching, refetch } = useQuery({
     queryKey: ['jobs', 'active'],
     queryFn: fetchJobs,
   });
 
+  const jobs = data ?? [];
+  const todayJobs = jobs.filter((job) => isToday(job.scheduled_start));
+  const visible = segment === 'today' ? todayJobs : jobs;
+  const counts: Record<Segment, number> = { today: todayJobs.length, upcoming: jobs.length };
+
   return (
     <Screen title="Jobs" subtitle="Assigned and upcoming work">
+      <View style={styles.segment}>
+        {(['today', 'upcoming'] as Segment[]).map((key) => {
+          const active = segment === key;
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${key === 'today' ? 'Today' : 'Upcoming'}, ${counts[key]} jobs`}
+              onPress={() => setSegment(key)}
+              style={[styles.segmentItem, active && styles.segmentItemOn]}>
+              <Text style={[styles.segmentText, active && styles.segmentTextOn]}>
+                {key === 'today' ? 'Today' : 'Upcoming'} · {counts[key]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <OfflineBanner />
+
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.green500} />
@@ -75,7 +107,7 @@ export default function JobsScreen() {
         </View>
       ) : (
         <FlatList
-          data={data}
+          data={visible}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -87,18 +119,18 @@ export default function JobsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyTitle}>No jobs assigned</Text>
+              <Text style={styles.emptyTitle}>
+                {segment === 'today' ? 'Nothing left today' : 'No jobs assigned'}
+              </Text>
               <Text style={styles.emptyBody}>
-                When dispatch assigns you work it will appear here. Pull down to refresh.
+                {segment === 'today'
+                  ? 'Check Upcoming for the rest of your week, or pull down to refresh.'
+                  : 'When dispatch assigns you work it will appear here. Pull down to refresh.'}
               </Text>
             </View>
           }
           renderItem={({ item }) => {
-            const chip = STATUS_STYLES[item.status] ?? {
-              bg: colors.disabledBg,
-              fg: colors.textMuted,
-              label: item.status,
-            };
+            const chip = statusChip(item.status);
             const lead = item.job_assignments.find((a) => a.crew_role === 'lead');
             const serviceNames = item.booking_items
               .map((line) => line.services?.name)
@@ -140,7 +172,11 @@ export default function JobsScreen() {
                       <View style={styles.leadBadge}>
                         <Text style={styles.leadText}>Lead</Text>
                       </View>
-                    ) : null}
+                    ) : (
+                      <View style={styles.helperBadge}>
+                        <Text style={styles.helperText}>Helper</Text>
+                      </View>
+                    )}
                     <Text style={styles.reference}>{item.reference}</Text>
                   </View>
                   <View style={styles.priceRow}>
@@ -158,8 +194,29 @@ export default function JobsScreen() {
 }
 
 const styles = StyleSheet.create({
+  segment: {
+    flexDirection: 'row',
+    gap: space[1],
+    marginHorizontal: space[4],
+    marginBottom: space[3],
+    padding: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segmentItem: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentItemOn: { backgroundColor: colors.yellow500 },
+  segmentText: { ...text.caption, fontFamily: font.bodyMedium },
+  segmentTextOn: { color: colors.green900, fontFamily: font.bodySemi },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[6], gap: space[2] },
-  list: { padding: space[4], gap: space[3], paddingBottom: space[8] },
+  list: { padding: space[4], paddingTop: 0, gap: space[3], paddingBottom: space[8] },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
@@ -177,10 +234,27 @@ const styles = StyleSheet.create({
   service: { ...text.h3 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   meta: { ...text.caption, flex: 1 },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space[1] },
+  cardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: space[1],
+  },
   badges: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
-  leadBadge: { backgroundColor: colors.green50, borderRadius: radius.pill, paddingHorizontal: space[2], paddingVertical: 2 },
+  leadBadge: {
+    backgroundColor: colors.green50,
+    borderRadius: radius.pill,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+  },
   leadText: { ...text.caption, color: colors.green700, fontSize: 11 },
+  helperBadge: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+  },
+  helperText: { ...text.caption, fontSize: 11 },
   reference: { ...text.caption },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   price: { ...text.price, fontSize: 16 },

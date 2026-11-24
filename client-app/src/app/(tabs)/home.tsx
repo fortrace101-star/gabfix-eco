@@ -15,6 +15,7 @@ import {
   Sparkles,
   Tag,
   WalletCards,
+  X,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -1003,8 +1004,7 @@ export default function HomeTab() {
         animationType="fade"
         onRequestClose={closeNotif}>
         <Pressable
-          accessibilityLabel="Close notifications"
-          accessibilityRole="button"
+          accessible={false}
           onPress={closeNotif}
           style={styles.menuOverlay}>
           <Pressable
@@ -1044,6 +1044,14 @@ export default function HomeTab() {
                   }}
                   style={styles.notifIconBtn}>
                   <Settings size={18} color={colors.textMuted} strokeWidth={2} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close notifications"
+                  hitSlop={8}
+                  onPress={closeNotif}
+                  style={styles.notifIconBtn}>
+                  <X size={18} color={colors.textMuted} strokeWidth={2} />
                 </Pressable>
               </View>
             </View>

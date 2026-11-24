@@ -8,6 +8,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 type TabRole = 'home' | 'jobs' | 'schedule' | 'cash' | 'profile';
 
+const HIDDEN_ROUTES = new Set(['notifications']);
+
 const VISIBLE_FOR: Record<TabRole, string[]> = {
   home: ['technician', 'laundry_operator', 'sales_operator', 'customer_relations', 'manager', 'admin'],
   jobs: ['technician', 'customer_relations', 'manager', 'admin'],
@@ -36,7 +38,7 @@ export default function AppLayout() {
 
   return (
     <Tabs
-      tabBar={(props) => <BrandTabBar {...props} />}
+      tabBar={(props) => <BrandTabBar {...props} hiddenRoutes={HIDDEN_ROUTES} />}
       screenOptions={{
         headerShown: false,
         tabBarStyle: { minHeight: size.tabBar },
@@ -53,6 +55,8 @@ export default function AppLayout() {
         name="profile"
         options={{ title: 'Profile', href: visible('profile') ? undefined : null }}
       />
+      {/* A route inside the tabs so the bar stays visible, filtered out of the bar itself. */}
+      <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
     </Tabs>
   );
 }

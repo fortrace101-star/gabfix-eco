@@ -830,7 +830,8 @@ h3 {
   max-width: 690px;
   margin-top: 7px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .page-actions {
@@ -941,11 +942,12 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 23px;
-  padding: 0 8px;
-  border-radius: 12px;
-  font-size: 10.5px;
-  font-weight: 650;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
@@ -1396,9 +1398,9 @@ h3 {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-align: left;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1407,7 +1409,8 @@ h3 {
 .table td {
   padding: 12px;
   border-bottom: 1px solid #edf1ee;
-  font-size: 11.5px;
+  font-size: 13px;
+  line-height: 20px;
   vertical-align: middle;
 }
 

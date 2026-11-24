@@ -1,8 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
+import { flushActionQueue, listPendingActions, type QueuedAction } from '@/lib/action-queue';
 import { useAuth } from '@/store/auth';
 import { colors, radius, space, text } from '@/theme';
 
@@ -18,6 +21,31 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfileScreen() {
   const { profile, session, role, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState<QueuedAction[]>([]);
+  const [syncing, setSyncing] = useState(false);
+
+  const refreshPending = useCallback(async () => {
+    setPending(await listPendingActions());
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void listPendingActions().then((actions) => {
+      if (alive) setPending(actions);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const retryPending = async () => {
+    setSyncing(true);
+    await flushActionQueue();
+    await refreshPending();
+    await queryClient.invalidateQueries();
+    setSyncing(false);
+  };
 
   return (
     <Screen title="Profile" subtitle="Account and app details">
@@ -35,6 +63,33 @@ export default function ProfileScreen() {
           <Text style={styles.body}>{session?.user.email ?? '—'}</Text>
           <Text style={styles.caption}>{profile?.phone ?? 'No phone on the profile'}</Text>
         </View>
+
+        {pending.length ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Waiting to sync</Text>
+            <Text style={styles.caption}>
+              {pending.length} action{pending.length === 1 ? '' : 's'} saved on this device. They
+              replay automatically when the connection returns.
+            </Text>
+            {pending.map((action) => (
+              <View key={action.id} style={styles.row}>
+                <Text style={styles.body}>{action.label}</Text>
+                <Text style={styles.caption}>
+                  {new Date(action.createdAt).toLocaleTimeString('en-GB', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+            ))}
+            <Button
+              label={syncing ? 'Syncing…' : 'Retry now'}
+              variant="secondary"
+              disabled={syncing}
+              onPress={() => void retryPending()}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>App</Text>

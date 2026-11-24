@@ -10,19 +10,15 @@ import {
   StatusChip,
 } from '../components/ui';
 import type { DateRange } from '../components/Topbar';
-import {
-  bookingsByArea,
-  cashOlderThan,
-  revenueSeries,
-  TODAY,
-} from '../data';
+import { cashOlderThan, TODAY } from '../data';
 import { compactUgx, formatShortDate, ugx } from '../lib/format';
-import type { Booking, CashCollection, Cleaner, PageId } from '../types';
+import type { Booking, CashCollection, Cleaner, PageId, Payment } from '../types';
 
 export function Overview({
   bookings,
   cleaners,
   cash,
+  payments,
   dateRange,
   userName,
   onNavigate,
@@ -32,6 +28,7 @@ export function Overview({
   bookings: Booking[];
   cleaners: Cleaner[];
   cash: CashCollection[];
+  payments: Payment[];
   dateRange: DateRange;
   userName: string;
   onNavigate: (page: PageId) => void;
@@ -40,6 +37,17 @@ export function Overview({
 }) {
   const [assigning, setAssigning] = useState<Booking | null>(null);
   const liveBookings = bookings.filter((booking) => booking.dateISO === TODAY);
+  const activeCleaners = cleaners.filter((cleaner) => cleaner.available);
+  const busyCleaners = cleaners.filter((cleaner) => !cleaner.available);
+  const averageRating = cleaners.length
+    ? (cleaners.reduce((sum, cleaner) => sum + cleaner.rating, 0) / cleaners.length).toFixed(1)
+    : '—';
+  const todayLabel = new Date(`${TODAY}T12:00:00`).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
   const unassigned = bookings.filter(
     (booking) =>
       !booking.cleanerId &&
@@ -52,13 +60,31 @@ export function Overview({
   const unconfirmedCash = cash.filter(
     (entry) => !entry.remitted && cashOlderThan(entry.confirmedOn, 24),
   );
+  const windowDays = dateRange === 'Today' ? 1 : dateRange === 'Last 7 days' ? 7 : 30;
+  const revenueSeries = Array.from({ length: windowDays }, (_, index) => {
+    const day = new Date(`${TODAY}T12:00:00`);
+    day.setDate(day.getDate() - (windowDays - 1 - index));
+    const dateISO = day.toISOString().slice(0, 10);
+    return {
+      label: day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      value: payments
+        .filter((payment) => payment.dateISO === dateISO && payment.status !== 'Failed')
+        .reduce((sum, payment) => sum + payment.amount, 0),
+    };
+  });
+  const areaCounts = new Map<string, number>();
+  for (const booking of bookings) areaCounts.set(booking.area, (areaCounts.get(booking.area) ?? 0) + 1);
+  const bookingsByArea = [...areaCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([area, count]) => ({ area, count }));
   const revenue = revenueSeries.reduce((sum, point) => sum + point.value, 0);
-  const rangeLabel =
-    dateRange === 'Today'
-      ? '20 Nov 2026'
-      : dateRange === 'Last 7 days'
-        ? '14 – 20 Nov 2026'
-        : '22 Oct – 20 Nov 2026';
+  const end = new Date(`${TODAY}T12:00:00`);
+  const start = new Date(end);
+  start.setDate(start.getDate() - (windowDays === 1 ? 0 : windowDays - 1));
+  const short = (date: Date) =>
+    date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const rangeLabel = windowDays === 1 ? short(end) : `${short(start)} – ${short(end)}`;
 
   const cleanerFor = (booking: Booking) =>
     cleaners.find((cleaner) => cleaner.id === booking.cleanerId);
@@ -71,7 +97,9 @@ export function Overview({
     <div className="page">
       <section className="page-hero" aria-labelledby="overview-hero-title">
         <div>
-          <p className="eyebrow">Friday, 20 November 2026 · {rangeLabel}</p>
+          <p className="eyebrow">
+            {todayLabel} · {rangeLabel}
+          </p>
           <h1 id="overview-hero-title">
             {greeting}, {firstName}
           </h1>
@@ -113,35 +141,27 @@ export function Overview({
             <KpiCard
               label="Revenue"
               value={compactUgx(revenue)}
-              detail={`${rangeLabel} · incl. VAT`}
-              trend="up"
-              trendLabel="12.4%"
+              detail={`${rangeLabel} · paid jobs`}
               icon="payments"
             />
             <KpiCard
               label="Bookings today"
-              value="27"
+              value={String(liveBookings.length)}
               detail={`${liveBookings.length} in the live queue`}
-              trend="up"
-              trendLabel="8.0%"
               icon="bookings"
               tone="blue"
             />
             <KpiCard
               label="Active cleaners"
-              value="34"
-              detail="28 available · 6 on a job"
-              trend="up"
-              trendLabel="3"
+              value={String(activeCleaners.length)}
+              detail={`${activeCleaners.length} available · ${busyCleaners.length} on a job`}
               icon="cleaners"
               tone="yellow"
             />
             <KpiCard
               label="Average rating"
-              value="4.8"
-              detail="From 312 verified reviews"
-              trend="up"
-              trendLabel="0.1"
+              value={averageRating}
+              detail={`Across ${cleaners.length} technicians`}
               icon="spark"
               tone="rose"
             />
@@ -155,11 +175,11 @@ export function Overview({
             >
               <RevenueChart data={revenueSeries} />
             </SectionCard>
-            <SectionCard title="Bookings by area" meta="This week · 304 jobs">
+            <SectionCard title="Bookings by area" meta={`${bookings.length} jobs on record`}>
               <AreaBars data={bookingsByArea} />
               <p className="insight">
                 <Icon name="spark" size={14} />
-                Kololo and Ntinda account for 53% of demand.
+                Demand follows the areas with the most assignments this period.
               </p>
             </SectionCard>
           </div>

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon, type IconName } from '../components/Icon';
 import { Button, KpiCard, PageHeader, SectionCard, StatusChip } from '../components/ui';
-import { bookingsByArea, revenueSeries } from '../data';
 import { compactUgx, downloadCsv, ugx } from '../lib/format';
 import type {
   Booking,
@@ -68,6 +67,32 @@ export function ReportsPage({
   notify: (message: string) => void;
 }) {
   const [range, setRange] = useState('Last 7 days');
+  const revenueSeries = useMemo(() => {
+    const days = bookings
+      .map((booking) => booking.dateISO)
+      .filter((date) => date !== '—')
+      .sort();
+    const latest = days.at(-1) ?? new Date().toISOString().slice(0, 10);
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(`${latest}T12:00:00`);
+      day.setDate(day.getDate() - (6 - index));
+      const dateISO = day.toISOString().slice(0, 10);
+      return {
+        label: day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        value: bookings
+          .filter((booking) => booking.dateISO === dateISO)
+          .reduce((sum, booking) => sum + booking.paid, 0),
+      };
+    });
+  }, [bookings]);
+  const bookingsByArea = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const booking of bookings) counts.set(booking.area, (counts.get(booking.area) ?? 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([area, count]) => ({ area, count }));
+  }, [bookings]);
   const revenue = revenueSeries.reduce((sum, point) => sum + point.value, 0);
   const completed = bookings.filter((booking) => booking.status === 'Completed').length;
   const completionRate = Math.round((completed / bookings.length) * 100);
@@ -162,11 +187,11 @@ export function ReportsPage({
   const exportReport = (key: ReportKey) => {
     const meta = reportMeta.find((report) => report.key === key);
     const rows = rowsFor(key);
-    downloadCsv(`gabfix-${key}-2026-11-20.csv`, rows);
+    downloadCsv(`gabfix-${key}-${new Date().toISOString().slice(0, 10)}.csv`, rows);
     notify(`${meta?.title ?? 'Report'} exported · ${rows.length - 1} rows.`);
   };
 
-  const areaMax = useMemo(() => Math.max(...bookingsByArea.map((item) => item.count)), []);
+  const areaMax = Math.max(1, ...bookingsByArea.map((item) => item.count));
   const statusGroups = useMemo(() => {
     const order = ['Pending', 'Confirmed', 'In progress', 'Completed', 'Cancelled'] as const;
     return order.map((status) => ({
@@ -211,9 +236,7 @@ export function ReportsPage({
         <KpiCard
           label="Gross revenue"
           value={compactUgx(revenue)}
-          detail="Including VAT · selected range"
-          trend="up"
-          trendLabel="12.4%"
+          detail="Collected · selected range"
           icon="reports"
         />
         <KpiCard
@@ -227,15 +250,13 @@ export function ReportsPage({
           label="Completion rate"
           value={`${completionRate}%`}
           detail="Excludes cancelled jobs"
-          trend="up"
-          trendLabel="1.8%"
           icon="check"
           tone="yellow"
         />
         <KpiCard
           label="Average order"
           value={ugx(averageOrder)}
-          detail="Across all sample bookings"
+          detail="Across every loaded booking"
           icon="payments"
           tone="rose"
         />
@@ -295,10 +316,11 @@ export function ReportsPage({
       <div className="info-panel">
         <span className="info-icon"><Icon name="external" size={18} /></span>
         <div>
-          <strong>These exports describe the local operations sample.</strong>
+          <strong>These exports describe live operations data.</strong>
           <p>
-            The files are built in the browser from the same rows shown in the dashboard. Connect
-            the bookings, payments and cash APIs before using them for statutory reporting.
+            The files are built in the browser from the same rows the dashboard reads from Supabase.
+            Promos, the rate card and operations settings are still session-only until their tables
+            land.
           </p>
         </div>
       </div>

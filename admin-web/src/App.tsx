@@ -4,17 +4,13 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar, type DateRange } from './components/Topbar';
 import { Toast } from './components/ui';
 import {
-  initialBookings,
-  initialCash,
-  initialCleaners,
-  initialCustomers,
-  initialPayments,
   initialPromos,
   initialRateCard,
   initialSettings,
   notificationsSeed,
 } from './data';
-import { canViewPage, readSession, signOut, type AdminUser } from './lib/auth';
+import { canViewPage, restoreSession, signOut, type AdminUser } from './lib/auth';
+import { assignTechnician, confirmCashHandover, loadConsoleData } from './lib/queries';
 import { BookingsPage } from './pages/Bookings';
 import { CashPage } from './pages/Cash';
 import { CleanersPage } from './pages/Cleaners';
@@ -69,18 +65,21 @@ const pageFromHash = (): PageId => {
 };
 
 export default function App() {
-  const [user, setUser] = useState<AdminUser | null>(() => readSession());
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [restoring, setRestoring] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState<PageId>(pageFromHash);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('Last 7 days');
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
-  const [cleaners, setCleaners] = useState<Cleaner[]>(initialCleaners);
-  const [customers] = useState<Customer[]>(initialCustomers);
-  const [payments, setPayments] = useState<Payment[]>(initialPayments);
-  const [cash, setCash] = useState<CashCollection[]>(initialCash);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [cleaners, setCleaners] = useState<Cleaner[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [cash, setCash] = useState<CashCollection[]>([]);
   const [promos, setPromos] = useState<Promo[]>(initialPromos);
   const [rateCard, setRateCard] = useState<RateCard>(initialRateCard);
   const [settings, setSettings] = useState<OperationsSettings>(initialSettings);
@@ -91,6 +90,41 @@ export default function App() {
     setToast(message);
     toastTimer.current = window.setTimeout(() => setToast(null), 3600);
   }, []);
+
+  const refresh = useCallback(async () => {
+    setLoadingData(true);
+    try {
+      const data = await loadConsoleData();
+      setBookings(data.bookings);
+      setCleaners(data.cleaners);
+      setCustomers(data.customers);
+      setPayments(data.payments);
+      setCash(data.cash);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Could not read the operations data.');
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    restoreSession()
+      .then((restored) => {
+        if (!cancelled) setUser(restored);
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user) void refresh();
+  }, [user, refresh]);
 
   useEffect(() => {
     return () => {
@@ -115,28 +149,28 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const assignBooking = (bookingId: string, cleanerId: string) => {
+  const assignBooking = async (bookingId: string, cleanerId: string) => {
     const cleaner = cleaners.find((item) => item.id === cleanerId);
-    setBookings((current) =>
-      current.map((booking) => (booking.id === bookingId ? { ...booking, cleanerId } : booking)),
-    );
-    notify(cleaner ? `${cleaner.name} assigned to ${bookingId}.` : `${bookingId} updated.`);
+    try {
+      await assignTechnician(bookingId, cleanerId);
+      await refresh();
+      notify(cleaner ? `${cleaner.name} assigned to ${bookingId}.` : `${bookingId} updated.`);
+    } catch (error) {
+      notify(error instanceof Error ? `Assignment failed: ${error.message}` : 'Assignment failed.');
+    }
   };
 
-  const markRemitted = (id: string) => {
+  const markRemitted = async (id: string) => {
     const entry = cash.find((item) => item.id === id);
-    setCash((current) =>
-      current.map((item) => (item.id === id ? { ...item, remitted: true } : item)),
-    );
-    if (entry) {
-      setCleaners((current) =>
-        current.map((cleaner) =>
-          cleaner.id === entry.cleanerId
-            ? { ...cleaner, cashRemitted: true, cashDue: 0 }
-            : cleaner,
-        ),
+    if (!entry || !user) return;
+    try {
+      await confirmCashHandover(entry.cleanerId, entry.amountDue, user.id);
+      await refresh();
+      notify(
+        `${entry.cleaner} marked remitted · ${entry.amountDue.toLocaleString('en-UG')} UGX.`,
       );
-      notify(`${entry.cleaner} marked remitted · ${entry.amountDue.toLocaleString('en-UG')} UGX.`);
+    } catch (error) {
+      notify(error instanceof Error ? `Handover failed: ${error.message}` : 'Handover failed.');
     }
   };
 
@@ -214,9 +248,26 @@ export default function App() {
   };
 
   const handleSignOut = () => {
-    signOut();
+    void signOut();
     setUser(null);
+    setBookings([]);
+    setCleaners([]);
+    setCustomers([]);
+    setPayments([]);
+    setCash([]);
   };
+
+  if (restoring) {
+    return (
+      <div className="auth-shell">
+        <section className="auth-card">
+          <p className="auth-eyebrow">Gabfix Operations</p>
+          <h1>Loading…</h1>
+          <p>Checking your session.</p>
+        </section>
+      </div>
+    );
+  }
 
   if (!user) return <Login onSignedIn={setUser} />;
 
@@ -251,11 +302,26 @@ export default function App() {
           onReadAll={() => setReadNotifications(notificationsSeed.map((item) => item.id))}
         />
         <main className="page-wrap">
+          {loadError ? (
+            <section className="card restricted" role="alert">
+              <h2>Could not load operations data</h2>
+              <p>{loadError}</p>
+              <button type="button" className="btn btn-primary" onClick={() => void refresh()}>
+                Try again
+              </button>
+            </section>
+          ) : null}
+          {loadingData && !loadError ? (
+            <p className="page-loading" role="status">
+              Loading the latest data…
+            </p>
+          ) : null}
           {page === 'overview' ? (
             <Overview
               bookings={bookings}
               cleaners={cleaners}
               cash={cash}
+              payments={payments}
               dateRange={dateRange}
               userName={user.name}
               onNavigate={navigate}

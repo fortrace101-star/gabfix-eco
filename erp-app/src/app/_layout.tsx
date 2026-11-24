@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncManager } from '@/components/sync-manager';
+import { persistQueryCache, restoreQueryCache } from '@/lib/query-persistence';
 import { AuthProvider, useAuth } from '@/store/auth';
 import { colors } from '@/theme';
 
@@ -40,7 +41,6 @@ function RootNavigator() {
       <Stack.Screen name="index" />
       <Stack.Protected guard={status === 'signedIn'}>
         <Stack.Screen name="(app)" />
-        <Stack.Screen name="notifications" />
       </Stack.Protected>
       <Stack.Protected guard={status === 'signedOut'}>
         <Stack.Screen name="(auth)" />
@@ -50,6 +50,12 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Restore before the first screens mount so a cold offline start has today's jobs.
+    void restoreQueryCache(queryClient);
+    return persistQueryCache(queryClient);
+  }, []);
+
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,

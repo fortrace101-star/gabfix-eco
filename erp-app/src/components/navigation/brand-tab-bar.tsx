@@ -30,10 +30,11 @@ export function BrandTabBar({
   emitter,
   navigateToTab,
   insets,
-}: BottomTabBarProps) {
+  hiddenRoutes,
+}: BottomTabBarProps & { hiddenRoutes?: ReadonlySet<string> }) {
   return (
     <View role="tablist" style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space[2]) }]}>
-      {state.routes.map((route, index) => {
+      {state.routes.map((route, index) => ({ route, index })).filter(({ route }) => !hiddenRoutes?.has(route.name)).map(({ route, index }) => {
         const focused = state.index === index;
         const options = descriptors[route.key].options;
         const label = typeof options.title === 'string' ? options.title : route.name;

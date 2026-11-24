@@ -66,6 +66,11 @@ export async function pendingActionCount(): Promise<number> {
   return (await readQueue()).length;
 }
 
+/** Newest last, so the profile screen can show what is still waiting to sync. */
+export async function listPendingActions(): Promise<QueuedAction[]> {
+  return readQueue();
+}
+
 /** Replay every queued action once. Offline failures stay queued in their original order. */
 export async function flushActionQueue(): Promise<{ done: number; remaining: number }> {
   const queue = await readQueue();

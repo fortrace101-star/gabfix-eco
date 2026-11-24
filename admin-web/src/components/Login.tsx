@@ -2,18 +2,18 @@ import { useState, type FormEvent } from 'react';
 import { signIn, type AdminUser } from '../lib/auth';
 import { Button, Field } from './ui';
 
-/** P27g sign-in. Local demo accounts until the admin API and roles exist. */
+/** P27g sign-in. Supabase Auth; the console role comes from the staff profile. */
 export function Login({ onSignedIn }: { onSignedIn: (user: AdminUser) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     setBusy(true);
-    const result = signIn(email, password);
+    const result = await signIn(email, password);
     setBusy(false);
     if ('error' in result) {
       setError(result.error);
@@ -84,14 +84,17 @@ export function Login({ onSignedIn }: { onSignedIn: (user: AdminUser) => void })
         </form>
 
         <div className="auth-demo">
-          <strong>Demo accounts</strong>
+          <strong>Seeded desk accounts</strong>
           <button type="button" onClick={() => useAccount('admin@gabfix.ug', 'gabfix2026')}>
             Owner · admin@gabfix.ug
           </button>
-          <button type="button" onClick={() => useAccount('ops@gabfix.ug', 'dispatch2026')}>
-            Operations · ops@gabfix.ug
+          <button type="button" onClick={() => useAccount('manager@gabfix.ug', 'gabfix2026')}>
+            Manager · manager@gabfix.ug
           </button>
-          <span>Passwords are demo-only and live in this browser session.</span>
+          <button type="button" onClick={() => useAccount('desk@gabfix.ug', 'gabfix2026')}>
+            Customer support · desk@gabfix.ug
+          </button>
+          <span>Local seed passwords only; production accounts come from staff invites.</span>
         </div>
       </section>
     </div>

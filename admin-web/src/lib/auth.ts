@@ -1,93 +1,139 @@
 import type { PageId } from '../types';
+import { supabase } from './supabase';
 
-export type AdminRole = 'admin' | 'operations';
+/** The desk roles the web console serves. Technicians and customers use the mobile apps. */
+export type AdminRole = 'admin' | 'operations' | 'support';
 
 export type AdminUser = {
+  id: string;
   name: string;
   email: string;
   role: AdminRole;
   initials: string;
 };
 
-type Account = AdminUser & { password: string };
+/** Database `app_role` → console role. Anything else is refused at sign-in. */
+const ROLE_MAP: Record<string, AdminRole> = {
+  admin: 'admin',
+  manager: 'operations',
+  customer_relations: 'support',
+};
 
-/**
- * Demo credentials until the admin API issues real sessions (Open item 29). The
- * operations role can run day-to-day work; only the admin role can open Settings.
- */
-const ACCOUNTS: Account[] = [
-  {
-    name: 'Manuel P.',
-    email: 'admin@gabfix.ug',
-    role: 'admin',
-    initials: 'MP',
-    password: 'gabfix2026',
-  },
-  {
-    name: 'Sarah N.',
-    email: 'ops@gabfix.ug',
-    role: 'operations',
-    initials: 'SN',
-    password: 'dispatch2026',
-  },
-];
+export const roleLabel = (role: AdminRole): string =>
+  role === 'admin'
+    ? 'Owner · full access'
+    : role === 'operations'
+      ? 'Operations · no settings'
+      : 'Customer support · bookings & customers';
+
+const initialsFor = (name: string): string => {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const first = parts[0]?.[0] ?? 'G';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return `${first}${last}`.toUpperCase();
+};
 
 const SESSION_KEY = 'gabfix.admin.session.v1';
 
-export const roleLabel = (role: AdminRole): string =>
-  role === 'admin' ? 'Owner · full access' : 'Operations · no settings';
+export type SignInResult = { user: AdminUser } | { error: string };
 
-const isUser = (value: unknown): value is AdminUser => {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<AdminUser>;
-  return (
-    typeof candidate.name === 'string' &&
-    typeof candidate.email === 'string' &&
-    (candidate.role === 'admin' || candidate.role === 'operations')
-  );
-};
-
-/** Reads the tab-scoped session so a refresh keeps the operator signed in. */
-export function readSession(): AdminUser | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    return isUser(parsed) ? parsed : null;
-  } catch {
-    return null;
+/**
+ * Signs in against Supabase Auth, then reads the profile so the console role comes
+ * from the database (`app_role`) rather than a local list.
+ */
+export async function signIn(email: string, password: string): Promise<SignInResult> {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error || !data.user) {
+    return { error: error?.message ?? 'That email and password did not sign in.' };
   }
-}
 
-export function signIn(email: string, password: string): { user: AdminUser } | { error: string } {
-  const normalised = email.trim().toLowerCase();
-  const account = ACCOUNTS.find((item) => item.email === normalised);
-  if (!account || account.password !== password) {
-    return { error: 'That email and password do not match an operations account.' };
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, status')
+    .eq('auth_user_id', data.user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    return { error: 'No staff profile is linked to this account.' };
   }
+  if (profile.status !== 'active') {
+    await supabase.auth.signOut();
+    return { error: 'This account is deactivated. Ask an owner to reactivate it.' };
+  }
+  const role = ROLE_MAP[profile.role];
+  if (!role) {
+    await supabase.auth.signOut();
+    return { error: 'This console is for admin, manager and customer-support accounts.' };
+  }
+
   const user: AdminUser = {
-    name: account.name,
-    email: account.email,
-    role: account.role,
-    initials: account.initials,
+    id: profile.id,
+    name: profile.full_name,
+    email: data.user.email ?? email,
+    role,
+    initials: initialsFor(profile.full_name),
   };
   try {
     window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
   } catch {
-    // A blocked storage API should not prevent a demo sign-in.
+    // A blocked storage API only costs a re-fetch on the next load.
   }
   return { user };
 }
 
-export function signOut(): void {
+/**
+ * Restores the session on load. Supabase persists the auth token; the profile read
+ * re-derives the role so a role change in the database takes effect on refresh.
+ */
+export async function restoreSession(): Promise<AdminUser | null> {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return null;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, status')
+    .eq('auth_user_id', data.session.user.id)
+    .maybeSingle();
+
+  const role = profile ? ROLE_MAP[profile.role] : undefined;
+  if (!profile || !role || profile.status !== 'active') {
+    await supabase.auth.signOut();
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    name: profile.full_name,
+    email: data.session.user.email ?? '',
+    role,
+    initials: initialsFor(profile.full_name),
+  };
+}
+
+export async function signOut(): Promise<void> {
   try {
     window.sessionStorage.removeItem(SESSION_KEY);
   } catch {
-    // Ignore storage failures; the in-memory session is cleared by the caller.
+    // Ignore storage failures; App clears the in-memory user either way.
   }
+  await supabase.auth.signOut();
 }
 
-/** Settings is owner-only; every other module is available to operations. */
-export const canViewPage = (page: PageId, role: AdminRole): boolean =>
-  role === 'admin' || page !== 'settings';
+/** Settings is owner-only; support sees the customer-facing modules only. */
+export const canViewPage = (page: PageId, role: AdminRole): boolean => {
+  if (role === 'admin') return true;
+  if (role === 'operations') return page !== 'settings';
+  return (
+    page === 'overview' ||
+    page === 'bookings' ||
+    page === 'customers' ||
+    page === 'payments'
+  );
+};

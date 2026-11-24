@@ -10,7 +10,8 @@ import type {
   RateCard,
 } from './types';
 
-export const TODAY = '2026-11-20';
+/** Local calendar day, so date filters follow the desk's clock rather than a frozen demo date. */
+export const TODAY = new Date().toLocaleDateString('en-CA');
 
 export const revenueSeries = [
   { label: '14 Nov', value: 3_240_000 },

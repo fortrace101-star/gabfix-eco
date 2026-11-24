@@ -9,10 +9,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { useAuth } from '@/store/auth';
-import { colors, font, radius, shadow, space, text } from '@/theme';
+import { colors, radius, shadow, space, text } from '@/theme';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
@@ -46,9 +47,7 @@ export default function SignInScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled">
           <View style={styles.brand}>
-            <View style={styles.mark}>
-              <Text style={styles.markText}>G</Text>
-            </View>
+            <BrandLogo size={56} />
             <Text style={styles.brandTitle}>Gabfix Portal</Text>
             <Text style={styles.brandSubtitle}>Staff operations · Uganda</Text>
           </View>
@@ -102,15 +101,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', padding: space[5], gap: space[6] },
   brand: { alignItems: 'center', gap: space[2] },
-  mark: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.tile,
-    backgroundColor: colors.yellow500,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markText: { fontFamily: font.heading, fontSize: 28, color: colors.green900 },
   brandTitle: { ...text.h1, color: colors.surface },
   brandSubtitle: { ...text.caption, color: colors.whiteTextMuted },
   card: {

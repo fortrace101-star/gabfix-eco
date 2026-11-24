@@ -1,4 +1,5 @@
 import { hourlyRate, pricing } from './pricing';
+import { ugx } from '../utils/format';
 import { serviceCategories } from './service-categories';
 
 /**
@@ -12,7 +13,10 @@ export type Service = {
   tagline: string;
   categoryId: string;
   subcategoryId?: string;
-  pricingMode: 'hourly' | 'quote';
+  /** D6: fixed price is paid at booking; hourly and quote are priced after confirmation. */
+  pricingMode: 'fixed' | 'hourly' | 'quote';
+  /** Set for `fixed` services; the amount payable at booking. */
+  fixedPrice?: number;
   /** Position in Home > Most popular; the six lowest ranks are shown. */
   popularRank?: number;
   tag?: string;
@@ -59,7 +63,8 @@ export const services: readonly Service[] = [
     name: 'Carpet cleaning',
     tagline: 'Deep extraction for rugs and fitted carpet',
     categoryId: 'upholstery',
-    pricingMode: 'hourly',
+    pricingMode: 'fixed',
+    fixedPrice: 85_000,
     popularRank: 4,
     active: true,
   },
@@ -212,6 +217,13 @@ export { serviceCategories };
 
 /** Lowest hourly rate in the pricing table, shown as "From UGX …/hr". */
 export const fromHourly = hourlyRate(pricing.minimumHours);
+
+/** Catalogue/card price wording for the three D6 pricing types. */
+export const servicePriceLabel = (service: Service): string => {
+  if (service.pricingMode === 'fixed') return service.fixedPrice ? ugx(service.fixedPrice) : 'Fixed price';
+  if (service.pricingMode === 'quote') return 'Get a quote';
+  return `From ${ugx(fromHourly)}/hr`;
+};
 
 export const activeServices = services.filter((service) => service.active);
 

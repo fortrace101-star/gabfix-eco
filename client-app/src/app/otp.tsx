@@ -77,7 +77,7 @@ export default function OtpScreen() {
       </Text>
       <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
         We sent a 6-digit code to{' '}
-        <Text style={styles.phone}>{phone ? maskPhone(phone) : '+256 7•• ••• •••'}</Text>. It
+        <Text style={styles.phone}>{phone ? maskPhone(phone) : '07•• ••• •••'}</Text>. It
         expires in 10 minutes.
       </Text>
 

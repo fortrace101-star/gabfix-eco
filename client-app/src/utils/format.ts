@@ -1,3 +1,5 @@
+import { normaliseUGPhone } from './validation';
+
 const withThousands = (value: string): string =>
   value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
@@ -11,17 +13,20 @@ export const ugx = (amount: number): string => {
   return `UGX ${formatted}`;
 };
 
-/** 7XX XXX XXX -> +256 7XX XXX XXX */
+/** 0772 777 773 — D25 display form (10 digits, leading `07`). */
 export const phoneUG = (digits: string): string => {
-  const clean = digits.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '');
-  return `+256 ${clean.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3')}`.trim();
+  const clean = normaliseUGPhone(digits).slice(0, 10);
+  if (clean.length < 4) return clean;
+  return clean.replace(/(\d{4})(\d{3})(\d{0,3})/, (_match, a: string, b: string, c: string) =>
+    [a, b, c].filter(Boolean).join(' '),
+  );
 };
 
-/** +256 7•• ••• 482 — used on the OTP and reset screens. */
+/** 0772 ••• 773 — used on the OTP and reset screens (D25). */
 export const maskPhone = (digits: string): string => {
-  const clean = digits.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '');
-  if (clean.length < 9) return phoneUG(clean);
-  return `+256 ${clean.slice(0, 3)} ••• ${clean.slice(6, 7)}${clean.slice(7)}`;
+  const clean = normaliseUGPhone(digits);
+  if (clean.length < 10) return phoneUG(clean);
+  return `${clean.slice(0, 4)} ••• ${clean.slice(7)}`;
 };
 
 export const dateLong = (date: Date): string =>

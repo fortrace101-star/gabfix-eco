@@ -35,6 +35,7 @@ import { snapshotScope } from '@/lib/booking-scope';
 import { createBooking } from '@/lib/api/bookings';
 import {
   price,
+  servicePricing,
   type BookingPayment,
   type PaymentMethod,
   type PaymentPlan,
@@ -68,7 +69,7 @@ const methodInfo: Record<PaymentMethod, MethodInfo> = {
   mtn_momo: {
     label: 'MTN Mobile Money',
     icon: Smartphone,
-    tile: '#FFCC00',
+    tile: colors.mtn,
     iconColor: colors.green900,
     subline: 'Approve the prompt on your phone',
   },
@@ -315,8 +316,8 @@ export default function ReviewScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'review' });
   const draftReady = useDraftGuard(slug);

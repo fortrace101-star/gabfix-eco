@@ -19,6 +19,7 @@ import { isOfflineError, queueAction } from '@/lib/action-queue';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
+import { formatUGPhone, toUgE164 } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/store/auth';
 import { colors, radius, shadow, space, text } from '@/theme';
@@ -256,10 +257,10 @@ export default function JobDetailScreen() {
             {data.customer_phone ? (
               <Pressable
                 accessibilityRole="link"
-                onPress={() => void Linking.openURL(`tel:${data.customer_phone}`)}
+                onPress={() => void Linking.openURL(`tel:${toUgE164(data.customer_phone ?? '') ?? data.customer_phone}`)}
                 style={styles.linkRow}>
                 <Phone size={16} color={colors.green500} />
-                <Text style={styles.link}>{data.customer_phone}</Text>
+                <Text style={styles.link}>{formatUGPhone(data.customer_phone)}</Text>
               </Pressable>
             ) : null}
           </View>

@@ -9,26 +9,20 @@ import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { updateSessionUser, useAuthUser } from '@/store/session';
 import { colors, radius, space, text } from '@/theme';
-
-const phoneDigits = (value: string): string =>
-  value.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '').slice(0, 9);
-
-const formatPhone = (digits?: string): string => {
-  if (!digits) return '';
-  return digits.startsWith('+') ? phoneDigits(digits) : phoneDigits(digits);
-};
+import { phoneUG } from '@/utils/format';
+import { isValidUGPhone, normaliseUGPhone } from '@/utils/validation';
 
 /** P27e personal details. Local profile editing until `PUT /me` is connected. */
 export default function EditProfileScreen() {
   const user = useAuthUser();
   const [name, setName] = useState(user?.name ?? '');
-  const [phone, setPhone] = useState(formatPhone(user?.phone));
+  const [phone, setPhone] = useState(normaliseUGPhone(user?.phone ?? ''));
   const [email, setEmail] = useState(user?.email ?? '');
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const nameValid = name.trim().length >= 2;
-  const phoneValid = phone.length === 0 || /^7\d{8}$/.test(phone);
+  const phoneValid = phone.length === 0 || isValidUGPhone(phone);
   const emailValid = email.trim().length === 0 || /^\S+@\S+\.\S+$/.test(email.trim());
   const valid = nameValid && phoneValid && emailValid;
 
@@ -38,7 +32,7 @@ export default function EditProfileScreen() {
     setSaving(true);
     await updateSessionUser({
       name: name.trim(),
-      phone: phone ? `+256${phone}` : undefined,
+      phone: phone ? normaliseUGPhone(phone) : undefined,
       email: email.trim() || undefined,
     });
     setSaving(false);
@@ -65,14 +59,13 @@ export default function EditProfileScreen() {
         />
         <Input
           label="Phone number"
-          prefix="+256"
-          value={phone}
-          onChangeText={(value) => setPhone(phoneDigits(value))}
+          value={phoneUG(phone)}
+          onChangeText={(value) => setPhone(normaliseUGPhone(value).slice(0, 10))}
           onBlur={() => setTouched(true)}
-          placeholder="772 123 456"
+          placeholder="0772 123 456"
           keyboardType="phone-pad"
           textContentType="telephoneNumber"
-          error={touched && !phoneValid ? 'Enter the 9 digits after +256.' : undefined}
+          error={touched && !phoneValid ? 'Enter your 10-digit number, for example 0772 123 456.' : undefined}
         />
         <Input
           label="Email (optional)"

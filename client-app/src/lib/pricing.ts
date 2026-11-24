@@ -104,7 +104,22 @@ export type BookingDraft = {
   preferredCleanerId?: string;
   /** Last order-flow step reached, so Home's Continue card resumes in place. */
   lastStep?: BookingDraftStep;
+  /** D6 pricing type snapshot; absent on drafts created before this field existed. */
+  pricing?: ServicePricing;
 };
+
+/** D6 pricing snapshot stored on the draft so receipts keep the type they were booked with. */
+export type ServicePricing = {
+  mode: 'fixed' | 'hourly' | 'quote';
+  fixedPrice?: number;
+};
+
+/** Snapshot the D6 type onto a new draft so pricing survives payment and receipts. */
+export const servicePricing = (service?: {
+  pricingMode: ServicePricing['mode'];
+  fixedPrice?: number;
+}): ServicePricing | undefined =>
+  service ? { mode: service.pricingMode, fixedPrice: service.fixedPrice } : undefined;
 
 export type PriceBreakdown = {
   base: number;
@@ -117,7 +132,7 @@ export type PriceBreakdown = {
   minutes: number;
 };
 
-export type PriceableDraft = Pick<BookingDraft, 'details' | 'addOns' | 'promoCode'>;
+export type PriceableDraft = Pick<BookingDraft, 'details' | 'addOns' | 'promoCode' | 'pricing'>;
 
 const addOnPrices: Record<string, { price: number } | undefined> = pricing.addOns;
 const promoRates: Record<string, { rate: number } | undefined> = pricing.promos;
@@ -139,8 +154,10 @@ const promoRate = (code?: string): number => {
  */
 export function price(draft: PriceableDraft): PriceBreakdown {
   const { cleaners, hours, frequency, materials } = draft.details;
-  const base = hourlyRate(hours) * hours * cleaners;
-  const materialsCost = materials ? pricing.materialsPerHour * hours * cleaners : 0;
+  const fixed = draft.pricing?.mode === 'fixed';
+  // D6: a fixed price is known in advance and does not depend on cleaners or hours.
+  const base = fixed ? draft.pricing?.fixedPrice ?? 0 : hourlyRate(hours) * hours * cleaners;
+  const materialsCost = fixed || !materials ? 0 : pricing.materialsPerHour * hours * cleaners;
   const addOns = draft.addOns.reduce((sum, id) => sum + addOnPrice(id), 0);
   const frequencyDiscount = Math.round((base + materialsCost) * frequencyRate(frequency));
   const subtotal = base + materialsCost + addOns - frequencyDiscount;
@@ -160,8 +177,9 @@ export function price(draft: PriceableDraft): PriceBreakdown {
   };
 }
 
-export const emptyDraft = (serviceSlug: string): BookingDraft => ({
+export const emptyDraft = (serviceSlug: string, servicePricing?: ServicePricing): BookingDraft => ({
   serviceSlug,
+  pricing: servicePricing,
   details: {
     cleaners: 1,
     hours: pricing.popularHours,

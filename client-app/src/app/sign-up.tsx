@@ -47,7 +47,7 @@ export default function SignUpScreen() {
   const validate = (): boolean => {
     const next: Errors = {};
     if (name.trim().length < 2) next.name = 'Enter your full name';
-    if (!isValidUGPhone(phone)) next.phone = 'Enter your 9-digit number, for example 7XX XXX XXX';
+    if (!isValidUGPhone(phone)) next.phone = 'Enter your 10-digit number, for example 0772 123 456';
     if (email.trim().length > 0 && !isValidEmail(email)) next.email = 'Enter a valid email address';
     if (!isStrongEnoughPassword(password)) next.password = 'Use at least 8 characters';
     if (!isStrongEnoughPassword(confirm)) next.confirm = 'Retype your password';
@@ -125,10 +125,9 @@ export default function SignUpScreen() {
             setPhone(value);
             clearError('phone');
           }}
-          placeholder="Phone number"
-          prefix="+256"
+          placeholder="0772 123 456"
           keyboardType="number-pad"
-          maxLength={9}
+          maxLength={10}
           autoComplete="tel"
           textContentType="telephoneNumber"
           helper="We'll send a 6-digit code to verify this number"

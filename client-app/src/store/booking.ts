@@ -135,8 +135,8 @@ export async function hydrateBookingDraft(): Promise<void> {
 export const getBookingDraft = () => state.draft;
 
 /** Start or replace the draft when a service card is tapped. */
-export function startDraft(serviceSlug: string): void {
-  setDraft({ ...emptyDraft(serviceSlug), scope: emptyScope(serviceSlug) });
+export function startDraft(serviceSlug: string, pricing?: BookingDraft['pricing']): void {
+  setDraft({ ...emptyDraft(serviceSlug, pricing), scope: emptyScope(serviceSlug) });
 }
 
 /** P18: replace the draft with one prefilled from an earlier booking. */

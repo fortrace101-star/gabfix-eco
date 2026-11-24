@@ -12,6 +12,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { cleanerById, reviewsForCleaner, type Cleaner } from '@/config/cleaners';
 import { serviceBySlug } from '@/config/services';
 import { patchDraft, startDraft } from '@/store/booking';
+import { servicePricing } from '@/lib/pricing';
 import { colors, font, radius, shadow, size, space, text } from '@/theme';
 
 function Stat({ value, label, star = false }: { value: string; label: string; star?: boolean }) {
@@ -70,7 +71,7 @@ export default function CleanerProfileScreen() {
   const reviews = reviewsForCleaner(cleaner);
 
   const bookCleaner = (selected: Cleaner) => {
-    startDraft(selected.primaryServiceSlug);
+    startDraft(selected.primaryServiceSlug, servicePricing(service));
     patchDraft({ preferredCleanerId: selected.id });
     router.push(`/book/${selected.primaryServiceSlug}/details` as Href);
   };

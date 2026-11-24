@@ -75,7 +75,7 @@ export function MediaPreview({ item, onClose, onRemove }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B120D' },
+  root: { flex: 1, backgroundColor: colors.mediaBackdrop },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',

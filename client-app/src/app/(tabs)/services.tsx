@@ -8,9 +8,8 @@ import { ServicePhoto } from '@/components/service/service-photo';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { useServices } from '@/hooks/use-services';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { fromHourly, serviceCategories, type Service } from '@/config/services';
+import { serviceCategories, servicePriceLabel, type Service } from '@/config/services';
 import { colors, font, radius, shadow, space, text } from '@/theme';
-import { ugx } from '@/utils/format';
 
 type CategoryFilter = 'all' | string;
 
@@ -22,8 +21,7 @@ const filters: readonly { value: CategoryFilter; label: string }[] = [
 /** Services shown per category before the customer expands the section. */
 const COLLAPSED_COUNT = 2;
 
-const priceLabel = (service: Service) =>
-  service.pricingMode === 'quote' ? 'Get a quote' : `From ${ugx(fromHourly)}/hr`;
+const priceLabel = (service: Service) => servicePriceLabel(service);
 
 function ServiceCard({ service }: { service: Service }) {
   return (

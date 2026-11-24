@@ -13,9 +13,9 @@ import { colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
 
 const statusMeta: Record<BookingStatusLabel, { bg: string; fg: string }> = {
-  Confirmed: { bg: '#E8F5EC', fg: colors.green700 },
-  Completed: { bg: '#EEF2FF', fg: '#3730A3' },
-  Cancelled: { bg: '#FEE2E2', fg: colors.error },
+  Confirmed: { bg: colors.successBg, fg: colors.green700 },
+  Completed: { bg: colors.infoBg, fg: colors.info },
+  Cancelled: { bg: colors.errorBg, fg: colors.error },
 };
 
 function LineItem({

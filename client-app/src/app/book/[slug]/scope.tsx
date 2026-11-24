@@ -23,7 +23,7 @@ import {
 } from '@/lib/booking-scope';
 import { validateAnswers, type FormField, type FormValue } from '@/lib/form-schema';
 import { deleteMediaFile } from '@/lib/media';
-import { price, type BookingMediaItem } from '@/lib/pricing';
+import { price, servicePricing, type BookingMediaItem } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
@@ -57,8 +57,8 @@ export default function JobScopeScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   const scope = active?.scope;
   const mediaItems = active?.media?.items ?? [];

@@ -64,6 +64,19 @@ describe('price', () => {
     expect(unknown.promoDiscount).toBe(0);
   });
 
+  it('uses the fixed price regardless of cleaners and hours (D6)', () => {
+    const fixed = price(
+      withDetails({ hours: 8, cleaners: 4, materials: true }, {
+        pricing: { mode: 'fixed', fixedPrice: 85_000 },
+        addOns: ['laundry'],
+      }),
+    );
+    expect(fixed.base).toBe(85_000);
+    expect(fixed.materials).toBe(0);
+    expect(fixed.addOns).toBe(10_000);
+    expect(fixed.total).toBe(Math.round(95_000 * 1.18));
+  });
+
   it('never returns fractional shillings', () => {
     const result = price(withDetails({ hours: 3, cleaners: 3, frequency: 'monthly', materials: true }, { promoCode: 'CLEAN10' }));
     for (const amount of [result.base, result.vat, result.total, result.frequencyDiscount, result.promoDiscount]) {

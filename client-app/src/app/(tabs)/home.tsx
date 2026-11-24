@@ -46,7 +46,7 @@ import { price } from '@/lib/pricing';
 import { balanceDueBookings, totalBalanceDue } from '@/lib/wallet';
 import { cleanerById } from '@/config/cleaners';
 import { promos } from '@/config/promos';
-import { fromHourly, serviceBySlug } from '@/config/services';
+import { serviceBySlug, servicePriceLabel } from '@/config/services';
 import { startRebookDraft, useBookingDraft } from '@/store/booking';
 import {
   type SavedBooking,
@@ -634,7 +634,7 @@ export default function HomeTab() {
               <Pressable
                 key={service.slug}
                 accessibilityRole="button"
-                accessibilityLabel={`${service.name}. ${service.pricingMode === 'quote' ? 'Get a quote' : `From ${ugx(fromHourly)} per hour`}`}
+                accessibilityLabel={`${service.name}. ${servicePriceLabel(service)}`}
                 onPress={() =>
                   router.push({
                     pathname: '/service/[slug]',
@@ -664,9 +664,7 @@ export default function HomeTab() {
                     {service.name}
                   </Text>
                   <Text style={styles.popularPrice} maxFontSizeMultiplier={1.2}>
-                    {service.pricingMode === 'quote'
-                      ? 'Get a quote'
-                      : `From ${ugx(fromHourly)}/hr`}
+                    {servicePriceLabel(service)}
                   </Text>
                 </View>
               </Pressable>

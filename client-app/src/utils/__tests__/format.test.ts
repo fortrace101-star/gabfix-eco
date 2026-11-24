@@ -8,16 +8,16 @@ describe('format utilities', () => {
     expect(ugx(-2500)).toBe('UGX -2,500');
   });
 
-  it('normalises Ugandan numbers to +256', () => {
-    expect(phoneUG('0772777773')).toBe('+256 772 777 773');
-    expect(phoneUG('256772777773')).toBe('+256 772 777 773');
-    expect(phoneUG('772 777 773')).toBe('+256 772 777 773');
+  it('formats Ugandan numbers with the D25 07 prefix', () => {
+    expect(phoneUG('0772777773')).toBe('0772 777 773');
+    expect(phoneUG('256772777773')).toBe('0772 777 773');
+    expect(phoneUG('772 777 773')).toBe('0772 777 773');
   });
 
   it('masks the middle of a phone number for OTP copy', () => {
-    expect(maskPhone('0772777773')).toBe('+256 772 ••• 773');
+    expect(maskPhone('0772777773')).toBe('0772 ••• 773');
     // Too short to mask: falls back to the plain formatted number.
-    expect(maskPhone('0772')).toBe('+256 772');
+    expect(maskPhone('0772')).toBe('0772');
   });
 
   it('formats dates and times in Africa/Kampala', () => {

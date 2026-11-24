@@ -11,7 +11,18 @@ const STORAGE_KEY = 'gabfix.quotes.v1';
 
 export type QuoteSize = 'small' | 'medium' | 'large';
 export type QuotePropertyType = 'house' | 'apartment' | 'office' | 'shop' | 'institution';
-export type QuoteStatus = 'pending' | 'quoted' | 'accepted' | 'declined';
+/**
+ * D9 request stages. Inspection is optional (D6a) and sits between the request and the
+ * quote; the customer only ever sees the appointment and the price, never the report.
+ */
+export type QuoteStatus =
+  | 'pending'
+  | 'inspection_needed'
+  | 'inspection_scheduled'
+  | 'inspected'
+  | 'quoted'
+  | 'accepted'
+  | 'declined';
 
 export type QuoteRequestInput = {
   serviceSlug: string;
@@ -34,6 +45,8 @@ export type QuoteRequest = QuoteRequestInput & {
   id: string;
   createdAtISO: string;
   status: QuoteStatus;
+  /** Set when an inspection is scheduled; the customer sees this appointment only. */
+  inspectionAtISO?: string;
 };
 
 type QuotesState = {

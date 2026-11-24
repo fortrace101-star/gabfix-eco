@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     paddingHorizontal: space[4],
     paddingVertical: space[3],
-    shadowColor: '#000',
+    shadowColor: colors.shadowBase,
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },

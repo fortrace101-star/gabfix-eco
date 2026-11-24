@@ -65,13 +65,7 @@ import {
   useSavedMobileMoney,
 } from '@/store/payment-methods';
 import { colors, font, radius, shadow, space, text } from '@/theme';
-import { ugx } from '@/utils/format';
-
-const maskPhone = (digits: string): string => {
-  const clean = digits.replace(/\D/g, '');
-  if (clean.length < 9) return `+256 ${clean}`;
-  return `+256 ${clean.slice(0, 3)} ••• ${clean.slice(6)}`;
-};
+import { maskPhone, ugx } from '@/utils/format';
 
 const dateTimeLabel = (iso: string): string => {
   const date = new Date(iso);

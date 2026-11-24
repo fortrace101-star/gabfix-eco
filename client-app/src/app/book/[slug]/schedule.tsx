@@ -22,7 +22,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { serviceBySlug } from '@/config/services';
 import { useAvailability } from '@/hooks/use-availability';
 import { getAvailability } from '@/lib/api/availability';
-import { price, type BookingFrequency } from '@/lib/pricing';
+import { price, servicePricing, type BookingFrequency } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
@@ -119,8 +119,8 @@ export default function ScheduleScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'schedule' });
   const ready = useDraftGuard(slug);

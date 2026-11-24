@@ -7,6 +7,7 @@ import type {
   Payment,
   PaymentState,
 } from '../types';
+import { formatUGPhone } from './phone';
 import { supabase } from './supabase';
 
 /**
@@ -169,7 +170,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       id: row.reference,
       customerId: row.customer_id,
       customer: customer?.full_name ?? 'Customer',
-      phone: customer?.phone ?? '',
+      phone: customer?.phone ? formatUGPhone(customer.phone) : '',
       service: serviceByBooking.get(row.id) ?? 'Cleaning',
       area: (row.address_id ? areaById.get(row.address_id) : null) ?? 'Kampala',
       dateISO: dateLabel(row.scheduled_start),
@@ -209,7 +210,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
         .slice(0, 2)
         .join('')
         .toUpperCase(),
-      phone: profile?.phone ?? '',
+      phone: profile?.phone ? formatUGPhone(profile.phone) : '',
       area: 'Kampala',
       rating: Number((3.8 + tech.priority_rating * 0.2).toFixed(1)),
       jobs: jobsByTechnician.get(tech.user_id) ?? 0,
@@ -244,7 +245,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       return {
         id: row.id,
         name: row.full_name,
-        phone: row.phone ?? '',
+        phone: row.phone ? formatUGPhone(row.phone) : '',
         email: `${row.full_name.toLowerCase().replace(/\s+/g, '.')}@gabfix.ug`,
         area: list[0]?.area ?? 'Kampala',
         segment: 'Residential' as const,

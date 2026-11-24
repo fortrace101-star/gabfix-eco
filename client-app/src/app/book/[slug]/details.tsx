@@ -16,11 +16,12 @@ import { SelectableCard } from '@/components/booking/selectable-card';
 import { StepperHeader } from '@/components/booking/stepper-header';
 import { SummaryBar } from '@/components/booking/summary-bar';
 import { SummarySheet } from '@/components/booking/summary-sheet';
+import { Card } from '@/components/ui/card';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { pricing } from '@/config/pricing';
-import { serviceBySlug } from '@/config/services';
-import { price, type BookingFrequency } from '@/lib/pricing';
+import { serviceBySlug, servicePriceLabel } from '@/config/services';
+import { price, servicePricing, type BookingFrequency } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import { getBookingDraft, patchDetails, startDraft, useBookingDraft } from '@/store/booking';
 import { colors, font, radius, space, text } from '@/theme';
@@ -93,8 +94,8 @@ export default function JobDetailsScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'details' });
   const ready = useDraftGuard(slug, { entry: true });
@@ -138,48 +139,70 @@ export default function JobDetailsScreen() {
         contentContainerStyle={styles.content}
         footer={
           <SummaryBar
-            caption={`${details.hours} h · ${details.cleaners} cleaner${
-              details.cleaners === 1 ? '' : 's'
-            }`}
+            caption={
+              service?.pricingMode === 'fixed'
+                ? 'Fixed price · no hourly rate'
+                : `${details.hours} h · ${details.cleaners} cleaner${
+                    details.cleaners === 1 ? '' : 's'
+                  }`
+            }
             total={quote.total}
             actionLabel="Next"
             onPress={onNext}
             onDetailsPress={() => setSummaryOpen(true)}
           />
         }>
-        <View style={styles.group}>
-          <Text style={styles.label} maxFontSizeMultiplier={1.3}>
-            How many cleaners?
-          </Text>
-          <ChipSelector
-            options={cleanerOptions}
-            value={details.cleaners}
-            onChange={(cleaners) => patchDetails({ cleaners })}
-            itemStyle={styles.flexItem}
-          />
-        </View>
-
-        <View style={styles.group}>
-          <Text style={styles.label} maxFontSizeMultiplier={1.3}>
-            How many hours?
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.hoursRow}>
-            <ChipSelector
-              options={hoursOptions}
-              value={details.hours}
-              onChange={(hours) => patchDetails({ hours })}
-            />
-          </ScrollView>
-          <View style={styles.hint}>
-            <Info size={16} color={colors.textMuted} strokeWidth={2} />
-            <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
-              Longer bookings cost less per hour
+        {service?.pricingMode === 'fixed' ? (
+          <View style={styles.group}>
+            <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+              Fixed price
             </Text>
+            <Card>
+              <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+                {servicePriceLabel(service)}
+              </Text>
+              <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
+                Payable at booking. Crew size and time are planned by Gabfix.
+              </Text>
+            </Card>
           </View>
-        </View>
+        ) : (
+          <>
+            <View style={styles.group}>
+              <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+                How many cleaners?
+              </Text>
+              <ChipSelector
+                options={cleanerOptions}
+                value={details.cleaners}
+                onChange={(cleaners) => patchDetails({ cleaners })}
+                itemStyle={styles.flexItem}
+              />
+            </View>
+
+            <View style={styles.group}>
+              <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+                How many hours?
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hoursRow}>
+                <ChipSelector
+                  options={hoursOptions}
+                  value={details.hours}
+                  onChange={(hours) => patchDetails({ hours })}
+                />
+              </ScrollView>
+              <View style={styles.hint}>
+                <Info size={16} color={colors.textMuted} strokeWidth={2} />
+                <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
+                  Longer bookings cost less per hour
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
 
         <View style={styles.group}>
           <Text style={styles.label} maxFontSizeMultiplier={1.3}>

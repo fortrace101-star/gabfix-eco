@@ -32,19 +32,19 @@ import { hoursLabel, ugx } from '@/utils/format';
 const statusMeta: Record<BookingStatus, { label: string; bg: string; fg: string; note: string }> = {
   upcoming: {
     label: 'Confirmed',
-    bg: '#E8F5EC',
+    bg: colors.successBg,
     fg: colors.green700,
     note: 'Your booking is confirmed. We will assign a cleaner and keep you updated.',
   },
   completed: {
     label: 'Completed',
-    bg: '#EEF2FF',
-    fg: '#3730A3',
+    bg: colors.infoBg,
+    fg: colors.info,
     note: 'This booking has been completed.',
   },
   cancelled: {
     label: 'Cancelled',
-    bg: '#FEE2E2',
+    bg: colors.errorBg,
     fg: colors.error,
     note: 'This booking was cancelled.',
   },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E8F5EC',
+    backgroundColor: colors.successBg,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,8 +1,23 @@
-/** Ugandan mobile number: 9 digits starting with 7 (Part 2, P2b). */
-export const normalisePhone = (value: string): string =>
-  value.replace(/\D/g, '').replace(/^256/, '').replace(/^0/, '');
+/**
+ * D25 (authoritative): a Ugandan mobile number is exactly 10 digits starting `07`.
+ * Accepts paste/`+256`/spacing and returns the stored `07XXXXXXXX` form.
+ */
+export const normaliseUGPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '').replace(/^256/, '');
+  if (digits.length === 9 && digits.startsWith('7')) return `0${digits}`;
+  return digits;
+};
 
-export const isValidUGPhone = (value: string): boolean => /^7\d{8}$/.test(normalisePhone(value));
+/** @deprecated Use `normaliseUGPhone`; kept for older call sites/tests. */
+export const normalisePhone = normaliseUGPhone;
+
+export const isValidUGPhone = (value: string): boolean => /^07\d{8}$/.test(normaliseUGPhone(value));
+
+/** `tel:`/`sms:`/WhatsApp need the international form; display always uses `07`. */
+export const toUgE164 = (value: string): string | undefined => {
+  const national = normaliseUGPhone(value);
+  return /^07\d{8}$/.test(national) ? `+256${national.slice(1)}` : undefined;
+};
 
 export const isValidEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());

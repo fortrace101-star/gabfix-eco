@@ -1,0 +1,13 @@
+diff --git a/node_modules/prompts/lib/elements/confirm.js b/node_modules/prompts/lib/elements/confirm.js
+--- a/node_modules/prompts/lib/elements/confirm.js
++++ b/node_modules/prompts/lib/elements/confirm.js
+@@ -57,6 +57,9 @@
+   }
+ 
+   _(c, key) {
++    if (typeof c !== 'string') {
++      return this.bell();
++    }
+     if (c.toLowerCase() === 'y') {
+       this.value = true;
+       return this.submit();

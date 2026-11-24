@@ -14,8 +14,9 @@ import { colors, font, radius, shadow, space, text } from '@/theme';
 const pendingTone = { bg: colors.warningBg, fg: colors.yellow800 };
 
 const statusTone = (request: QuoteRequest) => {
-  if (request.status === 'pending') return pendingTone;
+  if (request.status === 'pending' || request.status === 'inspection_needed') return pendingTone;
   if (request.status === 'declined') return { bg: colors.disabledBg, fg: colors.textMuted };
+  if (request.status === 'inspection_scheduled') return { bg: colors.infoBg, fg: colors.info };
   return { bg: colors.successBg, fg: colors.success };
 };
 
@@ -61,6 +62,24 @@ export function QuoteRequestCard({ request }: { request: QuoteRequest }) {
           })}
         </Text>
       </View>
+      {request.inspectionAtISO ? (
+        <View style={styles.metaRow}>
+          <CalendarDays size={16} color={colors.green700} strokeWidth={2} />
+          <Text style={styles.metaText} maxFontSizeMultiplier={1.2}>
+            Inspection on{' '}
+            {new Date(request.inspectionAtISO).toLocaleDateString('en-GB', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}
+          </Text>
+        </View>
+      ) : null}
+      {request.status === 'inspection_needed' ? (
+        <Text style={styles.metaText} maxFontSizeMultiplier={1.2}>
+          We will call you to book a short inspection before sending the quote.
+        </Text>
+      ) : null}
     </View>
   );
 }

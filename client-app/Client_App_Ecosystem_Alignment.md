@@ -139,9 +139,13 @@ another document or the code.
 - [ ] **C11. Progress ledger corrections.** `Gabfix_UI_Progress.md`: correct the Stage 4, Technician
       Mobile App, Technician Workspace and Phase 7 rows; add this file to the document ledger and a
       session-log row; update "Next moves".
-- [ ] **C12. Code-gap notes.** Record in the progress doc and the setup checklist: D6 `fixed` pricing
-      type missing, D25 phone rule not applied, D9 inspection request states absent. These are code
-      items, not doc items, and stay open until implemented.
+- [x] **C12. Code-gap notes.** Done 2026-11-24. D25 is applied in `client-app/src/utils/validation.ts`
+      (10 digits, `07` only) with copies in `erp-app/src/lib/phone.ts` and `admin-web/src/lib/phone.ts`
+      and tests. D6 `fixed` now exists end to end for the catalogue, pricing snapshot and available
+      screens; the larger D6 change (remove the hourly cleaners/hours pickers and make hourly
+      quote-only) remains a product decision. D9's `inspection_needed`, `inspection_scheduled` and
+      `inspected` request stages are in the client request card. Evidence is in
+      `Gabfix_UI_Progress.md` §9 and §2.
 - [ ] **C13. Architecture back-fill.** Add the already-implemented `/api`-less `admin-web` (D22) and
       the `erp-app` delivery surface to `Full_App_Architecture_2.md` when the owner next edits it;
       this file must not silently decide D22.

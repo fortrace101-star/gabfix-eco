@@ -12,7 +12,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { addOns, type AddOnId } from '@/config/add-ons';
 import { pricing } from '@/config/pricing';
 import { serviceBySlug } from '@/config/services';
-import { addOnPrice, price } from '@/lib/pricing';
+import { addOnPrice, price, servicePricing } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
@@ -47,8 +47,8 @@ export default function AddOnsScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   const { requestExit, sheet } = useDraftExit({ step: 'add-ons' });
   const ready = useDraftGuard(slug);

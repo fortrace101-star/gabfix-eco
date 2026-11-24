@@ -29,7 +29,7 @@ import { RetryHint } from '@/components/ui/retry-hint';
 import { Skeleton } from '@/components/ui/skeleton';
 import { addOns } from '@/config/add-ons';
 import { hourlyRate, pricing } from '@/config/pricing';
-import { fromHourly, serviceBySlug } from '@/config/services';
+import { fromHourly, serviceBySlug, servicePriceLabel } from '@/config/services';
 import { useServiceContent } from '@/hooks/use-service-content';
 import { supportsNativeDriver } from '@/lib/animation';
 import { colors, font, radius, shadow, space, text } from '@/theme';
@@ -98,6 +98,7 @@ export default function ServiceLandingScreen() {
   });
 
   const isQuote = service?.pricingMode === 'quote';
+  const isFixed = service?.pricingMode === 'fixed';
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -247,6 +248,16 @@ export default function ServiceLandingScreen() {
                   anything starts.
                 </Text>
               </View>
+            ) : isFixed ? (
+              <View style={styles.card}>
+                <Text style={styles.priceValue} maxFontSizeMultiplier={1.2}>
+                  {servicePriceLabel(service!)}
+                </Text>
+                <Text style={styles.priceNote} maxFontSizeMultiplier={1.3}>
+                  Fixed price, payable at booking. Gabfix plans the crew and time. VAT is included
+                  at checkout.
+                </Text>
+              </View>
             ) : (
             <View style={styles.card}>
               <View style={styles.priceHeader}>
@@ -377,8 +388,8 @@ export default function ServiceLandingScreen() {
       </Animated.View>
 
       <SummaryBar
-        caption={isQuote ? 'Quoted after your photos' : 'From, per hour'}
-        total={fromHourly}
+        caption={isQuote ? 'Quoted after your photos' : isFixed ? 'Fixed price' : 'From, per hour'}
+        total={isFixed ? service?.fixedPrice ?? fromHourly : fromHourly}
         valueLabel={isQuote ? 'Custom quote' : undefined}
         actionLabel={isQuote ? 'Get a quote' : 'Book now'}
         onPress={book}

@@ -64,7 +64,7 @@ export default function ForgotPasswordScreen() {
     if (!valid) {
       setError(
         mode === 'phone'
-          ? 'Enter your 9-digit phone number'
+          ? 'Enter your 10-digit phone number, for example 0772 123 456'
           : 'Enter the email on your account',
       );
       return;

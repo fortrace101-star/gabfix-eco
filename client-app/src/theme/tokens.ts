@@ -39,6 +39,13 @@ export const colors = {
   info: '#1976D2',
   infoBg: '#E8F1FB',
 
+  /** Full-bleed media backdrop (photo/video viewer). */
+  mediaBackdrop: '#0B120D',
+  /** Neutral shadow source; keep alpha on the consuming style. */
+  shadowBase: '#000000',
+  /** Existing-launch artwork ground, not a surface. */
+  artGround: '#F3F4F2',
+
   scrim: 'rgba(22,34,26,0.40)',
   focusRing: 'rgba(17,142,69,0.18)',
   whiteOverlay: 'rgba(255,255,255,0.16)',

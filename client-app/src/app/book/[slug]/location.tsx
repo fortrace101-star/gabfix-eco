@@ -25,7 +25,7 @@ import { PermissionCard } from '@/components/ui/permission-card';
 import { TopBar } from '@/components/ui/top-bar';
 import type { FixturePlace } from '@/config/location-fixtures';
 import { serviceBySlug } from '@/config/services';
-import { price, type BookingLocation } from '@/lib/pricing';
+import { price, servicePricing, type BookingLocation } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import {
   getBookingDraft,
@@ -100,8 +100,8 @@ export default function LocationScreen() {
   useEffect(() => {
     if (!slug) return;
     const current = getBookingDraft();
-    if (!current || current.serviceSlug !== slug) startDraft(slug);
-  }, [slug]);
+    if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
+  }, [slug, service]);
 
   // The area is a free-text neighbourhood now (Workstream I); it is never a gate.
   const [locality, setLocality] = useState(() => getBookingDraft()?.location?.area ?? '');

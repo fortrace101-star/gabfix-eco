@@ -336,6 +336,12 @@ entirely against the local stack, and the same flow survives airplane mode + rec
 - [ ] **F3. Verification gates per app** before any hand-off: `client-app` — tsc, lint, jest;
       `erp-app` — `npx tsc --noEmit`, `npx expo lint`, `npx expo-doctor`; `admin-web` — build +
       typecheck; `backend` — `npx supabase db reset`.
+- [x] **F4. Cross-app code gaps closed (2026-11-24).** The D25 `07` phone rule is applied in
+      `client-app` and copied to `erp-app/src/lib/phone.ts` and `admin-web/src/lib/phone.ts` (ERP job
+      contact/profile and admin live-read rows format through it). D6 fixed-price services are
+      priced from a draft snapshot and shown without the hourly pickers; D9 request stages
+      (`inspection_needed`, `inspection_scheduled`, `inspected`) are in the client request card.
+      The full D6 hourly-as-quote change and inspection capture in `erp-app`/`admin-web` remain open.
 
 ---
 

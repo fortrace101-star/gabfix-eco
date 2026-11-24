@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         style={{ position: 'absolute', top: -height * 0.08, left: -width * 0.25 }}>
-        <Ellipse cx={50} cy={50} rx={50} ry={50} fill="#F3F4F2" />
+        <Ellipse cx={50} cy={50} rx={50} ry={50} fill={colors.artGround} />
       </Svg>
 
       <View style={[styles.copy, { top: insets.top + height * 0.14 }]}>
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     fontFamily: font.poppinsSemi,
     fontSize: 20,
     lineHeight: 28,
-    color: '#16221A',
+    color: colors.text,
   },
   accentHeading: { color: colors.green700 },
   body: {
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     fontFamily: font.poppins,
     fontSize: 12,
     lineHeight: 18,
-    color: '#5F6F65',
+    color: colors.textMuted,
   },
   art: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   cta: {

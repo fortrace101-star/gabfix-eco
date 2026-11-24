@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
 import { flushActionQueue, listPendingActions, type QueuedAction } from '@/lib/action-queue';
+import { formatUGPhone } from '@/lib/phone';
 import { useAuth } from '@/store/auth';
 import { colors, radius, space, text } from '@/theme';
 
@@ -61,7 +62,9 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Contact</Text>
           <Text style={styles.body}>{session?.user.email ?? '—'}</Text>
-          <Text style={styles.caption}>{profile?.phone ?? 'No phone on the profile'}</Text>
+          <Text style={styles.caption}>
+            {profile?.phone ? formatUGPhone(profile.phone) : 'No phone on the profile'}
+          </Text>
         </View>
 
         {pending.length ? (

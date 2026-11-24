@@ -26,13 +26,13 @@ Written on 2026-11-20 against `gabfix_mobile-main` (Expo SDK 58.0.26, Expo Route
 
 ## 1. Write phase 1 recap (what Stage 1 changed)
 
-The pre-statement for this stage: *"the repo survey is done; write phase 1 fixes the support call number (`0703195401`) everywhere it appears and records your answers to the six questions."* Comparing `Implementation_Phase_2.md` (first draft, 2,232 lines) with Stage 1 (3,261 lines), that phase is exactly the following. Nothing here is redone in Stage 2.
+The pre-statement for this stage: *"the repo survey is done; write phase 1 fixes the support call number (`0793195401`) everywhere it appears and records your answers to the six questions."* Comparing `Implementation_Phase_2.md` (first draft, 2,232 lines) with Stage 1 (3,261 lines), that phase is exactly the following. Nothing here is redone in Stage 2.
 
 ### 1.1 The six answers and where Stage 1 recorded them
 
 | # | Your answer | Recorded in Stage 1 as |
 |---|---|---|
-| 1 | Call number is `0703195401` | **D18**; finding **F5** closed; Section 2.1, 2.3, 2.4, 2.5 (`callNumber: '0703195401'`), 2.10 and 2.11 rewritten; Open question **Q1** answered; Open item **36** closed |
+| 1 | Call number is `0793195401` | **D18**; finding **F5** closed; Section 2.1, 2.3, 2.4, 2.5 (`callNumber: '0793195401'`), 2.10 and 2.11 rewritten; Open question **Q1** answered; Open item **36** closed |
 | 2 | Progress score dip is fine | **D17** |
 | 3 | Name the work "Phase 9" | **D17** |
 | 4 | Quiet hours come with the backend (Supabase, Expo tools, Firebase) | **D15** (backend timing) and **D16** (quiet hours) |
@@ -51,7 +51,7 @@ The pre-statement for this stage: *"the repo survey is done; write phase 1 fixes
 |---|---|
 | Backend (Supabase, Expo tools, Firebase) starts **after** the front end; until then everything runs on local storage in mock mode | S1 D15 |
 | Quiet hours and the 400/403 wrong-password rule are enforced when the backend is switched on | S1 D16 |
-| Support: `gabfixuganda@gmail.com`, `0703195401`, WhatsApp `0752777774`, all through `src/config/support.ts` | S1 D18 |
+| Support: `gabfixuganda@gmail.com`, `0793195401`, WhatsApp `0752777773`, all through `src/config/support.ts` | S1 D18 |
 | The work is called **Phase 9** in `Gabfix_UI_Progress.md` | S1 D17 |
 
 ---

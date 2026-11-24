@@ -181,8 +181,8 @@ export default function BookingDetailScreen() {
             ? 'Cash'
             : booking.paymentMethod ?? '—';
 
-  const bookAgain = (sameCleaner = false) => {
-    startRebookDraft(buildRebookDraft(booking, { sameCleaner }));
+  const bookAgain = () => {
+    startRebookDraft(buildRebookDraft(booking));
     router.push({ pathname: '/book/[slug]/schedule', params: { slug: booking.serviceSlug } });
   };
 
@@ -472,16 +472,7 @@ export default function BookingDetailScreen() {
               />
             ) : null}
             {booking.status !== 'upcoming' ? (
-              <>
-                <Button label="Book again" variant="secondary" onPress={() => bookAgain()} />
-                {booking.cleanerId ? (
-                  <Button
-                    label={`Book again with ${booking.cleanerName ?? 'the same cleaner'}`}
-                    variant="secondary"
-                    onPress={() => bookAgain(true)}
-                  />
-                ) : null}
-              </>
+              <Button label="Book again" variant="secondary" onPress={() => bookAgain()} />
             ) : null}
             <Button
               label="Contact support"

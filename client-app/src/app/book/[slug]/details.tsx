@@ -1,16 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Info, Repeat, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { ChipSelector } from '@/components/booking/chip-selector';
 import { SegmentedControl } from '@/components/booking/segmented-control';
 import { SelectableCard } from '@/components/booking/selectable-card';
 import { StepperHeader } from '@/components/booking/stepper-header';
@@ -19,30 +11,13 @@ import { SummarySheet } from '@/components/booking/summary-sheet';
 import { Card } from '@/components/ui/card';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
-import { pricing } from '@/config/pricing';
+import { hourlyRate, pricing } from '@/config/pricing';
 import { serviceBySlug, servicePriceLabel } from '@/config/services';
 import { price, servicePricing, type BookingFrequency } from '@/lib/pricing';
 import { useDraftExit, useDraftGuard } from '@/lib/use-draft-exit';
 import { getBookingDraft, patchDetails, startDraft, useBookingDraft } from '@/store/booking';
 import { colors, font, radius, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
-
-const cleanerOptions = [1, 2, 3, 4].map((value) => ({
-  value,
-  label: String(value),
-}));
-
-const hoursOptions = Array.from(
-  { length: pricing.maximumHours - pricing.minimumHours + 1 },
-  (_, index) => {
-    const value = pricing.minimumHours + index;
-    return {
-      value,
-      label: String(value),
-      tag: value === pricing.popularHours ? 'Popular' : undefined,
-    };
-  },
-);
 
 const frequencyOptions: {
   value: BookingFrequency;
@@ -61,14 +36,14 @@ const frequencyOptions: {
     value: 'weekly',
     title: 'Weekly',
     subtitle: 'The same day every week',
-    benefit: 'Same cleaner each visit',
+    benefit: 'We aim to keep the same crew',
     discount: '10% off',
   },
   {
     value: 'severalPerWeek',
     title: 'Several times a week',
     subtitle: 'Two or three visits a week',
-    benefit: 'Same cleaner each visit',
+    benefit: 'We aim to keep the same crew',
     discount: '15% off',
   },
 ];
@@ -108,8 +83,9 @@ export default function JobDetailsScreen() {
   const recurring = details.frequency !== 'once';
 
   const onNext = () => {
-    // Quote services are priced from the job details, so the extras step is skipped (H10).
-    if (service?.pricingMode === 'quote') {
+    // D6: hourly and quote services are priced from the job details. Neither is
+    // payable at booking, and the extras step is skipped (H10).
+    if (service?.pricingMode !== 'fixed') {
       router.push({ pathname: '/book/[slug]/scope', params: { slug } });
       return;
     }
@@ -142,11 +118,18 @@ export default function JobDetailsScreen() {
             caption={
               service?.pricingMode === 'fixed'
                 ? 'Fixed price · no hourly rate'
-                : `${details.hours} h · ${details.cleaners} cleaner${
-                    details.cleaners === 1 ? '' : 's'
-                  }`
+                : service?.pricingMode === 'hourly'
+                  ? 'Hourly rate · crew planned by Gabfix'
+                  : 'Priced after we review the job'
             }
-            total={quote.total}
+            total={service?.pricingMode === 'fixed' ? quote.total : 0}
+            valueLabel={
+              service?.pricingMode === 'fixed'
+                ? undefined
+                : service?.pricingMode === 'hourly'
+                  ? `${ugx(hourlyRate(pricing.minimumHours))}/hr`
+                  : 'Custom quote'
+            }
             actionLabel="Next"
             onPress={onNext}
             onDetailsPress={() => setSummaryOpen(true)}
@@ -167,41 +150,29 @@ export default function JobDetailsScreen() {
             </Card>
           </View>
         ) : (
-          <>
-            <View style={styles.group}>
-              <Text style={styles.label} maxFontSizeMultiplier={1.3}>
-                How many cleaners?
+          <View style={styles.group}>
+            <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+              How this is priced
+            </Text>
+            <Card>
+              <Text style={styles.priceTitle} maxFontSizeMultiplier={1.3}>
+                {service?.pricingMode === 'hourly'
+                  ? `${ugx(hourlyRate(pricing.minimumHours))} per hour`
+                  : 'Custom quote'}
               </Text>
-              <ChipSelector
-                options={cleanerOptions}
-                value={details.cleaners}
-                onChange={(cleaners) => patchDetails({ cleaners })}
-                itemStyle={styles.flexItem}
-              />
-            </View>
-
-            <View style={styles.group}>
-              <Text style={styles.label} maxFontSizeMultiplier={1.3}>
-                How many hours?
+              <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
+                {service?.pricingMode === 'hourly'
+                  ? 'You see the hourly rate now. After we review the job we send a fixed quote with the hours and crew. Nothing is due at booking.'
+                  : 'Tell us about the job next. We review it and send a fixed quote. Nothing is due at booking.'}
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.hoursRow}>
-                <ChipSelector
-                  options={hoursOptions}
-                  value={details.hours}
-                  onChange={(hours) => patchDetails({ hours })}
-                />
-              </ScrollView>
-              <View style={styles.hint}>
-                <Info size={16} color={colors.textMuted} strokeWidth={2} />
-                <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
-                  Longer bookings cost less per hour
-                </Text>
-              </View>
+            </Card>
+            <View style={styles.hint}>
+              <Info size={16} color={colors.textMuted} strokeWidth={2} />
+              <Text style={styles.hintText} maxFontSizeMultiplier={1.3}>
+                Gabfix plans the crew and hours for every job.
+              </Text>
             </View>
-          </>
+          </View>
         )}
 
         <View style={styles.group}>
@@ -225,7 +196,7 @@ export default function JobDetailsScreen() {
             <View style={styles.banner}>
               <Repeat size={18} color={colors.green700} strokeWidth={2} />
               <Text style={styles.bannerText} maxFontSizeMultiplier={1.3}>
-                You&apos;ll get the same cleaner each time.
+                We&apos;ll aim to keep the same crew each time.
               </Text>
             </View>
           ) : null}
@@ -287,8 +258,7 @@ const styles = StyleSheet.create({
   content: { padding: space[4], paddingBottom: space[8], gap: space[6] },
   group: { gap: space[3] },
   label: { ...text.h3 },
-  flexItem: { flex: 1 },
-  hoursRow: { paddingRight: space[4] },
+  priceTitle: { ...text.h2 },
   hint: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   hintText: { ...text.caption, flexShrink: 1 },
   cards: { gap: space[3] },

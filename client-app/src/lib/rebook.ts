@@ -84,10 +84,7 @@ const rebookPayment = (booking: SavedBooking): BookingPayment | undefined => {
  * P18 Rebook. Copies the previous details, add-ons, address and payment preference
  * into a fresh draft; the customer only picks a new date and time on P10.
  */
-export function buildRebookDraft(
-  booking: SavedBooking,
-  options: { sameCleaner?: boolean } = {},
-): BookingDraft {
+export function buildRebookDraft(booking: SavedBooking): BookingDraft {
   const source = booking.rebook;
 
   return {
@@ -104,6 +101,5 @@ export function buildRebookDraft(
     location: source?.location ?? fallbackLocation(booking),
     payment: rebookPayment(booking),
     rebookedFrom: booking.id,
-    preferredCleanerId: options.sameCleaner ? booking.cleanerId : undefined,
   };
 }

@@ -44,7 +44,7 @@ Written against the code in `gabfix_mobile-main` (Expo SDK 58.0.26, Expo Router 
 | D15 | **Backend timing is fixed:** Supabase, Expo tools and Firebase arrive in the **next stage, right after the front end**. Until then every feature in this document is built to be plugged in and runs on local storage (mock mode). | Your answers to Q4 and the quiet-hours and wrong-password points (2026-11-20). | n/a |
 | D16 | **Quiet-hours enforcement and the wrong-password status code (400/403) are implemented when the backend is activated.** This document keeps the rules as the specification (4.2.5, 4.3.3) but no front-end task depends on them. | Your decision. | n/a |
 | D17 | **Progress score dip to about 59% and the name "Phase 9"** in the progress document are accepted. | Your answers to the Decisions list. | n/a |
-| D18 | **Support details are final:** email `gabfixuganda@gmail.com`, call `0703195401`, WhatsApp `0752777774`. | Your answer to Q1. | One-file edit in `src/config/support.ts`. |
+| D18 | **Support details are final:** email `gabfixuganda@gmail.com`, call `0793195401`, WhatsApp `0752777773`. | Your answer to Q1. | One-file edit in `src/config/support.ts`. |
 | D19 | **SDK "confirm" items are in scope.** The image manipulator, file system, video and crypto APIs are confirmed against the v58 docs at the start of the step that uses them, not before. | You said "go ahead". | n/a |
 
 ---
@@ -79,7 +79,7 @@ You asked for this first. Method: unzipped the repo, read the progress document,
 | F2 | **Inconsistent Open item reference.** The change log says licensed P7 photography is "Open item 7"; the Open items table puts it at **18** (item 7 is the app icon). | Progress doc, Change log vs Section 6 | Low | Use 18 |
 | F3 | **Three routes are not registered** as `Stack.Screen` in `_layout.tsx`: `policies/[doc]`, `cleaner/[id]` and `booking/[id]/receipt`. | `grep name="policies/[doc]"` returns nothing; same for the other two | Low. They still work through file-based routing with the default `screenOptions` | Register them for consistency (7.2) |
 | F4 | **Support phone, WhatsApp and email are placeholders**, and the admin uses a different domain (`operations@gabfix.ug`, `admin@gabfix.ug`). | `src/config/help.ts`; `admin/src/data.ts:533` | Medium (customer-facing) | Workstream A |
-| F5 | **The first call number was one digit short.** `079319401` had 9 digits. You replaced it with `0703195401` (10 digits, valid). | Counted from your messages | **Closed** | Q1 answered. Validation in Section 2 stays so a future typo cannot ship a broken `tel:` link |
+| F5 | **The first call number was one digit short.** `079319401` had 9 digits. You replaced it with `0793195401` (10 digits, valid). | Counted from your messages | **Closed** | Q1 answered. Validation in Section 2 stays so a future typo cannot ship a broken `tel:` link |
 | F6 | **All existing photo features store base64 data URIs inside AsyncStorage JSON** (avatar, quote photos, chat photos, review photos). | `profile.tsx` `pickAvatarImage`, `quote/[slug].tsx`, `chat/[threadId].tsx`, `rate.tsx` all pass `base64: true` | Medium. On Android, AsyncStorage has a total size cap (6 MB by default, verify for your version) and very large single values can fail to read | Do not reuse this pattern for job media (D6). Migrate the others later (7.3) |
 | F7 | **Biometric login is a no-op.** The toggle writes `biometric: true` to the profile store, but `expo-local-authentication` is not installed and nothing reads the flag. | `package.json`; grep of `.biometric` shows only `profile.tsx` | Medium. The switch implies protection that is not there. The progress document does disclose it | Workstream C builds it for real (4.3.5) |
 | F8 | **The camera is never used.** No `launchCameraAsync`, and the `expo-image-picker` plugin in `app.json` sets only `photosPermission` (copy mentions "profile picture and service review"). | `app.json`; grep | Blocking for Workstream B | Add `cameraPermission` and `microphonePermission`, update copy (3.9) |
@@ -101,8 +101,8 @@ You asked for one set of contact details to apply to every form of customer-supp
 | Channel | Value supplied | Normalised (E.164) | Status |
 |---|---|---|---|
 | Email | `gabfixuganda@gmail.com` | n/a | Ready |
-| WhatsApp | `0752777774` | `+256752777774` | Ready. Opens `https://wa.me/256752777774` |
-| Call | `0703195401` | `+256703195401` | Ready (corrected from the first number, which had 9 digits). Opens `tel:+256703195401` |
+| WhatsApp | `0752777773` | `+256752777773` | Ready. Opens `https://wa.me/256752777774` |
+| Call | `0793195401` | `+256793195401` | Ready (corrected from the first number, which had 9 digits). Opens `tel:+256793195401` |
 
 ### 2.2 Today's behaviour (from the code)
 
@@ -126,14 +126,14 @@ You asked for one set of contact details to apply to every form of customer-supp
 // Pure TypeScript: no React Native imports, so the admin app can use it too.
 const UG_MOBILE = /^(?:\+?256|0)?(7\d{8})$/;
 
-/** '0752777774' | '+256 752 777 774' | '256752777774' -> '+256752777774'; otherwise null. */
+/** '0752777773' | '+256 752 777 774' | '256752777774' -> '+256752777773'; otherwise null. */
 export const toUgE164 = (raw: string): string | null => {
   const digits = raw.replace(/[\s()-]/g, '');
   const match = UG_MOBILE.exec(digits);
   return match ? `+256${match[1]}` : null;
 };
 
-/** '+256752777774' -> '+256 752 777 774' */
+/** '+256752777773' -> '+256 752 777 774' */
 export const formatUgDisplay = (e164: string): string =>
   `${e164.slice(0, 4)} ${e164.slice(4, 7)} ${e164.slice(7, 10)} ${e164.slice(10)}`;
 
@@ -202,8 +202,8 @@ import { buildSupport } from '@/lib/support';
  * Edit the values here only. Hours are provisional until confirmed (Q3).
  */
 export const support = buildSupport({
-  callNumber: '0703195401',
-  whatsappNumber: '0752777774',
+  callNumber: '0793195401',
+  whatsappNumber: '0752777773',
   email: 'gabfixuganda@gmail.com',
   hours: 'Open 7 days · 7:00 am – 9:00 pm',
 });
@@ -273,20 +273,20 @@ In `src/config/help.ts`, delete the old `support` literal and add `export { supp
 
 | Input | Expected `toUgE164` |
 |---|---|
-| `0752777774` | `+256752777774` |
-| `+256 752 777 774` | `+256752777774` |
-| `256752777774` | `+256752777774` |
+| `0752777773` | `+256752777773` |
+| `+256 752 777 774` | `+256752777773` |
+| `256752777774` | `+256752777773` |
 | `0793 19401` | `null` (9 digits; the first number supplied) |
-| `0703195401` | `+256703195401` |
-| `07527777749` | `null` (11 digits) |
+| `0793195401` | `+256793195401` |
+| `07527777739` | `null` (11 digits) |
 | `0414123456` | `null` (landline, not a mobile) |
 | `''` | `null` |
 
-Also test `formatUgDisplay('+256752777774') === '+256 752 777 774'`, that `whatsapp.url()` returns `https://wa.me/256752777774`, and that `whatsapp.url('Hello there')` appends `?text=Hello%20there`.
+Also test `formatUgDisplay('+256752777773') === '+256 752 777 774'`, that `whatsapp.url()` returns `https://wa.me/256752777774`, and that `whatsapp.url('Hello there')` appends `?text=Hello%20there`.
 
 ### 2.11 Acceptance criteria (Workstream A)
 
-1. With `0703195401` configured, the Call row appears on `/help`, `/help/contact` and P15c and dials `+256 703 195 401`. If the value is ever set to an invalid number, the Call row is hidden everywhere, no `tel:` link exists, and WhatsApp and Email still work.
+1. With `0793195401` configured, the Call row appears on `/help`, `/help/contact` and P15c and dials `+256 703 195 401`. If the value is ever set to an invalid number, the Call row is hidden everywhere, no `tel:` link exists, and WhatsApp and Email still work.
 2. Changing the call number in `src/config/support.ts` to another valid number changes every Call row; changing it to an invalid one hides them.
 3. WhatsApp opens a chat with `+256 752 777 774`, pre-filled with the booking id when launched from a booking.
 4. Email opens a draft to `gabfixuganda@gmail.com` with the subject line described above.
@@ -2210,7 +2210,7 @@ Do these in the same pull request that merges the code, as the plan requires ("u
 | 33 | **Notification contracts and push credentials**: preferences, push-token registry, FCM and APNs credentials in EAS, server-side quiet hours and the critical list (4.2.5, 4.9) | Backend / engineering | Phase 9 close |
 | 34 | **Account security contracts**: `/me/security`, password change (400/403 on wrong password), SMS two-factor, login activity, 2FA login challenge (4.9) | Backend | Phase 9 close |
 | 35 | **Session contracts**: `deviceId` on auth calls, one session per device, `GET/DELETE /me/sessions`, revoke-others, access-token lifetime (4.4.4) | Backend | Phase 9 close |
-| 36 | ~~Support call number~~ confirmed as `0703195401` (Q1 answered 2026-11-20) | Product | Closed |
+| 36 | ~~Support call number~~ confirmed as `0793195401` (Q1 answered 2026-11-20) | Product | Closed |
 | 37 | **Notification icon** (96 x 96 white PNG) and a decision on custom notification sounds | Design | Before store build |
 | 38 | **Support ticket contracts**: `POST /support/tickets` (multipart screenshots), list, detail, replies, status (16.3) | Backend | Backend stage |
 | 39 | **Catalogue and form-schema API**: `GET /services`, `GET /service-categories`, form schemas with versions, admin form builder (14.2, 14.4, 14.6) | Backend / admin | Backend stage |
@@ -2220,7 +2220,7 @@ Do these in the same pull request that merges the code, as the plan requires ("u
 | 43 | **Hourly rates and pricing mode** for each of the 18 services (H2, 14.2) | Finance / ops | Before release |
 | 44 | **Dashboard stats image** to match the tiles (13.3, Q17) | Design | Phase 9 build |
 
-   Update **Open item 1** (order-specification images): the reference screenshots for the scope and media sheets, notifications, security and devices now exist; mark it 🟡 and link P8b. Update **item 24** (support): email, WhatsApp and call number (`0703195401`) all supplied. Update **item 28** to note that notification preferences and biometric moved to P28 and Security.
+   Update **Open item 1** (order-specification images): the reference screenshots for the scope and media sheets, notifications, security and devices now exist; mark it 🟡 and link P8b. Update **item 24** (support): email, WhatsApp and call number (`0793195401`) all supplied. Update **item 28** to note that notification preferences and biometric moved to P28 and Security.
 10. **Change log.** One row for this document and one per merged workstream (A to J).
 11. **Phase summaries (Section 8 of the tracker).** Add "Phase 9: Scope, support and account security" with Delivered, Changed, Slipped, Next written at the end of the phase, not before.
 12. **QA table.** Add rows only for checks that were actually run, with the same wording discipline used so far ("code-reviewed", "not run on a device").
@@ -2236,7 +2236,7 @@ Each question has a default so work is not blocked. Answers change config, not a
 
 | # | Question | Default used until answered |
 |---|---|---|
-| Q1 | ✅ **Answered:** the call number is `0703195401`. | Used everywhere through `src/config/support.ts` |
+| Q1 | ✅ **Answered:** the call number is `0793195401`. | Used everywhere through `src/config/support.ts` |
 | Q2 | Is a Gmail address acceptable as the public support email, or should it move to a Gabfix domain later? The admin dashboard uses `@gabfix.ug` addresses | `gabfixuganda@gmail.com` everywhere; admin shows the same support values from `src/config/support.ts` |
 | Q3 | What are the real support hours? | "Open 7 days · 7:00 am – 9:00 pm" (provisional) |
 | Q4 | Who answers in-app Chat? It is a local simulation today (P27c) | Keep Chat visible; the contact card text says WhatsApp and calls reach the same team |

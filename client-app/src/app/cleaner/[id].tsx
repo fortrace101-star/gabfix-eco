@@ -9,10 +9,8 @@ import { Stars } from '@/components/reviews/stars';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TopBar } from '@/components/ui/top-bar';
-import { cleanerById, reviewsForCleaner, type Cleaner } from '@/config/cleaners';
+import { cleanerById, reviewsForCleaner } from '@/config/cleaners';
 import { serviceBySlug } from '@/config/services';
-import { patchDraft, startDraft } from '@/store/booking';
-import { servicePricing } from '@/lib/pricing';
 import { colors, font, radius, shadow, size, space, text } from '@/theme';
 
 function Stat({ value, label, star = false }: { value: string; label: string; star?: boolean }) {
@@ -70,10 +68,10 @@ export default function CleanerProfileScreen() {
   const service = serviceBySlug(cleaner.primaryServiceSlug);
   const reviews = reviewsForCleaner(cleaner);
 
-  const bookCleaner = (selected: Cleaner) => {
-    startDraft(selected.primaryServiceSlug, servicePricing(service));
-    patchDraft({ preferredCleanerId: selected.id });
-    router.push(`/book/${selected.primaryServiceSlug}/details` as Href);
+  // D6: the customer books the service, never a named crew member. The photo and
+  // reviews stay visible as a profile of the team.
+  const bookService = () => {
+    router.push(`/book/${cleaner.primaryServiceSlug}/details` as Href);
   };
 
   return (
@@ -185,16 +183,16 @@ export default function CleanerProfileScreen() {
       <View style={[styles.sticky, { paddingBottom: insets.bottom + space[3] }]}>
         <View style={styles.stickyCopy}>
           <Text style={styles.stickyTitle} maxFontSizeMultiplier={1.2}>
-            Preferred cleaner
+            Crew assigned by Gabfix
           </Text>
           <Text style={styles.stickyCaption} maxFontSizeMultiplier={1.2}>
-            No extra charge
+            We match the right team to your job
           </Text>
         </View>
         <Button
-          label="Book this cleaner"
+          label="Book this service"
           icon={CalendarCheck}
-          onPress={() => bookCleaner(cleaner)}
+          onPress={bookService}
           style={styles.stickyButton}
         />
       </View>

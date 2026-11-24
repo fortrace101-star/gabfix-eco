@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { CalendarX2, ChevronLeft, ChevronRight, Clock, Info, Repeat, Users, X } from 'lucide-react-native';
+import { CalendarX2, ChevronLeft, ChevronRight, Clock, Info, Repeat, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -110,11 +110,7 @@ export default function ScheduleScreen() {
   const [findingNext, setFindingNext] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const { slots, loading, error, refresh } = useAvailability(
-    slug,
-    selectedISO,
-    active?.preferredCleanerId,
-  );
+  const { slots, loading, error, refresh } = useAvailability(slug, selectedISO);
 
   useEffect(() => {
     if (!slug) return;
@@ -175,7 +171,6 @@ export default function ScheduleScreen() {
         const nextSlots = await getAvailability({
           serviceSlug: slug,
           dateISO: nextISO,
-          cleanerId: active?.preferredCleanerId,
         });
         if (nextSlots.some((slot) => slot.available)) {
           onSelectDate(nextISO);
@@ -282,16 +277,6 @@ export default function ScheduleScreen() {
             Start time
           </Text>
 
-          {active.preferredCleanerId ? (
-            <View style={styles.note}>
-              <Users size={16} color={colors.textMuted} strokeWidth={2} />
-              <Text style={styles.noteText} maxFontSizeMultiplier={1.3}>
-                Showing times for your preferred cleaner. Not available? We&apos;ll suggest similar
-                cleaners.
-              </Text>
-            </View>
-          ) : null}
-
           {isToday ? (
             <View style={styles.note}>
               <Info size={16} color={colors.textMuted} strokeWidth={2} />
@@ -332,11 +317,7 @@ export default function ScheduleScreen() {
               <EmptyState
                 icon={CalendarX2}
                 title="No times left on this day"
-                body={
-                  active.preferredCleanerId
-                    ? "Your preferred cleaner has no times on this day. We can find the next day with availability."
-                    : 'Every start time is taken or too close to book. We can find the next day with availability.'
-                }
+                body="Every start time is taken or too close to book. We can find the next day with availability."
                 actionLabel="See next available day"
                 onAction={seeNextAvailableDay}
                 actionLoading={findingNext}

@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { addOns } from '@/config/add-ons';
-import { frequencyLabels } from '@/config/pricing';
+import { frequencyLabels, hourlyRate, pricing } from '@/config/pricing';
 import { addOnPrice, price, type PriceableDraft } from '@/lib/pricing';
 import { colors, font, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
@@ -30,6 +30,10 @@ export function SummarySheet({
 }: Props) {
   const quote = draft ? price(draft) : null;
   const chosenAddOns = draft ? addOns.filter((item) => draft.addOns.includes(item.id)) : [];
+  // D6: the customer sees a rate or a quote, never the internal hours/crew plan.
+  const quoteOnly = draft?.pricing?.mode !== 'fixed';
+  const hourly = draft?.pricing?.mode === 'hourly';
+  const displayRate = hourlyRate(pricing.minimumHours);
 
   return (
     <BottomSheet
@@ -43,8 +47,12 @@ export function SummarySheet({
         <>
           <View style={styles.context}>
             <Text style={styles.contextText} maxFontSizeMultiplier={1.3}>
-              {frequencyLabel(draft.details.frequency)} · {draft.details.hours} h ·{' '}
-              {draft.details.cleaners} cleaner{draft.details.cleaners === 1 ? '' : 's'}
+              {frequencyLabel(draft.details.frequency)}
+              {quoteOnly
+                ? ` · ${hourly ? 'Hourly rate' : 'Quote after review'}`
+                : ` · ${draft.details.hours} h · ${draft.details.cleaners} cleaner${
+                    draft.details.cleaners === 1 ? '' : 's'
+                  }`}
             </Text>
             {scheduleLabel ? (
               <Text style={styles.contextText} maxFontSizeMultiplier={1.3}>
@@ -58,46 +66,73 @@ export function SummarySheet({
             ) : null}
           </View>
 
-          <View style={styles.rows}>
-            <Row
-              label={`${draft.details.hours} h × ${draft.details.cleaners} cleaner${
-                draft.details.cleaners === 1 ? '' : 's'
-              }`}
-              value={ugx(quote.base)}
-            />
-            {quote.materials > 0 ? <Row label="Materials" value={ugx(quote.materials)} /> : null}
-            {chosenAddOns.map((item) => (
-              <Row key={item.id} label={item.name} value={ugx(addOnPrice(item.id))} />
-            ))}
-            {quote.frequencyDiscount > 0 ? (
-              <Row
-                label={`${frequencyLabel(draft.details.frequency)} discount`}
-                value={`−${ugx(quote.frequencyDiscount)}`}
-                tone="credit"
-              />
-            ) : null}
-            {quote.promoDiscount > 0 ? (
-              <Row
-                label={`Promo ${draft.promoCode?.toUpperCase() ?? ''}`.trim()}
-                value={`−${ugx(quote.promoDiscount)}`}
-                tone="credit"
-              />
-            ) : null}
-            <Row label="VAT (18%)" value={ugx(quote.vat)} />
-          </View>
+          {quoteOnly ? (
+            <>
+              <View style={styles.rows}>
+                <Row
+                  label={hourly ? 'Hourly rate' : 'Pricing'}
+                  value={hourly ? `${ugx(displayRate)}/hr` : 'Quoted after review'}
+                />
+              </View>
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel} maxFontSizeMultiplier={1.3}>
-              Total
-            </Text>
-            <Text style={styles.totalValue} maxFontSizeMultiplier={1.2}>
-              {ugx(quote.total)}
-            </Text>
-          </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel} maxFontSizeMultiplier={1.3}>
+                  Total
+                </Text>
+                <Text style={styles.totalValue} maxFontSizeMultiplier={1.2}>
+                  {hourly ? 'Quoted after review' : 'Custom quote'}
+                </Text>
+              </View>
 
-          <Text style={styles.note} maxFontSizeMultiplier={1.3}>
-            Cleaning time: {quote.minutes / 60} h. Final price is confirmed when you book.
-          </Text>
+              <Text style={styles.note} maxFontSizeMultiplier={1.3}>
+                Nothing is due today. Gabfix plans the crew and hours and confirms the final price
+                in your quote.
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.rows}>
+                <Row
+                  label={`${draft.details.hours} h × ${draft.details.cleaners} cleaner${
+                    draft.details.cleaners === 1 ? '' : 's'
+                  }`}
+                  value={ugx(quote.base)}
+                />
+                {quote.materials > 0 ? <Row label="Materials" value={ugx(quote.materials)} /> : null}
+                {chosenAddOns.map((item) => (
+                  <Row key={item.id} label={item.name} value={ugx(addOnPrice(item.id))} />
+                ))}
+                {quote.frequencyDiscount > 0 ? (
+                  <Row
+                    label={`${frequencyLabel(draft.details.frequency)} discount`}
+                    value={`−${ugx(quote.frequencyDiscount)}`}
+                    tone="credit"
+                  />
+                ) : null}
+                {quote.promoDiscount > 0 ? (
+                  <Row
+                    label={`Promo ${draft.promoCode?.toUpperCase() ?? ''}`.trim()}
+                    value={`−${ugx(quote.promoDiscount)}`}
+                    tone="credit"
+                  />
+                ) : null}
+                <Row label="VAT (18%)" value={ugx(quote.vat)} />
+              </View>
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel} maxFontSizeMultiplier={1.3}>
+                  Total
+                </Text>
+                <Text style={styles.totalValue} maxFontSizeMultiplier={1.2}>
+                  {ugx(quote.total)}
+                </Text>
+              </View>
+
+              <Text style={styles.note} maxFontSizeMultiplier={1.3}>
+                Cleaning time: {quote.minutes / 60} h. Final price is confirmed when you book.
+              </Text>
+            </>
+          )}
         </>
       ) : (
         <View style={styles.empty}>

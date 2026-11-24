@@ -4,7 +4,7 @@ Stage 3 of the Phase 2 guide. It **builds on** `Implementation Phase 2 - Stage 1
 
 Written on 2026-11-20 against `gabfix_mobile-main` (Expo SDK 58.0.26, Expo Router 58.0.32, React Native 0.88.1, React 19.3.0). No `node_modules` and no network in the build sandbox, so **every code block here is unverified by a compiler** (`tsc`, lint and tests were not run). Claims about the code were checked by reading the files; claims about Expo were checked against the v58 documentation pages and are marked **verified** or **not re-read**.
 
-> **Status line.** Write phase 1 is recorded in S2 (support call number `0703195401`, your six answers, defaults for Q17 to Q29). **The uploaded S2 stops after its Section 2**, although its own status line lists Sections 3 to 9. Stage 3 therefore carries **write phases 2 to 5**: verification (Section 1), corrections to S1 (Section 2), the final job-scope contract (Section 3), working code for the parts S1 only described (Section 4), one build order (Section 5), the progress-document patch (Section 6), the definition of done (Section 7) and the hand-off summary (Section 8). If you later complete S2's Sections 3 to 9 elsewhere, Stage 3 wins on any conflict because it was written after checking S1 against the code.
+> **Status line.** Write phase 1 is recorded in S2 (support call number `0793195401`, your six answers, defaults for Q17 to Q29). **The uploaded S2 stops after its Section 2**, although its own status line lists Sections 3 to 9. Stage 3 therefore carries **write phases 2 to 5**: verification (Section 1), corrections to S1 (Section 2), the final job-scope contract (Section 3), working code for the parts S1 only described (Section 4), one build order (Section 5), the progress-document patch (Section 6), the definition of done (Section 7) and the hand-off summary (Section 8). If you later complete S2's Sections 3 to 9 elsewhere, Stage 3 wins on any conflict because it was written after checking S1 against the code.
 
 | Section | Part | Why it is needed |
 |---|---|---|
@@ -678,7 +678,7 @@ Sizes: S under a day, M one to three days, L three to five days, for one develop
 | Step | Work | Size | Depends on | Notes |
 |---|---|---|---|---|
 | 0 | Housekeeping that is documentation or route registration only (S1 7.1, 7.2) | S | none | Zero risk; clean baseline |
-| 1 | **Write phase 1 in code:** `src/config/support.ts` with `0703195401`, `ContactOptions`, `/help/contact` hand-offs, admin import, `support.test.ts` (S1 Section 2) | S to M | 0 | All three channels live |
+| 1 | **Write phase 1 in code:** `src/config/support.ts` with `0793195401`, `ContactOptions`, `/help/contact` hand-offs, admin import, `support.test.ts` (S1 Section 2) | S to M | 0 | All three channels live |
 | 2 | Install packages (S1 5 plus `react-native-keyboard-controller`; **not** `expo-video-thumbnails`), edit `app.json` once, `npx expo-doctor`, **start the dev builds** | S | 0 | One commit, one build per platform |
 | 3 | **Shared UI foundation, in this order:** `BottomSheet`, then `ConfirmSheet` on top of it, `InlineBanner`, `StatTile`, `Avatar`, `FilterChip`, `settings-list` extraction (Profile must look identical), `PermissionCard` icon prop, `newId()`, `KeyboardProvider` and `KeyboardScreen`, the `dangerGhost` Button variant | M | 0, 2 | Everything later imports these; fixes C4 |
 | 4 | **Remove Service Areas** (S1 15.3 steps 1 to 8) | M | 0 | Before steps 6, 15 and 17, which all touch the location step or Home |
@@ -751,7 +751,7 @@ A workstream is **Done** when all of these hold. Until then its status stays ðŸŸ
 
 | Topic | Final position | Where it lives |
 |---|---|---|
-| Support details | Email `gabfixuganda@gmail.com`, call `0703195401`, WhatsApp `0752777774`, all via `src/config/support.ts`; validation hides a malformed number | S1 Section 2, D18 |
+| Support details | Email `gabfixuganda@gmail.com`, call `0793195401`, WhatsApp `0752777773`, all via `src/config/support.ts`; validation hides a malformed number | S1 Section 2, D18 |
 | Phase name and score | **Phase 9**; 49 active pages, 39 built; score about **56%** | S1 8, Section 6 above |
 | Backend timing | Supabase, Expo tools and Firebase **after** the front end; local storage in mock mode until then; quiet hours and wrong-password 400/403 arrive with it | S1 D15, D16 |
 | P8b | Between Details and Add-ons; **schema-driven**; `service-scope.ts` deleted | Section 3, S1 14.4 |

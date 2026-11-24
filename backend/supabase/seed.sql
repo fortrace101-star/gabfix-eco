@@ -96,17 +96,17 @@ insert into public.categories (name, description, display_order) values
   ('Outdoor and landscaping', 'Gardens and outdoor spaces', 7)
 on conflict do nothing;
 
-insert into public.services (category_id, name, description, pricing_type, price, duration_minutes, required_skill_id)
-select c.id, s.name, s.description, s.pricing, s.price, s.duration, k.id
+insert into public.services (category_id, name, description, slug, pricing_type, price, duration_minutes, required_skill_id)
+select c.id, s.name, s.description, s.slug, s.pricing, s.price, s.duration, k.id
 from (values
-  ('Cleaning', 'Standard home clean', 'Routine clean of living areas and bathrooms', 'hourly'::public.pricing_type, 45000, 120, 'cleaning'),
-  ('Cleaning', 'Deep clean', 'Top-to-bottom deep clean', 'fixed'::public.pricing_type, 180000, 240, 'cleaning'),
-  ('Upholstery and carpets', 'Sofa deep clean', 'Shampoo and extract one three-seater', 'fixed'::public.pricing_type, 80000, 90, 'cleaning'),
-  ('Upholstery and carpets', 'Mattress clean', 'Steam and sanitise one mattress', 'fixed'::public.pricing_type, 60000, 60, 'cleaning'),
-  ('Repairs and installations', 'Electrical fault finding', 'Trace and quote a electrical fault', 'hourly'::public.pricing_type, 60000, 60, 'electrical'),
-  ('Repairs and installations', 'Leak repair', 'Find and fix a water leak', 'quote'::public.pricing_type, 0, 60, 'plumbing'),
-  ('Outdoor and landscaping', 'Lawn mowing', 'Cut and edge a standard plot', 'fixed'::public.pricing_type, 50000, 60, 'handyman')
-) as s(category, name, description, pricing, price, duration, skill)
+  ('Cleaning', 'Standard home clean', 'Routine clean of living areas and bathrooms', 'home-clean', 'hourly'::public.pricing_type, 45000, 120, 'cleaning'),
+  ('Cleaning', 'Deep clean', 'Top-to-bottom deep clean', 'deep-clean', 'hourly'::public.pricing_type, 45000, 240, 'cleaning'),
+  ('Upholstery and carpets', 'Sofa deep clean', 'Shampoo and extract one three-seater', 'sofa-clean', 'fixed'::public.pricing_type, 80000, 90, 'cleaning'),
+  ('Upholstery and carpets', 'Mattress clean', 'Steam and sanitise one mattress', 'mattress-clean', 'fixed'::public.pricing_type, 60000, 60, 'cleaning'),
+  ('Repairs and installations', 'Electrical fault finding', 'Trace and quote a electrical fault', 'electrical-works', 'hourly'::public.pricing_type, 60000, 60, 'electrical'),
+  ('Repairs and installations', 'Leak repair', 'Find and fix a water leak', 'plumbing-works', 'quote'::public.pricing_type, 0, 60, 'plumbing'),
+  ('Outdoor and landscaping', 'Lawn mowing', 'Cut and edge a standard plot', 'landscaping', 'fixed'::public.pricing_type, 50000, 60, 'handyman')
+) as s(category, name, description, slug, pricing, price, duration, skill)
 join public.categories c on c.name = s.category
 join public.skills k on k.name = s.skill
 where not exists (select 1 from public.services x where x.name = s.name);

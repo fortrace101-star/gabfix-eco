@@ -2,13 +2,13 @@
 
 ## Progress (updated 2026-11-23, after Part 16)
 
-**13 of 25 decisions made: 52%.** `█████░░░░░`
+**14 of 25 decisions made: 56%.** `██████░░░░`
 
 Method: the 25 decisions are D1 to D23 from `Ecosystem_Gap_Analysis.md` plus D24 and D25, added later. Each counts equally, and a decision counts only once the owner has confirmed it. This block is recalculated after every write to this file.
 
-**Decided (13):** D1 Hono entry point, D2 Expo push, D3 Sign-in, D4 Service forms, D5 Categories, D6 Pricing (with optional inspection), D7 One ERP app for everyone (settled by instruction), D8 Roles (called D7 in this file), D9 Booking stages and inspection, D10 Cash held by technicians, D20 Who is told when a booking is made, D24 Store and inventory removed, job costs added, D25 Phone numbers, 07 only.
+**Decided (14):** D1 Hono entry point, D2 Expo push, D3 Sign-in, D4 Service forms, D5 Categories, D6 Pricing (with optional inspection), D7 One ERP app for everyone (settled by instruction), D8 Roles (called D7 in this file), D9 Booking stages and inspection, D10 Cash held by technicians, D13 Support conversations (not tickets or technician chat), D20 Who is told when a booking is made, D24 Store and inventory removed, job costs added, D25 Phone numbers, 07 only.
 
-**Left (12):** D11 Late fees, tips, promos, referrals, D12 Payment gateway and SMS provider, D13 Chat and tickets, D14 Deleting accounts, D15 Guest links, receipts, legal pages, D16 Recurring plans, D17 Which legacy features are in the first release, D18 Laundry for app customers, D19 Legacy data, D21 Live tracking, D22 Admin web, D23 Staff GPS trail.
+**Left (11):** D11 Late fees, tips, promos, referrals, D12 Payment gateway and SMS provider, D14 Deleting accounts, D15 Guest links, receipts, legal pages, D16 Recurring plans, D17 Which legacy features are in the first release, D18 Laundry for app customers, D19 Legacy data, D21 Live tracking, D22 Admin web, D23 Staff GPS trail.
 
 **Still open inside decided areas:** travel time and the daily hours cap, the extra technician trades, the list of edge functions (to be revised after review), whether a fee applies after On the way (D11), which notifications are critical and skip quiet hours (D20), whether laundry shop cash needs its own handover (D10), and the payment provider (D12).
 
@@ -278,8 +278,10 @@ The business has one shop, the laundry shop. There is no store for contract jobs
 
 - `notifications`: id, user\_id, title, body, type, read\_at, created\_at.
 - `booking_drafts`: id, customer\_id, selected\_services, last\_step, status (in progress, abandoned, followed up, completed), abandoned\_at, follow\_up\_reason, followed\_up\_by, followed\_up\_at, booking\_id (set when the draft becomes a booking), updated\_at. The client app saves the draft as the customer goes. See the abandoned bookings decision in section 12.
-- `support_conversations`: id, customer\_id (unique, one row per customer), last\_message\_at, last\_read\_by\_staff\_at, created\_at. Created automatically the first time a customer or staff member sends a message.
+- `support_conversations` (D13, resolved 2026-11-24): id, reference (`GBT-` code shown in the client), customer\_id (unique, one row per customer), subject, category (booking, payment, service, account, other), status (open, waiting\_on\_customer, resolved), last\_message\_at, last\_read\_by\_staff\_at, last\_read\_by\_customer\_at, created\_at, updated\_at. Created automatically the first time a customer or staff member sends a message.
 - `support_messages`: id, conversation\_id, sender\_id, body, booking\_id (optional), laundry\_order\_id (optional), created\_at. A message is tagged to a booking or laundry order only when it relates to one. General inquiries carry no tag.
+
+D13 is settled in favour of one conversation per customer, with ticket-like subject, category, reference and status on the conversation so the client ticket centre remains the customer entry point. Staff reply in the same thread. There is no technician-to-customer chat in the first release; adding it later means one more notification event and does not change these tables.
 
 - `reviews`: id, booking\_id, customer\_id, target\_type (service or technician), service\_id or technician\_id (whichever is rated), rating (1 to 5), comment (optional), created\_at. One row per rating, so a customer can leave several for one booking.
 
@@ -839,7 +841,7 @@ D7 is now fully decided, and every proposed item above has been confirmed.
 
 - **D15, guests and receipts:** the channel for a customer with no app (SMS, WhatsApp or email) must be chosen. Until the SMS provider exists (D12), the manager phones the customer, which fits the confirmation call.
 - **D12, SMS provider:** needed for messages to customers with no app. Until then these go out by the manager's call or by WhatsApp from the staff member.
-- **D13, chat and tickets:** a new support message already notifies customer relations. A technician chat, if adopted, adds one more event to the table.
+- **D13, support conversations:** a new support message notifies customer relations, and a staff reply notifies the customer. There is no technician chat in the first release.
 - **D10, cash held by technicians:** a cash dispute and an unconfirmed cash amount need events for the manager and admin.
 - **D11, late fees:** a late-fee charge on a cancellation adds a line to the customer's cancellation message.
 - **D21, live tracking:** the technician on the way event is already in the customer list, and an alert for no location update for three minutes goes to the manager.

@@ -70,7 +70,7 @@ Checks:
 | Name and short description | Gabfix Home Solutions: home cleaning and repair services in Uganda (adjust wording to your voice) |
 | Screenshots | Reuse real app screens: Home, Services (twin cards), Job scope, Confirm order, Bookings, Payments and Wallet; 4 to 8 per form factor (**confirm** current size rules) |
 | Icon and feature graphic | Existing brand assets; no new colours |
-| Support contact | `gabfixuganda@gmail.com`, `0703195401`, WhatsApp `0752777774` from `src/config/support.ts` (S1 D18) |
+| Support contact | `gabfixuganda@gmail.com`, `0793195401`, WhatsApp `0752777773` from `src/config/support.ts` (S1 D18) |
 | Content rating | Complete the questionnaire honestly; no user-to-user chat except support |
 | Test access | Provide a review login and a test OTP route for the store reviewer; disable it for real users |
 | Release track | Internal testing, then closed testing, then production with a staged rollout (for example 10%, 50%, 100%) |

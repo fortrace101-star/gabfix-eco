@@ -3,14 +3,14 @@ declare const __DEV__: boolean | undefined;
 
 const UG_MOBILE = /^(?:\+?256|0)?(7\d{8})$/;
 
-/** '0752777774' | '+256 752 777 774' | '256752777774' -> '+256752777774'; otherwise null. */
+/** '0752777773' | '+256 752 777 774' | '256752777774' -> '+256752777773'; otherwise null. */
 export const toUgE164 = (raw: string): string | null => {
   const digits = raw.replace(/[\s()-]/g, '');
   const match = UG_MOBILE.exec(digits);
   return match ? `+256${match[1]}` : null;
 };
 
-/** '+256752777774' -> '+256 752 777 774' */
+/** '+256752777773' -> '+256 752 777 774' */
 export const formatUgDisplay = (e164: string): string =>
   `${e164.slice(0, 4)} ${e164.slice(4, 7)} ${e164.slice(7, 10)} ${e164.slice(10)}`;
 

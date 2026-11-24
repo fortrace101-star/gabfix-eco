@@ -101,7 +101,6 @@ export type BookingDraft = {
   /** P18: set when the draft was prefilled from an earlier booking. */
   rebookedFrom?: string;
   /** P18: “Book same cleaner” preference sent with the availability request. */
-  preferredCleanerId?: string;
   /** Last order-flow step reached, so Home's Continue card resumes in place. */
   lastStep?: BookingDraftStep;
   /** D6 pricing type snapshot; absent on drafts created before this field existed. */

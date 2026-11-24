@@ -41,12 +41,12 @@ These are the places where following S1–S3 literally would now build the wrong
 | A8 | Inspection is described as a client-only status line | **D9:** real `inspections`, checklist, measurements, media, report, addenda, gate on sending a quote, free to the customer. | W5 |
 | A9 | Cash is a local screen | **D10:** payments + handover ledger + 24-hour flag + disputes, enforced in the database. | W6 |
 | A10 | Store/inventory | **D24:** removed. Only `job_costs` (admin-only) and laundry machines remain. | W6, W9 |
-| A11 | Tickets are the only support model (S1 J) | **D13 is still open.** The client ticket centre can stay as the customer entry, but the backend must choose between ticket tables and the architecture’s `support_conversations` / `support_messages` chat. Do not build both. | W8 |
+| A11 | Tickets are the only support model (S1 J) | **D13 resolved 2026-11-24:** one `support_conversations` row per customer, with ticket metadata (reference, subject, category, status) and `support_messages` as the thread. The client ticket centre becomes the entry point; no technician chat in v1. | W8 |
 | A12 | “Refer and earn” is a full feature | **D11 is still open** (late fees, tips, promos, referrals). Keep the UI; do not build rewards until D11 is decided. | W8 |
 | A13 | Admin web could be Next.js or Vite | Current `admin-web/` is React + Vite and already has Supabase auth, so **retaining Vite** is the proposed answer to D22. Confirm with the owner and record it. | W0, W9 |
 | A14 | Stage 4 table names (`service_categories`, `cleaners`, `devices`, `sessions`) | The migrations in `backend/supabase/` are authoritative: `categories`, `technician_profiles`, `skills`, `device_tokens`, Supabase Auth owns sessions. | W0 |
 
-**Support-number discrepancy (needs the owner):** S1 D18 and S2 say call **0703195401**, WhatsApp **0752777774**. The code (`src/config/support-contact.ts`) and the client progress log say call **0793195401**, WhatsApp **0752777773**. Do not change either until confirmed; W1 lists this as the first open item.
+**Support numbers (resolved 2026-11-24):** the code values are canonical — call **0793195401**, WhatsApp **0752777773**, email `gabfixuganda@gmail.com`. S1/S2/S3 and the test fixtures have been aligned to them.
 
 ---
 
@@ -55,7 +55,7 @@ These are the places where following S1–S3 literally would now build the wrong
 | App | Built | Not built / partial |
 |---|---|---|
 | **Client** (`client-app/`) | Support config and help surfaces (A 90); schema-driven P8b, media pipeline, mock upload queue, scope/media surfaces (B 90); P28/P29/P29a/P29b/P29c/P30 and biometric gate (C 74); drafts, keyboard kit, mock assignment/completion, optional ratings, recurring next visit (F 90); Home dashboard G1–G7 (G 90); 7 categories, 18 active services, twin cards, form engine and seed schemas (H 70); Service Areas removed (I 100); ticket centre, referral lists, red cancel, FAQ chips (J 85); momo per network, balance paying, receipt PDF (E 85). | Real upload targets, full D6 hourly/quote behaviour, server catalogue reads, quote acceptance screen, crew display, staff-booked labels, real push/security backends, referral/review/ticket APIs, device matrix, E1 download-to-Files. |
-| **Backend** (`backend/supabase/`) | 7 migrations, 24 tables, RLS, capability helpers, booking status RPCs, assignment, start/complete, cash payment/handover RPCs, storage bucket setup, seed, clean local reset. | Hono `api`; quotes/inspections/reviews/support/referrals/notification-preferences/login-events/job-costs/laundry/audit tables; push sender and cron; provider webhook; catalogue seed and generated types; no staging project. |
+| **Backend** (`backend/supabase/`) | 10 migrations, 45 tables, RLS, audit triggers, capability helpers, booking status RPCs, assignment, start/complete, cash payment/handover RPCs, private media buckets, seed, clean local reset. Hono `api` serves health, profile, catalogue, bookings (with idempotency), quotes, support and notifications; all smoke-tested against the local stack. | Remaining routes (availability, media, payments, wallet, security/sessions, referrals, reviews); push sender/cron; provider webhook; full catalogue/form seed; generated types; no staging project. |
 | **Admin** (`admin-web/`) | Vite + React, Supabase Auth with role gating, live reads for bookings, items, assignments, addresses, profiles, technicians, payments, handovers and disputes; dispatch dialog; cash, reports (CSV from live data), promos, services, settings pages. | Create-booking and confirmation queues, cancellation requests, quotes/inspections, categories/services/form builder, support inbox, staff invites/roles, sales/leads/commission, customer 360, abandoned drafts, audit log viewer, server-side promos/settings, deploy, a11y pass. |
 | **ERP** (`erp-app/`) | Expo app, auth gate, role tabs, jobs list/detail, On the way → Start → Complete, job photos, cash on a job, cash/handover screen, offline action queue with replay, generated DB types. | Push/token registration, assignment accept/decline, inspections, quote preparation, sales leads/proposals, laundry orders/machines, customer-relationship queues, native device pass. |
 
@@ -68,15 +68,15 @@ These are the places where following S1–S3 literally would now build the wrong
 **Goal:** one database and one client API contract that all four apps can build against. This replaces S1 Workstream D and absorbs S4's mock inventory.
 
 - [x] `[backend]` Core schema: profiles, skills, technician profiles/skills/availability, categories, services, form definitions, addresses, bookings, items, snapshots, assignments, job photos, status history, payments, cash handovers/disputes, capabilities, invites, device tokens, notifications, RLS and helper functions.
-- [ ] 🟨 `[backend]` Add the Phase 2 tables that do not exist yet: `quotes`, `inspections`, `inspection_media`, `inspection_addenda`, `reviews`, `notification_preferences`, `login_events`, `receipts`, `saved_wallet_numbers`, `booking_drafts`, `cancellation_requests`, `reactivation_requests`, `job_costs`, `equipment`, `laundry_orders`, `machine_logs`, `audit_log`, plus the support tables chosen under D13.
-- [ ] ⬜ `[backend]` Hono `api` function, base path `/api`, Supabase Hono adapter, `_shared` for form validation, pricing, status rules, notification policy and balances.
-- [ ] ⬜ `[backend]` Route map from the client's existing calls (`src/lib/api/*`): auth, services/categories, availability, bookings, media, quotes, payments, wallet, notifications, security, sessions, support, referrals, reviews, profile.
-- [ ] ⬜ `[backend]` Buckets and policies: booking media (private), `inspection-media` (private), service images (public), technician photos (private, assignment-scoped), ticket files (private), avatars.
-- [ ] ⬜ `[backend]` Service-role-only writes for status, prices, cash and audit; triggers write `audit_log`; no client can write those columns.
-- [ ] 🟨 `[admin]` `[erp]` Database types: `database.types.ts` exists in both; regenerate after every migration and fail the build on drift.
+- [x] `[backend]` Phase 2 tables added in `20261124120000_phase2_core.sql`: quotes, inspections/media/addenda, reviews, support conversations/messages, notification preferences, login events, receipts, saved wallet numbers, drafts, cancellation/reactivation requests, job costs, equipment, laundry orders/machine logs, referrals, audit log and idempotency keys. 45 tables total; `db reset` replays cleanly.
+- [x] `[backend]` Hono `api` function at `backend/supabase/functions/api/index.ts`, mounted at `/functions/v1/api`; auth middleware, error shape, idempotent booking writes.
+- [ ] 🟨 `[backend]` Route map from the client's calls: `health`, `me`, `catalogue`, `services/:slug`, `bookings` (list/detail/create), `quotes` (read), `support` conversation/messages, `notifications` (list/read) exist. Availability, media uploads, payments, wallet, security/sessions, referrals and reviews routes remain.
+- [x] `[backend]` Buckets and policies: `booking-media`, `inspection-media`, `support-attachments` (all private), plus the existing job/technician/service buckets.
+- [ ] 🟨 `[backend]` Audit triggers cover bookings, payments, quotes, inspections, cancellation requests, job costs, profiles, support conversations and reviews; append-only enforced. Status/price column guards are still API-only.
+- [ ] 🟨 `[admin]` `[erp]` Database types are stale after the new migration; regenerate and fail the build on drift.
 - [ ] ⬜ `[all]` Cut over one mock at a time using S4 §1; remove the matching env flag from the production profile when the row passes.
-- [ ] ⬜ `[backend]` Seed the seven categories, 18 active services (plus `office-clean` and `move-out-clean` inactive), seed forms, skills and demo technicians; never push `seed.sql` to production.
-- [ ] ⬜ `[all]` Keep the error shape `{ error: { code, message } }` and the `Idempotency-Key` header end to end.
+- [ ] 🟨 `[backend]` Seed has 7 categories, 7 services (slugs aligned), skills and demo technicians. The remaining client services and the form definitions are not seeded.
+- [x] `[all]` Error shape `{ error: { code, message } }` and `Idempotency-Key` implemented; a repeated key was verified to return the same booking.
 
 **Done when:** `supabase db reset` replays cleanly; a contract test exercises every client path through Hono; no app holds a service-role key.
 
@@ -87,7 +87,7 @@ These are the places where following S1–S3 literally would now build the wrong
 - [x] `[client]` Single source in `src/config/support-contact.ts` and `support.ts`; call/WhatsApp/email rows, validation, copy/long-press, booking context, and hand-offs on help, booking, receipt, tracking, payment and policy screens.
 - [x] `[admin]` Support values aligned with the shared config.
 - [ ] 🟨 `[client]` Final device/copy QA.
-- [ ] ⬜ `[owner]` **Resolve the number discrepancy** (0703 195401/0752 777774 in the docs vs 0793 195401/0752 777773 in code) before release.
+- [x] `[all]` Canonical numbers set to call `0793195401`, WhatsApp `0752777773`; the Phase 2 documents, validator fixtures and checklist now agree.
 
 **Done when:** one confirmed set of numbers appears in every app and the device pass is recorded.
 
@@ -97,8 +97,8 @@ These are the places where following S1–S3 literally would now build the wrong
 
 - [x] `[client]` Home blocks, stat tiles, balance-due card, Most popular row, hero clean-up.
 - [x] `[client]` Seven categories and 18 services plus two inactive; twin cards; `fixed`/`hourly`/`quote` labels; schema engine, `DynamicForm`, seed schemas and tests.
-- [ ] 🟨 `[client]` **Finish D6:** remove the hours and cleaners pickers for hourly services, show only the rate, route hourly through the quote flow, allow payment at booking only for fixed price, and remove customer crew/cleaner preference.
-- [ ] 🟨 `[client]` Read categories, services, pricing and images from the API; keep config only as the offline seed; cache for weak signal.
+- [x] `[client]` **D6 finished:** hours/cleaners pickers removed; hourly shows one rate and routes through the quote flow; only fixed price is payable at booking; named-cleaner preference and “book again with cleaner” removed. `tsc`, lint and pricing/support tests pass.
+- [ ] 🟨 `[client]` Read categories, services, pricing and images from the API; keep config only as the offline seed; cache for weak signal. The API now serves the catalogue; the client still reads config.
 - [ ] 🟨 `[client]` Service detail clean-up and quote wording follow the server pricing type (not a local field).
 - [ ] ⬜ `[client]` Q17 dashboard stats reference image; match the tile array when it arrives.
 - [ ] ⬜ `[backend]` Catalogue API, versioned form definitions, server-side schema validation on booking, active filtering, service image uploads, deactivation without deletion.
@@ -188,8 +188,8 @@ These are the places where following S1–S3 literally would now build the wrong
 
 - [x] `[client]` Ticket centre, request form, tickets list/detail, local replies, screenshot attachments, referral stage rows and masked friend lists, local reviews and chat.
 - [ ] 🟨 `[client]` Replace local tickets/replies, referrals and reviews with API calls; keep the local store as a cache; add ticket/reply notifications.
-- [ ] 🚫  `[owner]` **D13:** choose ticket threads or the architecture's one support conversation per customer. The current ticket UI can remain the entry point either way.
-- [ ] ⬜ `[backend]` Support tables/messages and attachments, tagged to a booking or order when relevant; reviews with one rating per target; referral records.
+- [x] `[owner]` **D13 decided:** one conversation per customer with ticket metadata; no technician chat in v1. Recorded in the architecture and modelled in the migration.
+- [ ] 🟨 `[backend]` `support_conversations`, `support_messages`, attachments bucket, reviews and referrals tables exist with RLS; the admin/ERP inbox and client API cutover remain.
 - [ ] ⬜ `[admin]` Support inbox ordered by latest message with unread state, reply, booking/order reference, abandoned-draft follow-up list and reasons, review visibility (staff only).
 - [ ] ⬜ `[erp]` Support inbox for customer relations and the manager (same conversation, role-scoped).
 - [ ] 🚫  `[all]` Referral rewards and promo/late-fee/tip rules wait on D11.
@@ -253,7 +253,7 @@ These are the places where following S1–S3 literally would now build the wrong
 | 6 | W5 quotes + inspections (admin queue, ERP capture) | 2, 4 |
 | 7 | W6 payments webhook, cash, job costs | 4 |
 | 8 | W7 push, preferences, sessions, security | 1, 4 |
-| 9 | W8 support model (after D13), referrals/reviews | 1, 7 |
+| 9 | W8 support inbox and client cutover (D13 decided), referrals/reviews | 1, 7 |
 | 10 | W9 admin/ERP operations, invites, sales, commission, audit, deploy | 4–9 |
 | 11 | W10 gates, device matrix, staging | all |
 
@@ -269,7 +269,6 @@ Two lanes: lane 1 = 2, 3, 6; lane 2 = 4, 7, 8. W0 and W1 are shared starts.
 | Q17 dashboard stats image | W2 polish | Keep the three default tiles until the image arrives |
 | D11 late fees, tips, promos, referrals | W6 late fees, W8 rewards | Keep UI; do not build reward/fee rules |
 | D12 payment gateway and SMS provider | W6, W7 | Payments stay simulated; 2FA stays mocked |
-| D13 chat vs tickets | W8 backend and admin inbox | Choose one model before tables are written |
 | D21 live tracking | W4/W5 (notifications/deep links) | Out of this phase |
 | D22 admin framework | W9 deploy | Proposal: retain Vite + React |
 | Travel time and daily-cap overflow | W4 dispatch ranking | Plan on assigned hours only |

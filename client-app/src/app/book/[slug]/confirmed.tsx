@@ -7,7 +7,6 @@ import { ScopeSummary } from '@/components/booking/scope-summary';
 import { slotLabel } from '@/components/booking/slot-chips';
 import { UploadStatus } from '@/components/booking/upload-status';
 import { Button } from '@/components/ui/button';
-import { cleanerById } from '@/config/cleaners';
 import { serviceBySlug } from '@/config/services';
 import { supportsNativeDriver } from '@/lib/animation';
 import { prepareBookingUploads, retryBookingUploads, startBookingUploads } from '@/lib/media-upload';
@@ -63,13 +62,13 @@ export default function ConfirmedScreen() {
 
   const service = serviceBySlug(slug || snapshot?.serviceSlug || '');
   // H10: a quote request has no price yet, so nothing is charged or owed.
-  const isQuote = params.quote === '1' || service?.pricingMode === 'quote';
+  // D6: hourly is a quote request too, so nothing is charged or owed at booking.
+  const isQuote = params.quote === '1' || service?.pricingMode !== 'fixed';
   const total = isQuote ? 0 : snapshot ? price(snapshot).total : Number(params.total) || 0;
   const paid = Number(params.paid) || 0;
   const balance = Math.max(total - paid, 0);
   const schedule = snapshot?.schedule;
   const location = snapshot?.location;
-  const preferredCleaner = cleanerById(snapshot?.preferredCleanerId);
 
   useEffect(() => {
     if (savedRef.current) return;
@@ -106,8 +105,6 @@ export default function ConfirmedScreen() {
           return local ? local.replace(/^0/, '') : undefined;
         })(),
         contactName: location?.contactName,
-        cleanerId: preferredCleaner?.id,
-        cleanerName: preferredCleaner?.name,
         quoteRequestedAtISO: isQuote ? new Date().toISOString() : undefined,
         scope: snapshot?.scope,
         media: finalizedMedia.length > 0 ? finalizedMedia : undefined,
@@ -139,7 +136,7 @@ export default function ConfirmedScreen() {
         ? undefined
         : await scheduleAssignmentReminder(
             bookingId,
-            `A ${preferredCleaner?.id ? 'preferred ' : ''}cleaner is on the way for ${service?.name ?? 'your booking'}. Tap to see who.`,
+            `Your crew is on the way for ${service?.name ?? 'your booking'}. Tap to see who.`,
           );
       if (reminderId) updateBooking(bookingId, { assignmentNotificationId: reminderId });
 
@@ -152,7 +149,7 @@ export default function ConfirmedScreen() {
       successHaptic();
       Animated.spring(tick, { toValue: 1, useNativeDriver: supportsNativeDriver }).start();
     })();
-  }, [balance, bookingId, isQuote, location?.area, location?.contactName, location?.propertyType, location?.street, paid, preferredCleaner?.id, preferredCleaner?.name, schedule?.dateISO, schedule?.startTime, service?.name, service?.slug, slug, snapshot, snapshot?.details.cleaners, snapshot?.details.hours, snapshot?.payment?.method, snapshot?.payment?.payerPhones, snapshot?.payment?.plan, snapshot?.serviceSlug, tick, total]);
+  }, [balance, bookingId, isQuote, location?.area, location?.contactName, location?.propertyType, location?.street, paid, schedule?.dateISO, schedule?.startTime, service?.name, service?.slug, slug, snapshot, snapshot?.details.cleaners, snapshot?.details.hours, snapshot?.payment?.method, snapshot?.payment?.payerPhones, snapshot?.payment?.plan, snapshot?.serviceSlug, tick, total]);
 
   const when = schedule
     ? `${parseISODate(schedule.dateISO).toLocaleDateString('en-GB', {

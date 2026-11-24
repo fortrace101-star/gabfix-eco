@@ -263,7 +263,8 @@ export default function ReviewScreen() {
   const accountBalance = totalAccountBalance(bookings);
   const service = serviceBySlug(slug);
   // Quote services have no price to collect here: the request goes out for pricing (H10).
-  const isQuote = service?.pricingMode === 'quote';
+  // D6: hourly is quoted too. Only fixed-price services are payable at booking.
+  const isQuote = service?.pricingMode !== 'fixed';
   const active = draft && draft.serviceSlug === slug ? draft : null;
 
   const savedPayment = getBookingDraft()?.payment;
@@ -578,7 +579,13 @@ export default function ReviewScreen() {
           <SummaryBar
             caption={isQuote ? 'Nothing due today' : 'Pay now'}
             total={isQuote ? 0 : dueToday}
-            valueLabel={isQuote ? 'Custom quote' : undefined}
+            valueLabel={
+              isQuote
+                ? service?.pricingMode === 'hourly'
+                  ? `${ugx(hourlyRate(pricing.minimumHours))}/hr`
+                  : 'Custom quote'
+                : undefined
+            }
             actionLabel={
               submitting
                 ? isQuote
@@ -595,8 +602,11 @@ export default function ReviewScreen() {
           />
         }>
         <View style={styles.intro}>
-          <Text style={styles.title} maxFontSizeMultiplier={1.3}>
-            {isQuote ? 'Review your request' : 'Review and pay'}
+          <Text style={styles.title} maxFontSizeMultiplier={1.3}>            {isQuote
+              ? service?.pricingMode === 'hourly'
+                ? 'Request an hourly quote'
+                : 'Review your request'
+              : 'Review and pay'}
           </Text>
           <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
             {isQuote
@@ -702,11 +712,12 @@ export default function ReviewScreen() {
         {isQuote ? (
           <View style={styles.quoteNote}>
             <Text style={styles.quoteNoteTitle} maxFontSizeMultiplier={1.3}>
-              Custom quote
+              {service?.pricingMode === 'hourly' ? 'Hourly quote' : 'Custom quote'}
             </Text>
             <Text style={styles.quoteNoteBody} maxFontSizeMultiplier={1.3}>
-              We price this job from the details you gave us. Send your request and we&apos;ll reply
-              with a quote to approve before any work starts — nothing is charged today.
+              {service?.pricingMode === 'hourly'
+                ? 'Send your request and we&apos;ll confirm the hours and crew, then reply with a fixed quote to approve before any work starts — nothing is charged today.'
+                : 'We price this job from the details you gave us. Send your request and we&apos;ll reply with a quote to approve before any work starts — nothing is charged today.'}
             </Text>
           </View>
         ) : null}

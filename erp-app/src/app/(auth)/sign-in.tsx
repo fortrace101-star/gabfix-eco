@@ -1,7 +1,9 @@
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ export default function SignInScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,11 +32,22 @@ export default function SignInScreen() {
     }
     setError(null);
     setSubmitting(true);
+    // Never leave the button spinning if the network drops the request.
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await signIn(email, password);
+      await Promise.race([
+        signIn(email, password),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('The server did not answer. Check your connection and try again.')),
+            20_000,
+          );
+        }),
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed. Try again.');
     } finally {
+      if (timeout) clearTimeout(timeout);
       setSubmitting(false);
     }
   }
@@ -63,16 +77,27 @@ export default function SignInScreen() {
               placeholder="name@gabfix.ug"
               keyboardType="email-address"
               autoComplete="email"
-              editable={!submitting}
             />
             <TextField
               label="Password"
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoComplete="password"
-              editable={!submitting}
+              trailing={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  hitSlop={8}
+                  onPress={() => setShowPassword((current) => !current)}>
+                  {showPassword ? (
+                    <EyeOff size={20} color={colors.textMuted} />
+                  ) : (
+                    <Eye size={20} color={colors.textMuted} />
+                  )}
+                </Pressable>
+              }
             />
 
             {error ? (

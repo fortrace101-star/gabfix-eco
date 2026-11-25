@@ -55,13 +55,7 @@ isOneToOne: false
                     "action"?: string,"actor_id"?: string | null,"created_at"?: string,"id"?: never,"new_value"?: Json | null,"old_value"?: Json | null,"record_id"?: string | null,"table_name"?: string
                   }
                   Relationships: [
-                    {
-      foreignKeyName: "audit_log_actor_id_fkey"
-      columns: ["actor_id"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    }
+                    
                   ]
                 },"booking_drafts": {
                   Row: {
@@ -745,6 +739,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"phone_otp_codes": {
+                  Row: {
+                    "attempts": number,"code_hash": string,"consumed_at": string | null,"created_at": string,"expires_at": string,"id": string,"phone": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempts"?: number,"code_hash": string,"consumed_at"?: string | null,"created_at"?: string,"expires_at": string,"id"?: string,"phone": string
+                  }
+                  Update: {
+                    "attempts"?: number,"code_hash"?: string,"consumed_at"?: string | null,"created_at"?: string,"expires_at"?: string,"id"?: string,"phone"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profiles": {
                   Row: {
                     "auth_user_id": string | null,"created_at": string,"deactivated_at": string | null,"deactivated_by": string | null,"full_name": string,"id": string,"phone": string | null,"role": Database["public"]['Enums']["app_role"],"status": Database["public"]['Enums']["profile_status"]
@@ -1236,14 +1244,28 @@ isOneToOne: false
 "can_view_inspection":
 { Args: { "p_inspection": string }; Returns: boolean
                            },
+"cancel_booking":
+{ Args: { "p_booking": string,"p_note"?: string,"p_reason": string }; Returns: Database["public"]['Enums']["booking_status"]
+                           },
 "complete_job":
 { Args: { "p_billed_hours"?: number,"p_booking": string }; Returns: undefined
+                           },
+"confirm_booking":
+{ Args: { "p_booking": string,"p_note"?: string }; Returns: Database["public"]['Enums']["booking_status"]
                            },
 "conversation_id_from_path":
 { Args: { "p_path": string }; Returns: string
                            },
+"decide_cancellation_request":
+{ Args: { "p_approve": boolean,"p_note"?: string,"p_request": string }; Returns: Database["public"]['Enums']["request_status"]
+                           },
 "has_capability":
 { Args: { "p_capability": string }; Returns: boolean
+                           },
+"inspection_detail":
+{ Args: { "p_inspection": string }; Returns: {
+              "address_line": string,"area": string,"booking_id": string,"booking_reference": string,"booking_status": Database["public"]['Enums']["booking_status"],"checklist": Json,"customer_name": string,"customer_phone": string,"id": string,"measurements": Json,"notes": string,"quote_amount": number,"quote_description": string,"quote_status": Database["public"]['Enums']["quote_status"],"recommended_crew": number,"recommended_hours": number,"required_at": string,"required_note": string,"scheduled_at": string,"scheduled_end": string,"scheduled_start": string,"services": string,"status": Database["public"]['Enums']["inspection_status"],"submitted_at": string
+            }[]
                            },
 "inspection_id_from_path":
 { Args: { "p_path": string }; Returns: string
@@ -1259,6 +1281,11 @@ isOneToOne: false
                            },
 "move_booking_status":
 { Args: { "p_booking": string,"p_note"?: string,"p_to": Database["public"]['Enums']["booking_status"] }; Returns: undefined
+                           },
+"my_inspections":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "address_line": string,"area": string,"booking_id": string,"booking_reference": string,"booking_status": Database["public"]['Enums']["booking_status"],"checklist": Json,"customer_name": string,"customer_phone": string,"id": string,"measurements": Json,"notes": string,"quote_amount": number,"quote_description": string,"quote_status": Database["public"]['Enums']["quote_status"],"recommended_crew": number,"recommended_hours": number,"required_at": string,"required_note": string,"scheduled_at": string,"scheduled_end": string,"scheduled_start": string,"services": string,"status": Database["public"]['Enums']["inspection_status"],"submitted_at": string
+            }[]
                            },
 "my_profile_id":
 { Args: Record<PropertyKey, never>; Returns: string
@@ -1307,6 +1334,9 @@ isOneToOne: false
                            },
 "start_job":
 { Args: { "p_booking": string }; Returns: undefined
+                           },
+"submit_inspection":
+{ Args: { "p_checklist"?: Json,"p_inspection": string,"p_measurements"?: Json,"p_notes"?: string,"p_recommended_crew"?: number,"p_recommended_hours"?: number }; Returns: Database["public"]['Enums']["inspection_status"]
                            }
           }
           Enums: {

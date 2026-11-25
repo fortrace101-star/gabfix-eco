@@ -688,10 +688,13 @@ const cataloguePayload = async () => {
   const error = categories.error ?? services.error ?? forms.error;
   if (error) throw new HTTPException(500, { message: error.message, cause: 'catalogue_read' });
 
-  const categoryByUuid = new Map((categories.data ?? []).map((row) => [row.id, row]));
+  const categoryRows = categories.data ?? [];
+  const categoryByUuid = new Map(categoryRows.map((row) => [row.id, row]));
+  // A service only reaches customers while its category is live too.
+  const liveCategoryIds = new Set(categoryRows.map((row) => row.id));
 
   return {
-    categories: (categories.data ?? []).map((row) => ({
+    categories: categoryRows.map((row) => ({
       id: row.slug,
       uuid: row.id,
       name: row.name,
@@ -703,25 +706,27 @@ const cataloguePayload = async () => {
       imagePath: row.image_path,
       active: row.active,
     })),
-    services: (services.data ?? []).map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      tagline: row.description ?? '',
-      description: row.description,
-      categoryId: categoryByUuid.get(row.category_id)?.slug ?? row.category_id,
-      categoryUuid: row.category_id,
-      pricingMode: row.pricing_type,
-      pricingType: row.pricing_type,
-      fixedPrice: row.pricing_type === 'fixed' ? money(row.price) : undefined,
-      basePrice: money(row.price),
-      durationMinutes: row.duration_minutes,
-      popularRank: row.popular_rank ?? undefined,
-      tag: row.tag ?? undefined,
-      cardImage: row.image_path ?? undefined,
-      imagePath: row.image_path,
-      active: row.active,
-    })),
+    services: (services.data ?? [])
+      .filter((row) => liveCategoryIds.has(row.category_id))
+      .map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        tagline: row.description ?? '',
+        description: row.description,
+        categoryId: categoryByUuid.get(row.category_id)?.slug ?? row.category_id,
+        categoryUuid: row.category_id,
+        pricingMode: row.pricing_type,
+        pricingType: row.pricing_type,
+        fixedPrice: row.pricing_type === 'fixed' ? money(row.price) : undefined,
+        basePrice: money(row.price),
+        durationMinutes: row.duration_minutes,
+        popularRank: row.popular_rank ?? undefined,
+        tag: row.tag ?? undefined,
+        cardImage: row.image_path ?? undefined,
+        imagePath: row.image_path,
+        active: row.active,
+      })),
     forms: (forms.data ?? []).map((row) => ({
       id: row.id,
       serviceId: row.service_id,
@@ -905,6 +910,14 @@ app.get('/services/:slug/form', async (c) => {
   if (error) throw new HTTPException(500, { message: error.message, cause: 'service_read' });
   if (!service) return fail(c, 404, 'not_found', 'That service is not available.');
 
+  const { data: serviceCategory, error: categoryError } = await admin
+    .from('categories')
+    .select('active')
+    .eq('id', service.category_id)
+    .maybeSingle();
+  if (categoryError) throw new HTTPException(500, { message: categoryError.message, cause: 'category_read' });
+  if (!serviceCategory?.active) return fail(c, 404, 'not_found', 'That service is not available.');
+
   const definition = await effectiveFormDefinition(service.id, service.category_id);
   if (!definition) return c.json({ definition: null });
 
@@ -933,8 +946,9 @@ app.get('/services/:slug', async (c) => {
 
   const [form, { data: category }] = await Promise.all([
     effectiveFormDefinition(service.id, service.category_id),
-    db.from('categories').select('slug').eq('id', service.category_id).maybeSingle(),
+    db.from('categories').select('slug, active').eq('id', service.category_id).maybeSingle(),
   ]);
+  if (!category?.active) return fail(c, 404, 'not_found', 'That service is not available.');
 
   const servicePayload = {
     id: service.id,
@@ -1042,7 +1056,6 @@ app.post('/bookings', async (c) => {
       ? [{ serviceId: body.serviceSlug, quantity: 1 }]
       : [];
 
-  if (!addressId) return fail(c, 400, 'address_required', 'Choose an address.');
   if (!scheduledStart || Number.isNaN(scheduledStart.getTime())) {
     return fail(c, 400, 'time_required', 'Choose a valid start time.');
   }
@@ -1051,13 +1064,63 @@ app.post('/bookings', async (c) => {
   }
   if (items.length === 0) return fail(c, 400, 'items_required', 'Choose at least one service.');
 
-  const { data: address } = await admin
-    .from('addresses')
-    .select('id, customer_id')
-    .eq('id', addressId)
-    .maybeSingle();
-  if (!address || address.customer_id !== profile.id) {
-    return fail(c, 403, 'address_forbidden', 'That address is not on your account.');
+  // The app keeps saved addresses on the device until P24, so the id it sends is
+  // usually not an `addresses` row ("home", "addr-…", a bundled place). Accept a
+  // real row when it is the customer's, otherwise store what they typed.
+  const addressUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(addressId)
+    ? addressId
+    : null;
+  let resolvedAddressId: string | null = null;
+  if (addressUuid) {
+    const { data: address } = await admin
+      .from('addresses')
+      .select('id, customer_id')
+      .eq('id', addressUuid)
+      .maybeSingle();
+    if (address && address.customer_id === profile.id) resolvedAddressId = address.id;
+  }
+
+  if (!resolvedAddressId) {
+    const street = typeof location.street === 'string' ? location.street.trim() : '';
+    if (street.length < 3) return fail(c, 400, 'address_required', 'Choose an address.');
+
+    const area = typeof location.area === 'string' ? location.area.trim() || null : null;
+    const { data: knownAddresses, error: addressesError } = await admin
+      .from('addresses')
+      .select('id, line1, area')
+      .eq('customer_id', profile.id);
+    if (addressesError) throw new HTTPException(500, { message: addressesError.message, cause: 'addresses_read' });
+
+    const reusable = (knownAddresses ?? []).find(
+      (row) => row.line1 === street && (row.area ?? null) === area,
+    );
+
+    if (reusable) {
+      resolvedAddressId = reusable.id;
+    } else {
+      const propertyType = typeof location.propertyType === 'string' ? location.propertyType : '';
+      const { data: created, error: addressError } = await admin
+        .from('addresses')
+        .insert({
+          customer_id: profile.id,
+          label: propertyType === 'office' ? 'Office' : 'Home',
+          line1: street,
+          line2: typeof location.landmark === 'string' ? location.landmark.trim() || null : null,
+          area,
+          latitude: typeof location.lat === 'number' ? location.lat : null,
+          longitude: typeof location.lng === 'number' ? location.lng : null,
+          notes: typeof location.access === 'string' ? location.access.trim() || null : null,
+        })
+        .select('id')
+        .single();
+      if (addressError || !created) {
+        throw new HTTPException(500, {
+          message: addressError?.message ?? 'Could not save the address.',
+          cause: 'address_insert',
+        });
+      }
+      resolvedAddressId = created.id;
+    }
   }
 
   const refs = items.map((item) => String(item.serviceId ?? '')).filter(Boolean);
@@ -1088,6 +1151,19 @@ app.post('/bookings', async (c) => {
     return fail(c, 400, 'service_unavailable', 'One of those services is no longer available.');
   }
   if (resolved.some((entry) => entry!.service.active !== true)) {
+    return fail(c, 400, 'service_unavailable', 'One of those services is no longer available.');
+  }
+
+  const bookingCategoryIds = [...new Set(resolved.map((entry) => entry!.service.category_id))];
+  const { data: liveCategories, error: liveCategoriesError } = await admin
+    .from('categories')
+    .select('id')
+    .in('id', bookingCategoryIds)
+    .eq('active', true);
+  if (liveCategoriesError) {
+    throw new HTTPException(500, { message: liveCategoriesError.message, cause: 'categories_read' });
+  }
+  if ((liveCategories ?? []).length !== bookingCategoryIds.length) {
     return fail(c, 400, 'service_unavailable', 'One of those services is no longer available.');
   }
 
@@ -1199,7 +1275,7 @@ app.post('/bookings', async (c) => {
     .from('bookings')
     .insert({
       customer_id: profile.id,
-      address_id: addressId,
+      address_id: resolvedAddressId,
       source: 'app',
       status: anyQuote ? 'requested' : 'confirmed',
       technicians_needed: 1,

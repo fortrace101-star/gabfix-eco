@@ -55,11 +55,21 @@ const parseBody = (text: string): unknown => {
   }
 };
 
+/** The API answers failures with `{ error: { code, message } }`; surface both. */
+const nestedError = (body: unknown): { message?: string; code?: string } => {
+  if (!body || typeof body !== 'object' || !('error' in body)) return {};
+  const { error } = body as { error?: unknown };
+  if (!error || typeof error !== 'object') return {};
+  return error as { message?: string; code?: string };
+};
+
 const messageFrom = (status: number, body: unknown): string => {
   if (body && typeof body === 'object' && 'message' in body) {
     const { message } = body as { message?: unknown };
     if (typeof message === 'string' && message.trim().length > 0) return message;
   }
+  const nested = nestedError(body);
+  if (typeof nested.message === 'string' && nested.message.trim().length > 0) return nested.message;
   if (status >= 500) return SERVER_MESSAGE;
   if (status === 401) return 'Your session has expired. Please sign in again.';
   if (status === 403) return "You don't have access to that.";
@@ -72,7 +82,9 @@ const toApiError = (status: number, body: unknown) => {
   const code =
     body && typeof body === 'object' && 'code' in body && typeof body.code === 'string'
       ? body.code
-      : undefined;
+      : typeof nestedError(body).code === 'string'
+        ? nestedError(body).code
+        : undefined;
   return new ApiError(messageFrom(status, body), status, code);
 };
 

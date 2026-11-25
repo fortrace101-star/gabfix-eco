@@ -7,6 +7,7 @@ import {
   Briefcase,
   CalendarDays,
   ChevronRight,
+  ClipboardCheck,
   MapPin,
   Navigation,
   UserRound,
@@ -56,7 +57,7 @@ const isSameDay = (iso: string, day: Date) => {
 };
 
 async function fetchHome(profileId: string) {
-  const [jobs, doneThisWeek, unread] = await Promise.all([
+  const [jobs, doneThisWeek, unread, inspectionsToDo] = await Promise.all([
     supabase
       .from('bookings')
       .select(
@@ -76,15 +77,21 @@ async function fetchHome(profileId: string) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', profileId)
       .is('read_at', null),
+    supabase
+      .from('inspections')
+      .select('id', { count: 'exact', head: true })
+      .eq('inspector_id', profileId)
+      .not('status', 'in', '(submitted,withdrawn)'),
   ]);
 
-  const firstError = jobs.error ?? doneThisWeek.error ?? unread.error;
+  const firstError = jobs.error ?? doneThisWeek.error ?? unread.error ?? inspectionsToDo.error;
   if (firstError) throw new Error(firstError.message);
 
   return {
     jobs: (jobs.data ?? []) as unknown as HomeJob[],
     doneThisWeek: doneThisWeek.count ?? 0,
     unread: unread.count ?? 0,
+    inspectionsToDo: inspectionsToDo.count ?? 0,
   };
 }
 
@@ -206,6 +213,27 @@ export default function HomeScreen() {
               <Text style={styles.cardTitle}>Could not load your day</Text>
               <Text style={styles.caption}>{error.message}</Text>
               <Text style={styles.link}>Tap to try again</Text>
+            </Pressable>
+          ) : null}
+
+          {data?.inspectionsToDo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Inspection visits, ${data.inspectionsToDo} waiting`}
+              onPress={() => router.push('/inspections' as Href)}
+              style={styles.card}>
+              <View style={styles.inspectionRow}>
+                <View style={styles.actionIcon}>
+                  <ClipboardCheck size={20} color={colors.green700} strokeWidth={2} />
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.cardTitle}>Inspection visits</Text>
+                  <Text style={styles.caption}>
+                    {data.inspectionsToDo} waiting for a report from you
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </View>
             </Pressable>
           ) : null}
 
@@ -442,6 +470,7 @@ const styles = StyleSheet.create({
   trackText: { ...text.caption, color: colors.surface, fontFamily: font.bodySemi },
   detailsRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   detailsText: { ...text.bodyM, color: colors.green700 },
+  inspectionRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { ...text.h2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: space[3] },

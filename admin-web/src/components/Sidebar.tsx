@@ -11,6 +11,8 @@ const groups: { label: string; items: NavItem[] }[] = [
     items: [
       { id: 'overview', label: 'Overview', icon: 'overview' },
       { id: 'bookings', label: 'Bookings', icon: 'bookings' },
+      { id: 'approvals', label: 'Approvals', icon: 'check' },
+      { id: 'quotes', label: 'Quotes & inspections', icon: 'spark' },
       { id: 'payments', label: 'Payments', icon: 'payments' },
       { id: 'cash', label: 'Cash collections', icon: 'cash' },
     ],
@@ -25,7 +27,8 @@ const groups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Catalogue',
     items: [
-      { id: 'services', label: 'Services & pricing', icon: 'services' },
+      { id: 'catalogue', label: 'Catalogue', icon: 'services' },
+      { id: 'services', label: 'Services & pricing', icon: 'payments' },
       { id: 'forms', label: 'Booking forms', icon: 'bookings' },
       { id: 'promos', label: 'Promos', icon: 'promos' },
     ],

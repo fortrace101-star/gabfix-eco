@@ -126,7 +126,7 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
-/** Settings is owner-only; support sees the customer-facing modules only. */
+/** Settings is owner-only and approvals are manager-only; support sees the customer-facing modules only. */
 export const canViewPage = (page: PageId, role: AdminRole): boolean => {
   if (role === 'admin') return true;
   if (role === 'operations') return page !== 'settings';

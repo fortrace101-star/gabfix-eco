@@ -5,6 +5,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { cx, initials } from '../lib/format';
 import { Icon, type IconName } from './Icon';
 
@@ -216,7 +217,9 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portalled to the body: page animations set a transform on `.page`, which would
+  // otherwise make this fixed backdrop size itself to the page, not the viewport.
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div
         className={cx('modal', wide && 'modal-wide')}
@@ -243,7 +246,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

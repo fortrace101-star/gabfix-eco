@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 type TabRole = 'home' | 'jobs' | 'schedule' | 'cash' | 'profile';
 
-const HIDDEN_ROUTES = new Set(['notifications']);
+const HIDDEN_ROUTES = new Set(['notifications', 'inspections']);
 
 const VISIBLE_FOR: Record<TabRole, string[]> = {
   home: ['technician', 'laundry_operator', 'sales_operator', 'customer_relations', 'manager', 'admin'],
@@ -55,8 +55,9 @@ export default function AppLayout() {
         name="profile"
         options={{ title: 'Profile', href: visible('profile') ? undefined : null }}
       />
-      {/* A route inside the tabs so the bar stays visible, filtered out of the bar itself. */}
+      {/* Routes inside the tabs so the bar stays visible, filtered out of the bar itself. */}
       <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
+      <Tabs.Screen name="inspections" options={{ title: 'Inspections' }} />
     </Tabs>
   );
 }

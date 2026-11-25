@@ -100,13 +100,20 @@ export default function JobDetailScreen() {
           : await supabase.rpc(ACTION_RPCS[action], { p_booking: id });
       if (rpcError) throw new Error(rpcError.message);
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       setFinishing(false);
       setHours('');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['job', id] }),
         queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+        queryClient.invalidateQueries({ queryKey: ['home'] }),
       ]);
+      // The screen stayed on a finished job with no word that it landed.
+      if (variables.action === 'complete_job') {
+        Alert.alert('Job completed', `${data?.reference ?? 'The job'} is marked complete.`, [
+          { text: 'Back to jobs', onPress: () => router.back() },
+        ]);
+      }
     },
     onError: async (mutationError, variables) => {
       if (isOfflineError(mutationError.message)) {

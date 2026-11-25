@@ -6,7 +6,7 @@ Android APK. This is the release gate that follows the build-out in
 
 Legend: `[x]` done and verified · `[~]` done on web/build only, or partially done · `[ ]` open.
 
-Last updated: 2026-11-25, later session (Hono auth batch, form-definition negotiation and the 9-test backend contract suite; client media upload cutover. No device verification; SMS OTP delivery still open.) Prior update: 2026-11-25 (backend booking-media contract — `booking_media` + signed upload/complete/refresh/delete and server-side limits — and receipts desk-issue RLS fix landed locally and smoke-tested; staff DB types regenerated and `erp-app` `tsc` passes. No new ERP runtime/release verification this session; client API gap map in the plan §11.5).
+Last updated: 2026-11-25, inspection evidence session (photos to the private `inspection-media` bucket through the capture screen with signed-URL previews, measurements on the report, and the desk's dispatch option when confirming in Approvals. Web-build verified; the file picker needs a device). Prior update: 2026-11-25, approvals + inspection session (`inspections/` list and capture screen with checklist, findings, recommended hours/crew and `submit_inspection`, plus a home card; sign-in keeps its fields editable, times out after 20 s and has a show/hide password toggle; completing a job now confirms and returns to the list. Web-build verified only). Prior update: 2026-11-25, later session (Hono auth batch, form-definition negotiation and the 9-test backend contract suite; client media upload cutover. No device verification; SMS OTP delivery still open.) Prior update: 2026-11-25 (backend booking-media contract — `booking_media` + signed upload/complete/refresh/delete and server-side limits — and receipts desk-issue RLS fix landed locally and smoke-tested; staff DB types regenerated and `erp-app` `tsc` passes. No new ERP runtime/release verification this session; client API gap map in the plan §11.5).
 
 ---
 
@@ -48,6 +48,10 @@ Last updated: 2026-11-25, later session (Hono auth batch, form-definition negoti
       rejected.
 - [ ] Sign-out clears session, cached queries and any pending offline actions.
 - [ ] Password reset and invite paths are either implemented or explicitly out of scope for v1.
+- [~] Wrong credentials leave the form editable, the request gives up after 20 s instead of hanging,
+      and the password field has a show/hide toggle. Web-export verified as `tech1@` (fields stayed
+      enabled, “Invalid login credentials” shown, retyping worked, toggle revealed the value); the
+      native freeze the owner reported was not reproduced there.
 
 ## C. Staff workflows
 
@@ -55,6 +59,12 @@ Last updated: 2026-11-25, later session (Hono auth batch, form-definition negoti
 - [ ] Bookings list, filters and booking detail render real rows and respect role scope.
 - [ ] Job flow: on the way → in progress → complete, including billed hours and status history.
 - [ ] Job photos: camera and library upload, retry after failure, private bucket access.
+- [~] Inspection visits: list split into to do / reports sent, capture screen with the desk's brief,
+      five-item checklist (fine/issue), findings, measurements (floor area, rooms, ceiling height),
+      recommended hours and crew, photos from camera or library with signed-URL previews, submit, and
+      a read-only view once sent. Web-export verified as `tech1@` (submit moved the inspection to
+      `submitted`, its quote to `inspected`, and the measurements to the report). Still open: video
+      evidence, and clicking the camera/library picker on a device.
 - [ ] Cash: record payment, handover, today's total, and duplicate-submit protection.
 - [ ] Customers, notifications and profile screens have real empty, loading and error states.
 - [ ] Alerts route is reachable from the bell and not exposed as a tab.

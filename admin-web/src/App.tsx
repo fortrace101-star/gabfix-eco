@@ -11,7 +11,10 @@ import {
 } from './data';
 import { canViewPage, restoreSession, signOut, type AdminUser } from './lib/auth';
 import { assignTechnician, confirmCashHandover, loadConsoleData } from './lib/queries';
+import { ApprovalsPage } from './pages/Approvals';
 import { BookingsPage } from './pages/Bookings';
+import { CataloguePage } from './pages/Catalogue';
+import { QuotesPage } from './pages/Quotes';
 import { CashPage } from './pages/Cash';
 import { CleanersPage } from './pages/Cleaners';
 import { CustomersPage } from './pages/Customers';
@@ -37,10 +40,13 @@ import type {
 const pages: PageId[] = [
   'overview',
   'bookings',
+  'approvals',
+  'quotes',
   'payments',
   'cash',
   'customers',
   'cleaners',
+  'catalogue',
   'services',
   'forms',
   'promos',
@@ -51,10 +57,13 @@ const pages: PageId[] = [
 const pageTitles: Record<PageId, string> = {
   overview: 'Operations overview',
   bookings: 'Bookings',
+  approvals: 'Approvals',
+  quotes: 'Quotes & inspections',
   payments: 'Payments',
   cash: 'Cash collections',
   customers: 'Customers',
   cleaners: 'Cleaners',
+  catalogue: 'Service catalogue',
   services: 'Services & pricing',
   forms: 'Booking forms',
   promos: 'Promos',
@@ -335,6 +344,7 @@ export default function App() {
           {page === 'bookings' ? (
             <BookingsPage bookings={bookings} cleaners={cleaners} onAssign={assignBooking} />
           ) : null}
+          {page === 'approvals' ? <ApprovalsPage user={user} notify={notify} /> : null}
           {page === 'payments' ? (
             <PaymentsPage
               payments={payments}
@@ -366,6 +376,8 @@ export default function App() {
               notify={notify}
             />
           ) : null}
+          {page === 'catalogue' ? <CataloguePage notify={notify} /> : null}
+          {page === 'quotes' ? <QuotesPage user={user} notify={notify} /> : null}
           {page === 'services' ? (
             <ServicesPage rateCard={rateCard} onSave={saveRateCard} />
           ) : null}

@@ -1,10 +1,13 @@
 export type PageId =
   | 'overview'
   | 'bookings'
+  | 'approvals'
   | 'payments'
   | 'cash'
   | 'customers'
   | 'cleaners'
+  | 'catalogue'
+  | 'quotes'
   | 'services'
   | 'forms'
   | 'promos'

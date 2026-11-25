@@ -106,10 +106,13 @@ export function Topbar({
   const pageLabel: Record<PageId, string> = {
     overview: 'Overview',
     bookings: 'Bookings',
+    approvals: 'Approvals',
+    quotes: 'Quotes & inspections',
     payments: 'Payments',
     cash: 'Cash collections',
     customers: 'Customers',
     cleaners: 'Cleaners',
+    catalogue: 'Service catalogue',
     services: 'Services & pricing',
     forms: 'Booking forms',
     promos: 'Promos',

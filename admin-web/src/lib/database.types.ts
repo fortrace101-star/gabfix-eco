@@ -539,17 +539,23 @@ isOneToOne: false
                   ]
                 },"job_costs": {
                   Row: {
-                    "amount": number,"booking_id": string,"created_at": string,"description": string,"entered_by": string,"id": string,"updated_at": string
+                    "amount": number,"approved_at": string | null,"approved_by": string | null,"booking_id": string,"created_at": string,"decision_note": string | null,"description": string,"entered_by": string,"id": string,"status": Database["public"]['Enums']["cost_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"booking_id": string,"created_at"?: string,"description": string,"entered_by": string,"id"?: string,"updated_at"?: string
+                    "amount": number,"approved_at"?: string | null,"approved_by"?: string | null,"booking_id": string,"created_at"?: string,"decision_note"?: string | null,"description": string,"entered_by": string,"id"?: string,"status"?: Database["public"]['Enums']["cost_status"],"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number,"booking_id"?: string,"created_at"?: string,"description"?: string,"entered_by"?: string,"id"?: string,"updated_at"?: string
+                    "amount"?: number,"approved_at"?: string | null,"approved_by"?: string | null,"booking_id"?: string,"created_at"?: string,"decision_note"?: string | null,"description"?: string,"entered_by"?: string,"id"?: string,"status"?: Database["public"]['Enums']["cost_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "job_costs_approved_by_fkey"
+      columns: ["approved_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "job_costs_booking_id_fkey"
       columns: ["booking_id"]
 isOneToOne: false
@@ -1159,14 +1165,14 @@ isOneToOne: false
                   ]
                 },"technician_profiles": {
                   Row: {
-                    "active": boolean,"display_name": string,"photo_path": string | null,"priority_rating": number,"user_id": string
+                    "active": boolean,"commission_rate": number,"display_name": string,"photo_path": string | null,"priority_rating": number,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"display_name": string,"photo_path"?: string | null,"priority_rating"?: number,"user_id": string
+                    "active"?: boolean,"commission_rate"?: number,"display_name": string,"photo_path"?: string | null,"priority_rating"?: number,"user_id": string
                   }
                   Update: {
-                    "active"?: boolean,"display_name"?: string,"photo_path"?: string | null,"priority_rating"?: number,"user_id"?: string
+                    "active"?: boolean,"commission_rate"?: number,"display_name"?: string,"photo_path"?: string | null,"priority_rating"?: number,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -1209,7 +1215,27 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "assign_technician":
+            "add_job_cost":
+{ Args: { "p_amount": number,"p_booking": string,"p_description": string }; Returns: {
+              "amount": number,
+"approved_at": string | null,
+"approved_by": string | null,
+"booking_id": string,
+"created_at": string,
+"decision_note": string | null,
+"description": string,
+"entered_by": string,
+"id": string,
+"status": Database["public"]['Enums']["cost_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "job_costs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"assign_technician":
 { Args: { "p_booking": string,"p_crew_role"?: Database["public"]['Enums']["crew_role"],"p_technician": string }; Returns: {
               "assigned_by": string | null,
 "booking_id": string,
@@ -1253,12 +1279,48 @@ isOneToOne: false
 "confirm_booking":
 { Args: { "p_booking": string,"p_note"?: string }; Returns: Database["public"]['Enums']["booking_status"]
                            },
+"confirm_cash_handover":
+{ Args: { "p_amount": number,"p_note"?: string,"p_technician": string }; Returns: {
+              "amount": number,
+"confirmed_at": string | null,
+"confirmed_by": string | null,
+"created_at": string,
+"id": string,
+"note": string | null,
+"technician_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "cash_handovers"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "conversation_id_from_path":
 { Args: { "p_path": string }; Returns: string
                            },
 "decide_cancellation_request":
 { Args: { "p_approve": boolean,"p_note"?: string,"p_request": string }; Returns: Database["public"]['Enums']["request_status"]
                            },
+"decide_job_cost":
+{ Args: { "p_approve": boolean,"p_cost": string,"p_note"?: string }; Returns: {
+              "amount": number,
+"approved_at": string | null,
+"approved_by": string | null,
+"booking_id": string,
+"created_at": string,
+"decision_note": string | null,
+"description": string,
+"entered_by": string,
+"id": string,
+"status": Database["public"]['Enums']["cost_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "job_costs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "has_capability":
 { Args: { "p_capability": string }; Returns: boolean
                            },
@@ -1278,6 +1340,16 @@ isOneToOne: false
                            },
 "is_laundry_staff":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"job_cost_lines":
+{ Args: { "p_booking"?: string }; Returns: {
+              "amount": number,"approved_at": string,"approved_by_name": string,"booking_id": string,"created_at": string,"decision_note": string,"description": string,"entered_by_name": string,"id": string,"reference": string,"status": Database["public"]['Enums']["cost_status"]
+            }[]
+                           },
+"job_cost_overview":
+{ Args: { "p_from"?: string,"p_to"?: string }; Returns: {
+              "booking_id": string,"commission": number,"commission_rate": number,"commission_ready": boolean,"costs": number,"customer_name": string,"margin": number,"pending_costs": number,"reference": string,"revenue": number,"scheduled_start": string,"status": Database["public"]['Enums']["booking_status"],"technicians": string
+            }[]
                            },
 "move_booking_status":
 { Args: { "p_booking": string,"p_note"?: string,"p_to": Database["public"]['Enums']["booking_status"] }; Returns: undefined
@@ -1340,7 +1412,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "customer"|"technician"|"laundry_operator"|"sales_operator"|"customer_relations"|"manager"|"admin","assignment_status": "assigned"|"accepted"|"declined"|"in_progress"|"done"|"removed","booking_source": "app"|"staff"|"sales","booking_status": "requested"|"awaiting_confirmation"|"confirmed"|"scheduled"|"on_the_way"|"in_progress"|"completed"|"cancelled","cash_dispute_status": "open"|"resolved","crew_role": "lead"|"helper","draft_status": "in_progress"|"abandoned"|"followed_up"|"completed","equipment_status": "available"|"in_use"|"maintenance"|"out_of_service","inspection_media_kind": "photo"|"video","inspection_status": "required"|"scheduled"|"in_progress"|"submitted"|"withdrawn","laundry_status": "received"|"washing"|"drying"|"ready"|"delivered","payment_method": "app"|"cash","payment_status": "pending"|"paid"|"failed"|"refunded","photo_kind": "before"|"after","pricing_type": "fixed"|"hourly"|"quote","profile_status": "active"|"deactivated","quote_status": "requested"|"inspection_required"|"inspection_scheduled"|"inspected"|"quoted"|"accepted"|"declined"|"expired","referral_status": "invited"|"joined"|"completed"|"rewarded"|"expired","request_status": "pending"|"approved"|"declined","review_target": "service"|"technician","support_category": "booking"|"payment"|"service"|"account"|"other","support_status": "open"|"waiting_on_customer"|"resolved","wallet_network": "MTN"|"Airtel"
+            "app_role": "customer"|"technician"|"laundry_operator"|"sales_operator"|"customer_relations"|"manager"|"admin","assignment_status": "assigned"|"accepted"|"declined"|"in_progress"|"done"|"removed","booking_source": "app"|"staff"|"sales","booking_status": "requested"|"awaiting_confirmation"|"confirmed"|"scheduled"|"on_the_way"|"in_progress"|"completed"|"cancelled","cash_dispute_status": "open"|"resolved","cost_status": "submitted"|"approved"|"rejected","crew_role": "lead"|"helper","draft_status": "in_progress"|"abandoned"|"followed_up"|"completed","equipment_status": "available"|"in_use"|"maintenance"|"out_of_service","inspection_media_kind": "photo"|"video","inspection_status": "required"|"scheduled"|"in_progress"|"submitted"|"withdrawn","laundry_status": "received"|"washing"|"drying"|"ready"|"delivered","payment_method": "app"|"cash","payment_status": "pending"|"paid"|"failed"|"refunded","photo_kind": "before"|"after","pricing_type": "fixed"|"hourly"|"quote","profile_status": "active"|"deactivated","quote_status": "requested"|"inspection_required"|"inspection_scheduled"|"inspected"|"quoted"|"accepted"|"declined"|"expired","referral_status": "invited"|"joined"|"completed"|"rewarded"|"expired","request_status": "pending"|"approved"|"declined","review_target": "service"|"technician","support_category": "booking"|"payment"|"service"|"account"|"other","support_status": "open"|"waiting_on_customer"|"resolved","wallet_network": "MTN"|"Airtel"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1460,7 +1532,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "app_role": ["customer", "technician", "laundry_operator", "sales_operator", "customer_relations", "manager", "admin"],"assignment_status": ["assigned", "accepted", "declined", "in_progress", "done", "removed"],"booking_source": ["app", "staff", "sales"],"booking_status": ["requested", "awaiting_confirmation", "confirmed", "scheduled", "on_the_way", "in_progress", "completed", "cancelled"],"cash_dispute_status": ["open", "resolved"],"crew_role": ["lead", "helper"],"draft_status": ["in_progress", "abandoned", "followed_up", "completed"],"equipment_status": ["available", "in_use", "maintenance", "out_of_service"],"inspection_media_kind": ["photo", "video"],"inspection_status": ["required", "scheduled", "in_progress", "submitted", "withdrawn"],"laundry_status": ["received", "washing", "drying", "ready", "delivered"],"payment_method": ["app", "cash"],"payment_status": ["pending", "paid", "failed", "refunded"],"photo_kind": ["before", "after"],"pricing_type": ["fixed", "hourly", "quote"],"profile_status": ["active", "deactivated"],"quote_status": ["requested", "inspection_required", "inspection_scheduled", "inspected", "quoted", "accepted", "declined", "expired"],"referral_status": ["invited", "joined", "completed", "rewarded", "expired"],"request_status": ["pending", "approved", "declined"],"review_target": ["service", "technician"],"support_category": ["booking", "payment", "service", "account", "other"],"support_status": ["open", "waiting_on_customer", "resolved"],"wallet_network": ["MTN", "Airtel"]
+            "app_role": ["customer", "technician", "laundry_operator", "sales_operator", "customer_relations", "manager", "admin"],"assignment_status": ["assigned", "accepted", "declined", "in_progress", "done", "removed"],"booking_source": ["app", "staff", "sales"],"booking_status": ["requested", "awaiting_confirmation", "confirmed", "scheduled", "on_the_way", "in_progress", "completed", "cancelled"],"cash_dispute_status": ["open", "resolved"],"cost_status": ["submitted", "approved", "rejected"],"crew_role": ["lead", "helper"],"draft_status": ["in_progress", "abandoned", "followed_up", "completed"],"equipment_status": ["available", "in_use", "maintenance", "out_of_service"],"inspection_media_kind": ["photo", "video"],"inspection_status": ["required", "scheduled", "in_progress", "submitted", "withdrawn"],"laundry_status": ["received", "washing", "drying", "ready", "delivered"],"payment_method": ["app", "cash"],"payment_status": ["pending", "paid", "failed", "refunded"],"photo_kind": ["before", "after"],"pricing_type": ["fixed", "hourly", "quote"],"profile_status": ["active", "deactivated"],"quote_status": ["requested", "inspection_required", "inspection_scheduled", "inspected", "quoted", "accepted", "declined", "expired"],"referral_status": ["invited", "joined", "completed", "rewarded", "expired"],"request_status": ["pending", "approved", "declined"],"review_target": ["service", "technician"],"support_category": ["booking", "payment", "service", "account", "other"],"support_status": ["open", "waiting_on_customer", "resolved"],"wallet_network": ["MTN", "Airtel"]
           }
         }
 } as const

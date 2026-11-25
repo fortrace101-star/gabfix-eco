@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 
 import { activeServices as localServices, type Service } from '@/config/services';
 import { getServices } from '@/lib/api/discovery';
@@ -24,13 +25,16 @@ const messageFrom = (cause: unknown) =>
 /**
  * Loads the discovery catalogue. With no API base URL configured the bundled catalogue
  * is already in place, so the screens never render an empty list.
+ *
+ * The catalogue is admin-editable, so it is re-read every time the screen is focused:
+ * a service added on the dashboard shows up without restarting the app.
  */
 export function useServices(): ServicesState {
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const key = `catalogue:${attempt}`;
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!hasApiBaseUrl) return;
 
     let cancelled = false;
@@ -46,6 +50,8 @@ export function useServices(): ServicesState {
       cancelled = true;
     };
   }, [key]);
+
+  useFocusEffect(load);
 
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const current = result?.key === key ? result : null;

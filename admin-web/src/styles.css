@@ -4167,6 +4167,64 @@ h3 {
   display: block;
 }
 
+.inspection-video {
+  width: 168px;
+  height: 94px;
+  border-radius: 10px;
+  background: #0d1a10;
+  border: 1px solid var(--border);
+}
+
+.inspection-addenda {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.inspection-addenda ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspection-addenda li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-muted, #f2f4f1);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.inspection-addenda small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.inspection-status {
+  color: var(--info, #2f6f8f);
+}
+
+.crew-support {
+  display: block;
+  margin-top: 2px;
+}
+
+.inspection-addendum-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
 .inspection-photo-missing {
   display: inline-flex;
   flex-direction: column;
@@ -4181,5 +4239,218 @@ h3 {
 @media (max-width: 900px) {
   .quote-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Live updates pill: the console reloads itself from Postgres changes. */
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live-live {
+  color: var(--green-700, #1c6b45);
+}
+
+.live-live .live-dot {
+  background: #22a06b;
+  box-shadow: 0 0 0 3px rgba(34, 160, 107, 0.18);
+}
+
+.live-connecting .live-dot {
+  background: #d9a520;
+}
+
+.live-offline .live-dot {
+  background: #c0524a;
+}
+
+/* Support inbox */
+.support-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.support-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+.support-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.support-item:hover {
+  border-color: var(--border-strong, #cfd5d1);
+}
+
+.support-item-active {
+  border-color: #22a06b;
+  box-shadow: 0 0 0 1px rgba(34, 160, 107, 0.35);
+}
+
+.support-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.support-item-preview {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.support-unread {
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fdf1d6;
+  color: #8a6212;
+}
+
+.support-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 320px;
+}
+
+.support-thread-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.support-thread-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.support-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.support-bubble {
+  max-width: 78%;
+  padding: 9px 12px;
+  border-radius: 14px 14px 14px 4px;
+  background: #f4f6f4;
+}
+
+.support-bubble-mine {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  background: #e2f3e9;
+}
+
+.support-bubble p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.support-bubble-meta {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.support-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.support-compose-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Inline "add cost" row on the costs table */
+.inline-cost-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.inline-cost-form .field {
+  min-width: 120px;
+}
+
+.inline-cost-form .input {
+  height: 32px;
+}
+
+@media (max-width: 980px) {
+  .support-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .support-list {
+    max-height: 260px;
   }
 }

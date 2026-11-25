@@ -134,6 +134,7 @@ export const canViewPage = (page: PageId, role: AdminRole): boolean => {
     page === 'overview' ||
     page === 'bookings' ||
     page === 'customers' ||
-    page === 'payments'
+    page === 'payments' ||
+    page === 'support'
   );
 };

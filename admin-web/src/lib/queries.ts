@@ -59,7 +59,7 @@ export type ConsoleData = {
 const bookingIds = new Map<string, string>();
 
 export async function loadConsoleData(): Promise<ConsoleData> {
-  const [bookingsRes, itemsRes, assignmentsRes, addressesRes, profilesRes, techRes, paymentsRes, handoversRes, disputesRes] =
+  const [bookingsRes, itemsRes, assignmentsRes, addressesRes, profilesRes, techRes, inspectionsRes, paymentsRes, handoversRes, disputesRes] =
     await Promise.all([
       supabase
         .from('bookings')
@@ -72,6 +72,11 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       supabase.from('addresses').select('id, area, line1'),
       supabase.from('profiles').select('id, full_name, phone, role, status'),
       supabase.from('technician_profiles').select('user_id, display_name, active, priority_rating'),
+      supabase
+        .from('inspections')
+        .select('booking_id, status, scheduled_at')
+        .neq('status', 'withdrawn')
+        .order('required_at', { ascending: false }),
       supabase.from('payments').select('id, booking_id, amount, method, status, provider, paid_at, created_at'),
       supabase.from('cash_handovers').select('id, technician_id, amount, confirmed_at, created_at'),
       supabase.from('cash_disputes').select('id, technician_id, status, technician_note'),
@@ -84,6 +89,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
     addressesRes.error ??
     profilesRes.error ??
     techRes.error ??
+    inspectionsRes.error ??
     paymentsRes.error ??
     handoversRes.error ??
     disputesRes.error;
@@ -95,12 +101,25 @@ export async function loadConsoleData(): Promise<ConsoleData> {
   const addresses = addressesRes.data ?? [];
   const profiles = profilesRes.data ?? [];
   const technicians = techRes.data ?? [];
+  const inspectionRows = inspectionsRes.data ?? [];
   const paymentRows = paymentsRes.data ?? [];
   const handovers = handoversRes.data ?? [];
   const disputes = disputesRes.data ?? [];
 
   const profileById = new Map(profiles.map((row) => [row.id, row]));
   const areaById = new Map(addresses.map((row) => [row.id, row.area]));
+  const techNameById = new Map(technicians.map((row) => [row.user_id, row.display_name]));
+
+  // One inspection per booking matters here (the latest one that is still active).
+  const inspectionByBooking = new Map<string, { status: string; scheduledAt: string | null }>();
+  for (const row of inspectionRows) {
+    if (!inspectionByBooking.has(row.booking_id)) {
+      inspectionByBooking.set(row.booking_id, {
+        status: row.status,
+        scheduledAt: row.scheduled_at,
+      });
+    }
+  }
   const serviceByBooking = new Map<string, string>();
   for (const item of items) {
     const name = (item.services as { name?: string } | null)?.name;
@@ -179,6 +198,15 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       time: timeLabel(row.scheduled_start),
       hours: Number(row.billed_hours ?? Math.max(1, Math.round((end - start) / 3_600_000))),
       cleanerId: lead?.technician_id,
+      crew: assignments
+        .filter((item) => item.booking_id === row.id && item.status !== 'removed')
+        .sort((a, b) => (a.crew_role === 'lead' ? -1 : b.crew_role === 'lead' ? 1 : 0))
+        .map((item) => ({
+          id: item.technician_id,
+          name: techNameById.get(item.technician_id) ?? profileById.get(item.technician_id)?.full_name ?? 'Technician',
+          role: item.crew_role === 'lead' ? ('Lead' as const) : ('Support' as const),
+        })),
+      inspection: inspectionByBooking.get(row.id),
       status: STATUS_MAP[row.status] ?? 'Pending',
       payment,
       total,
@@ -339,18 +367,16 @@ export async function assignTechnician(reference: string, technicianId: string):
   if (rpcError) throw new Error(rpcError.message);
 }
 
-/** Confirming a handover is the desk half of `record_cash_handover`. */
-export async function confirmCashHandover(
-  technicianId: string,
-  amount: number,
-  confirmedById: string,
-): Promise<void> {
+/**
+ * Confirming a handover is the desk half of `record_cash_handover`. The insert
+ * policy only covers the technician's own row, so the desk goes through the
+ * `confirm_cash_handover` RPC, which also stamps who confirmed it.
+ */
+export async function confirmCashHandover(technicianId: string, amount: number): Promise<void> {
   if (amount <= 0) return;
-  const { error } = await supabase.from('cash_handovers').insert({
-    technician_id: technicianId,
-    amount,
-    confirmed_by: confirmedById,
-    confirmed_at: new Date().toISOString(),
+  const { error } = await supabase.rpc('confirm_cash_handover', {
+    p_technician: technicianId,
+    p_amount: amount,
   });
   if (error) throw new Error(error.message);
 }

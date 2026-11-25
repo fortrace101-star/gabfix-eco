@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { InspectionPhotos } from '@/components/inspection-photos';
+import { InspectionAddenda } from '@/components/inspection-addenda';
+import { InspectionEvidence } from '@/components/inspection-evidence';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
@@ -315,7 +316,7 @@ export default function InspectionScreen() {
               ) : null}
             </View>
 
-            <InspectionPhotos inspectionId={data.id} readOnly={submitted} />
+            <InspectionEvidence inspectionId={data.id} readOnly={submitted} />
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Findings</Text>
@@ -389,6 +390,8 @@ export default function InspectionScreen() {
                 </>
               )}
             </View>
+
+            {submitted ? <InspectionAddenda inspectionId={data.id} /> : null}
 
             {submitted && data.submitted_at ? (
               <Text style={styles.caption}>Submitted {formatDay(data.submitted_at)}</Text>

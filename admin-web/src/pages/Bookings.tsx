@@ -12,6 +12,13 @@ import {
 import { downloadCsv, formatShortDate, ugx } from '../lib/format';
 import type { Booking, BookingStatus, Cleaner } from '../types';
 
+const inspectionStatusLabels: Record<string, string> = {
+  required: 'needs scheduling',
+  scheduled: 'booked',
+  in_progress: 'in progress',
+  submitted: 'report in',
+};
+
 const statuses: (BookingStatus | 'All statuses')[] = [
   'All statuses',
   'Pending',
@@ -71,7 +78,12 @@ export function BookingsPage({
         booking.dateISO,
         booking.time,
         booking.hours,
-        cleaners.find((cleaner) => cleaner.id === booking.cleanerId)?.name ?? 'Unassigned',
+        [
+          cleaners.find((cleaner) => cleaner.id === booking.cleanerId)?.name ?? 'Unassigned',
+          ...(booking.crew ?? [])
+            .filter((member) => member.role === 'Support' && member.id !== booking.cleanerId)
+            .map((member) => member.name),
+        ].join(' + '),
         booking.status,
         booking.payment,
         booking.total,
@@ -176,6 +188,9 @@ export function BookingsPage({
               <tbody>
                 {filtered.map((booking) => {
                   const cleaner = cleaners.find((item) => item.id === booking.cleanerId);
+                  const support = (booking.crew ?? []).filter(
+                    (member) => member.role === 'Support' && member.id !== booking.cleanerId,
+                  );
                   return (
                     <tr key={booking.id}>
                       <td>
@@ -190,6 +205,14 @@ export function BookingsPage({
                       <td>
                         <span className="cell-main">{booking.service}</span>
                         <small className="cell-sub">{booking.hours} hours</small>
+                        {booking.inspection ? (
+                          <small className="cell-sub inspection-status">
+                            Inspection {inspectionStatusLabels[booking.inspection.status] ?? booking.inspection.status}
+                            {booking.inspection.scheduledAt
+                              ? ` · ${formatShortDate(booking.inspection.scheduledAt.slice(0, 10))}`
+                              : ''}
+                          </small>
+                        ) : null}
                         {booking.media?.length ? (
                           <small className="cell-sub media-indicator" title={`${booking.media.length} media item${booking.media.length === 1 ? '' : 's'}`}>
                             <Icon name="camera" size={12} /> {booking.media.length}
@@ -209,6 +232,11 @@ export function BookingsPage({
                         ) : (
                           <span className="unassigned">Needs cleaner</span>
                         )}
+                        {support.length ? (
+                          <small className="cell-sub crew-support">
+                            + {support.map((member) => member.name).join(', ')}
+                          </small>
+                        ) : null}
                       </td>
                       <td><StatusChip label={booking.status} /></td>
                       <td>

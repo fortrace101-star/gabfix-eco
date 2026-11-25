@@ -96,6 +96,8 @@ other half of the decision is implemented and documented.
 
 ### Open decisions that constrain the client docs
 
+> **Reconciled 2026-11-25 against the architecture plan's register:** the ecosystem is **18/25 decided** (D1–D10, D13, D14, D15, D16, D17, D20, D24, D25). Truly open: D11, D12, D18, D19, D21, D23; D22 is implemented in code but has no written decision text. The 🚫 rows below for D13–D17 mean **the client docs must not promise the provider/contract detail**, not that the decision itself is open — D13 (one conversation per customer), D14 (delete with password confirmation, blank personal data, keep financial records), D15 (guest links/receipts in first release), D16 (recurring plans) and D17 (reports/invoices in release one) are decided and cross-referenced in the plan's `C2`, `K2`, `L1`, `M1` and contract tests. Counts quoted elsewhere in this file as “15 confirmed + D22” are superseded by this line.
+
 | # | Decision | Client docs may assume (provisional) | What must not be written yet | Status |
 |---|---|---|---|---|
 | D11 | Late fees, tips, promos, referrals | Existing 24-hour rule and local promo/tip screens; values stay in config | Final fee/tip/referral policy, server-side promo rules | 🚫 |

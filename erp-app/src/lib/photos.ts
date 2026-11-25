@@ -63,6 +63,21 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PendingPh
   return result.canceled ? null : (result.assets[0]?.uri ?? null);
 }
 
+/** Library video for the inspection report, capped so uploads stay under the bucket limit. */
+export async function pickVideo(): Promise<{ uri: string; mimeType: string } | null> {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) throw new Error('Video library access is turned off for this app.');
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['videos'],
+    videoMaxDuration: 90,
+    allowsMultipleSelection: false,
+  });
+  if (result.canceled) return null;
+  const asset = result.assets[0];
+  if (!asset) return null;
+  return { uri: asset.uri, mimeType: asset.mimeType ?? 'video/mp4' };
+}
+
 async function uploadPhoto(
   photo: PendingPhoto,
   uploaderId: string | null,

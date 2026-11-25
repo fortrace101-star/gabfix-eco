@@ -129,6 +129,12 @@ const paths = {
       <path d="M21 16l-5-5-4 4-2-2-5 5" />
     </>
   ),
+  messages: (
+    <>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 9h8M8 13h5" />
+    </>
+  ),
   dot: <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />,
 } satisfies Record<string, ReactNode>;
 

@@ -1186,20 +1186,24 @@ app.post('/bookings', async (c) => {
     if (replay) return c.json(replay.response, replay.status as 200);
   }
 
-  if (scheduledStart.getTime() < Date.now() + LEAD_HOURS * 60 * 60 * 1000) {
-    return fail(
-      c,
-      409,
-      'slot_unavailable',
-      `Same-day bookings need at least ${LEAD_HOURS} hours' notice. Choose a later time.`,
-    );
-  }
+  // Anything priced as hourly or by quote arrives as a request: the desk confirms the
+  // slot while it prices the job, so the customer is not held to lead time or capacity.
+  if (!anyQuote) {
+    if (scheduledStart.getTime() < Date.now() + LEAD_HOURS * 60 * 60 * 1000) {
+      return fail(
+        c,
+        409,
+        'slot_unavailable',
+        `Same-day bookings need at least ${LEAD_HOURS} hours' notice. Choose a later time.`,
+      );
+    }
 
-  const capacity = await Promise.all(
-    resolved.map((entry) => availableTechnicianCount(entry!.service, scheduledStart, scheduledEnd)),
-  );
-  if (capacity.some((count) => count < 1)) {
-    return fail(c, 409, 'slot_unavailable', 'That time is no longer available. Choose another slot.');
+    const capacity = await Promise.all(
+      resolved.map((entry) => availableTechnicianCount(entry!.service, scheduledStart, scheduledEnd)),
+    );
+    if (capacity.some((count) => count < 1)) {
+      return fail(c, 409, 'slot_unavailable', 'That time is no longer available. Choose another slot.');
+    }
   }
 
   const serviceIds = resolved.map((entry) => entry!.service.id);
@@ -1503,7 +1507,43 @@ app.get('/quotes', async (c) => {
     .select('id, booking_id, description, quoted_amount, status, inspection_required, quoted_at, responded_at, expires_at, created_at, inspections(id, status, scheduled_at, inspector_id)')
     .order('created_at', { ascending: false });
   if (error) throw new HTTPException(500, { message: error.message, cause: 'quotes_read' });
-  return c.json({ quotes: data ?? [] });
+
+  // The client renders its Requests tab from this list, so attach the booking it
+  // belongs to (reference and scheduled slot) and the service being priced. Only the
+  // quotes the caller could already read are enriched.
+  const rows = data ?? [];
+  const bookingIds = [...new Set(rows.map((row) => row.booking_id))];
+  const bookingById = new Map<
+    string,
+    { reference: string; status: string; scheduled_start: string }
+  >();
+  const serviceByBooking = new Map<string, string>();
+  if (bookingIds.length > 0) {
+    const { data: bookingRows } = await admin
+      .from('bookings')
+      .select('id, reference, status, scheduled_start')
+      .in('id', bookingIds);
+    for (const booking of bookingRows ?? []) bookingById.set(booking.id, booking);
+
+    const { data: itemRows } = await admin
+      .from('booking_items')
+      .select('booking_id, quantity, services(name)')
+      .in('booking_id', bookingIds);
+    for (const item of itemRows ?? []) {
+      const name = (item.services as { name?: string } | null)?.name;
+      if (name && !serviceByBooking.has(item.booking_id)) serviceByBooking.set(item.booking_id, name);
+    }
+  }
+
+  return c.json({
+    quotes: rows.map((row) => ({
+      ...row,
+      bookingReference: bookingById.get(row.booking_id)?.reference ?? null,
+      bookingStatus: bookingById.get(row.booking_id)?.status ?? null,
+      scheduledStart: bookingById.get(row.booking_id)?.scheduled_start ?? null,
+      serviceName: serviceByBooking.get(row.booking_id) ?? null,
+    })),
+  });
 });
 
 app.get('/support/conversation', async (c) => {

@@ -6,7 +6,7 @@ Android APK. This is the release gate that follows the build-out in
 
 Legend: `[x]` done and verified · `[~]` done on web/build only, or partially done · `[ ]` open.
 
-Last updated: 2026-11-25, inspection evidence session (photos to the private `inspection-media` bucket through the capture screen with signed-URL previews, measurements on the report, and the desk's dispatch option when confirming in Approvals. Web-build verified; the file picker needs a device). Prior update: 2026-11-25, approvals + inspection session (`inspections/` list and capture screen with checklist, findings, recommended hours/crew and `submit_inspection`, plus a home card; sign-in keeps its fields editable, times out after 20 s and has a show/hide password toggle; completing a job now confirms and returns to the list. Web-build verified only). Prior update: 2026-11-25, later session (Hono auth batch, form-definition negotiation and the 9-test backend contract suite; client media upload cutover. No device verification; SMS OTP delivery still open.) Prior update: 2026-11-25 (backend booking-media contract — `booking_media` + signed upload/complete/refresh/delete and server-side limits — and receipts desk-issue RLS fix landed locally and smoke-tested; staff DB types regenerated and `erp-app` `tsc` passes. No new ERP runtime/release verification this session; client API gap map in the plan §11.5).
+Last updated: 2026-11-25, quote-request/costs/support session (no ERP code changed: job costs, commission and the support inbox landed in the console and backend, so the ERP still has no cost-entry or commission screen; the client also stopped simulating assignments and completions, so a staff device now only shows work the desk actually dispatched). Prior update: 2026-11-25, inspection video + addenda session (a library video pill next to camera and library photos, and the desk's addenda on the read-only report. Web-build verified; the pickers need a device). Prior update: 2026-11-25, inspection evidence session (photos to the private `inspection-media` bucket through the capture screen with signed-URL previews, measurements on the report, and the desk's dispatch option when confirming in Approvals. Web-build verified; the file picker needs a device). Prior update: 2026-11-25, approvals + inspection session (`inspections/` list and capture screen with checklist, findings, recommended hours/crew and `submit_inspection`, plus a home card; sign-in keeps its fields editable, times out after 20 s and has a show/hide password toggle; completing a job now confirms and returns to the list. Web-build verified only). Prior update: 2026-11-25, later session (Hono auth batch, form-definition negotiation and the 9-test backend contract suite; client media upload cutover. No device verification; SMS OTP delivery still open.) Prior update: 2026-11-25 (backend booking-media contract — `booking_media` + signed upload/complete/refresh/delete and server-side limits — and receipts desk-issue RLS fix landed locally and smoke-tested; staff DB types regenerated and `erp-app` `tsc` passes. No new ERP runtime/release verification this session; client API gap map in the plan §11.5).
 
 ---
 
@@ -61,10 +61,12 @@ Last updated: 2026-11-25, inspection evidence session (photos to the private `in
 - [ ] Job photos: camera and library upload, retry after failure, private bucket access.
 - [~] Inspection visits: list split into to do / reports sent, capture screen with the desk's brief,
       five-item checklist (fine/issue), findings, measurements (floor area, rooms, ceiling height),
-      recommended hours and crew, photos from camera or library with signed-URL previews, submit, and
-      a read-only view once sent. Web-export verified as `tech1@` (submit moved the inspection to
-      `submitted`, its quote to `inspected`, and the measurements to the report). Still open: video
-      evidence, and clicking the camera/library picker on a device.
+      recommended hours and crew, photos from camera or library plus a library video capped at 90 s
+      (all with signed-URL previews), submit, and a read-only view once sent that also lists the
+      desk's addenda. Web-export verified as `tech1@` (submit moved the inspection to `submitted`,
+      its quote to `inspected`, and the measurements to the report; the read-only report showed
+      `1 photo · 1 video`, the video tile and the desk addendum). Still open: playing a video inside
+      the app, and clicking the pickers on a device.
 - [ ] Cash: record payment, handover, today's total, and duplicate-submit protection.
 - [ ] Customers, notifications and profile screens have real empty, loading and error states.
 - [ ] Alerts route is reachable from the bell and not exposed as a tab.

@@ -13,6 +13,7 @@ import {
 import type { AdminUser } from '../lib/auth';
 import { cx, formatDateTime, ugx } from '../lib/format';
 import {
+  addInspectionAddendum,
   loadQuoteQueue,
   recordQuoteResponse,
   requestInspection,
@@ -86,9 +87,11 @@ const latestInspection = (inspections: InspectionRow[], quoteId: string): Inspec
 export function QuotesPage({
   user,
   notify,
+  refreshKey,
 }: {
   user: AdminUser;
   notify: (message: string) => void;
+  refreshKey?: number;
 }) {
   const [queue, setQueue] = useState<QuoteQueue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,6 +108,8 @@ export function QuotesPage({
   const [inspectionNote, setInspectionNote] = useState('');
   const [inspectorId, setInspectorId] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [addendum, setAddendum] = useState('');
+  const [savingAddendum, setSavingAddendum] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -120,7 +125,7 @@ export function QuotesPage({
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, refreshKey]);
 
   const quotes = queue?.quotes ?? [];
   const canWrite = user.role === 'admin' || user.role === 'operations';
@@ -131,6 +136,7 @@ export function QuotesPage({
 
   const openQuote = (quote: QuoteRow) => {
     setFormError('');
+    setAddendum('');
     setSelectedId(quote.id);
     setDescription(quote.description);
     setAmount(quote.amount === null ? '' : String(quote.amount));
@@ -207,6 +213,28 @@ export function QuotesPage({
       },
       'Inspection requested.',
     );
+  };
+
+  const submitAddendum = async () => {
+    if (!selectedInspection) return;
+    setSavingAddendum(true);
+    setFormError('');
+    try {
+      await addInspectionAddendum({
+        inspectionId: selectedInspection.id,
+        authorId: user.id,
+        note: addendum,
+      });
+      setAddendum('');
+      await refresh();
+      notify('Addendum saved on the report.');
+    } catch (addendumError) {
+      setFormError(
+        addendumError instanceof Error ? addendumError.message : 'The addendum was not saved.',
+      );
+    } finally {
+      setSavingAddendum(false);
+    }
   };
 
   const saveSchedule = () => {
@@ -629,28 +657,80 @@ export function QuotesPage({
                           ))}
                         </div>
                       ) : null}
-                      {selectedInspection.photos.length ? (
+                      {selectedInspection.media.length ? (
                         <div className="inspection-photos">
-                          {selectedInspection.photos.map((photo) =>
-                            photo.url ? (
+                          {selectedInspection.media.map((item) =>
+                            item.url && item.kind === 'video' ? (
+                              <video
+                                key={item.id}
+                                className="inspection-video"
+                                src={item.url}
+                                controls
+                                preload="metadata"
+                                aria-label={item.caption || 'Inspection video'}
+                              />
+                            ) : item.url ? (
                               <a
-                                key={photo.id}
-                                href={photo.url}
+                                key={item.id}
+                                href={item.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                title={photo.caption || 'Inspection photo'}
+                                title={item.caption || 'Inspection photo'}
                               >
-                                <img src={photo.url} alt={photo.caption || 'Inspection photo'} />
+                                <img src={item.url} alt={item.caption || 'Inspection photo'} />
                               </a>
                             ) : (
-                              <span key={photo.id} className="inspection-photo-missing">
-                                <Icon name="image" size={14} />
+                              <span key={item.id} className="inspection-photo-missing">
+                                <Icon name={item.kind === 'video' ? 'camera' : 'image'} size={14} />
                                 No preview
                               </span>
                             ),
                           )}
                         </div>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {selectedInspection.status === 'submitted' && selectedInspection.addenda.length ? (
+                    <div className="inspection-addenda">
+                      <p className="inspection-report-meta">
+                        Addenda · the report above stays exactly as the inspector sent it
+                      </p>
+                      <ul>
+                        {selectedInspection.addenda.map((entry) => (
+                          <li key={entry.id}>
+                            <span>{entry.note}</span>
+                            <small>
+                              {entry.authorName} · {formatDateTime(entry.createdAt)}
+                            </small>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {canWrite && selectedInspection.status === 'submitted' ? (
+                    <div className="inspection-addendum-form">
+                      <Field
+                        label="Add an addendum"
+                        hint="Kept next to the report; the inspector sees it in the ERP app"
+                      >
+                        <textarea
+                          className="textarea"
+                          rows={2}
+                          value={addendum}
+                          onChange={(event) => setAddendum(event.target.value)}
+                          placeholder="What changed since the visit?"
+                        />
+                      </Field>
+                      <div className="inline-field">
+                        <span>For corrections the desk and the customer need on record</span>
+                        <Button
+                          icon="plus"
+                          disabled={savingAddendum || !addendum.trim()}
+                          onClick={() => void submitAddendum()}
+                        >
+                          {savingAddendum ? 'Saving…' : 'Save addendum'}
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </div>

@@ -15,6 +15,7 @@ import { requestPushPermission, shouldShowPushPrePrompt, snoozePushPrePrompt } f
 import { price } from '@/lib/pricing';
 import { getBookingDraft, resetDraft } from '@/store/booking';
 import { addBooking, updateBooking } from '@/store/bookings';
+import { syncQuoteRequests } from '@/store/quotes';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
 import { scheduleAssignmentReminder } from '@/lib/local-notifications';
 import { addNotification } from '@/store/notifications';
@@ -79,7 +80,9 @@ export default function ConfirmedScreen() {
       const draftMedia = snapshot?.media?.items ?? [];
       const finalizedMedia = await finalizeDraftMedia(bookingId, draftMedia);
 
-      addBooking({
+      // A quote request is not a booked clean: it belongs in Bookings → Requests, and
+      // the desk's own record (GET /quotes) is what the tab renders.
+      if (!isQuote) addBooking({
         id: bookingId,
         serviceSlug: service?.slug ?? snapshot?.serviceSlug ?? slug ?? 'service',
         serviceName: service?.name ?? 'Cleaning service',
@@ -120,6 +123,8 @@ export default function ConfirmedScreen() {
             }
           : undefined,
       });
+
+      if (isQuote) await syncQuoteRequests();
 
       addNotification({
         id: `booking-confirmed-${bookingId}`,

@@ -8,6 +8,8 @@ export type PageId =
   | 'cleaners'
   | 'catalogue'
   | 'quotes'
+  | 'support'
+  | 'costs'
   | 'services'
   | 'forms'
   | 'promos'
@@ -51,6 +53,10 @@ export type Booking = {
     facts?: BookingScopeFact[];
   };
   media?: BookingMedia[];
+  /** Everyone on the job, lead first; `cleanerId` stays the lead. */
+  crew?: { id: string; name: string; role: 'Lead' | 'Support' }[];
+  /** The active inspection for this job, when the desk could not price it blind. */
+  inspection?: { status: BookingStatus | string; scheduledAt: string | null };
 };
 
 export type Cleaner = {

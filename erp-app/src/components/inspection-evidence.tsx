@@ -1,21 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Camera, Images, Trash2 } from 'lucide-react-native';
+import { Camera, Film, Images, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
-  addInspectionPhoto,
-  listInspectionPhotos,
-  removeInspectionPhoto,
-  type InspectionPhoto,
-} from '@/lib/inspection-photos';
-import { pickPhoto } from '@/lib/photos';
+  addInspectionMedia,
+  listInspectionMedia,
+  removeInspectionMedia,
+  type InspectionMediaItem,
+} from '@/lib/inspection-media';
+import { pickPhoto, pickVideo } from '@/lib/photos';
 import { useAuth } from '@/store/auth';
 import { colors, radius, shadow, space, text } from '@/theme';
 
 /** Evidence for the desk: what the space looked like when the inspector visited. */
-export function InspectionPhotos({
+export function InspectionEvidence({
   inspectionId,
   readOnly,
 }: {
@@ -24,68 +24,102 @@ export function InspectionPhotos({
 }) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const queryKey = ['inspection-photos', inspectionId];
+  const queryKey = ['inspection-media', inspectionId];
   const [busy, setBusy] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey,
-    queryFn: () => listInspectionPhotos(inspectionId),
+    queryFn: () => listInspectionMedia(inspectionId),
   });
 
   const add = useMutation({
-    mutationFn: async (source: 'camera' | 'library') => {
+    mutationFn: async (source: 'camera' | 'library' | 'video') => {
+      if (source === 'video') {
+        const video = await pickVideo();
+        if (!video) return;
+        await addInspectionMedia({
+          inspectionId,
+          uri: video.uri,
+          kind: 'video',
+          mimeType: video.mimeType,
+          uploaderId: profile?.id ?? null,
+        });
+        return;
+      }
+
       const uri = await pickPhoto(source);
       if (!uri) return;
-      await addInspectionPhoto({ inspectionId, uri, uploaderId: profile?.id ?? null });
+      await addInspectionMedia({
+        inspectionId,
+        uri,
+        kind: 'photo',
+        mimeType: 'image/jpeg',
+        uploaderId: profile?.id ?? null,
+      });
     },
     onMutate: () => setBusy(true),
     onSettled: async () => {
       setBusy(false);
       await queryClient.invalidateQueries({ queryKey });
     },
-    onError: (mutationError) => Alert.alert('Photo not attached', mutationError.message),
+    onError: (mutationError) => Alert.alert('Evidence not attached', mutationError.message),
   });
 
   const remove = useMutation({
-    mutationFn: (photo: InspectionPhoto) => removeInspectionPhoto(photo),
+    mutationFn: (item: InspectionMediaItem) => removeInspectionMedia(item),
     onMutate: () => setBusy(true),
     onSettled: async () => {
       setBusy(false);
       await queryClient.invalidateQueries({ queryKey });
     },
-    onError: (mutationError) => Alert.alert('Could not remove the photo', mutationError.message),
+    onError: (mutationError) => Alert.alert('Could not remove it', mutationError.message),
   });
 
-  const confirmRemove = (photo: InspectionPhoto) => {
-    Alert.alert('Remove this photo?', 'The desk will no longer see it on the report.', [
-      { text: 'Keep', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => remove.mutate(photo) },
-    ]);
+  const confirmRemove = (item: InspectionMediaItem) => {
+    Alert.alert(
+      item.kind === 'video' ? 'Remove this video?' : 'Remove this photo?',
+      'The desk will no longer see it on the report.',
+      [
+        { text: 'Keep', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => remove.mutate(item) },
+      ],
+    );
   };
 
-  const photos = data ?? [];
+  const items = data ?? [];
+  const photos = items.filter((item) => item.kind === 'photo').length;
+  const videos = items.length - photos;
+  const summary = [
+    photos ? `${photos} photo${photos === 1 ? '' : 's'}` : null,
+    videos ? `${videos} video${videos === 1 ? '' : 's'}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <View style={styles.card}>
       <View style={styles.head}>
-        <Text style={styles.sectionTitle}>Photos</Text>
-        <Text style={styles.caption}>
-          {photos.length} photo{photos.length === 1 ? '' : 's'}
-        </Text>
+        <Text style={styles.sectionTitle}>Photos & video</Text>
+        <Text style={styles.caption}>{summary || 'Nothing yet'}</Text>
       </View>
 
       {isLoading ? (
         <ActivityIndicator color={colors.green500} />
       ) : error ? (
         <Text style={styles.caption}>{error.message}</Text>
-      ) : photos.length ? (
+      ) : items.length ? (
         <View style={styles.thumbs}>
-          {photos.map((photo) => (
-            <View key={photo.id} style={styles.thumbWrap}>
+          {items.map((item) => (
+            <View key={item.id} style={styles.thumbWrap}>
               <View style={styles.thumb}>
-                {photo.url ? (
+                {item.kind === 'video' ? (
+                  <View style={styles.videoTile}>
+                    <Film size={20} color={colors.green700} />
+                    <Text style={styles.videoLabel}>Video</Text>
+                  </View>
+                ) : item.url ? (
                   <Image
-                    source={{ uri: photo.url }}
+                    source={{ uri: item.url }}
                     style={styles.thumbImage}
                     contentFit="cover"
                     accessibilityLabel="Inspection photo"
@@ -99,9 +133,9 @@ export function InspectionPhotos({
               {readOnly ? null : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Remove photo"
+                  accessibilityLabel={item.kind === 'video' ? 'Remove video' : 'Remove photo'}
                   hitSlop={6}
-                  onPress={() => confirmRemove(photo)}
+                  onPress={() => confirmRemove(item)}
                   disabled={busy}
                   style={styles.remove}>
                   <Trash2 size={12} color={colors.error} />
@@ -113,8 +147,8 @@ export function InspectionPhotos({
       ) : (
         <Text style={styles.caption}>
           {readOnly
-            ? 'No photos were attached to this report.'
-            : 'Add a photo of the space so the desk can see what you are pricing.'}
+            ? 'No photos or video were attached to this report.'
+            : 'Add a photo or a short video of the space so the desk can see what you are pricing.'}
         </Text>
       )}
 
@@ -141,6 +175,15 @@ export function InspectionPhotos({
               <Images size={15} color={colors.green700} />
             )}
             <Text style={styles.pillText}>Library</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose an inspection video from the library"
+            onPress={() => add.mutate('video')}
+            disabled={busy}
+            style={({ pressed }) => [styles.pill, pressed && styles.pressed]}>
+            <Film size={15} color={colors.green700} />
+            <Text style={styles.pillText}>Video</Text>
           </Pressable>
         </View>
       )}
@@ -172,6 +215,8 @@ const styles = StyleSheet.create({
   },
   thumbImage: { width: '100%', height: '100%' },
   thumbMissing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  videoTile: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  videoLabel: { ...text.caption, color: colors.green700, fontSize: 10 },
   remove: {
     position: 'absolute',
     top: 2,
@@ -183,7 +228,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface,
   },
-  buttons: { flexDirection: 'row', gap: space[2] },
+  buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

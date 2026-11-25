@@ -27,6 +27,8 @@ import { Input } from '@/components/ui/input';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { serviceBySlug } from '@/config/services';
+import { hasApiBaseUrl } from '@/lib/config';
+import { submitQuoteRequest } from '@/lib/api/quotes';
 import { shortDate } from '@/lib/plans';
 import type { BookingFrequency } from '@/lib/pricing';
 import {
@@ -36,7 +38,7 @@ import {
   quotePropertyLabel,
   quoteSizeLabel,
 } from '@/lib/quotes';
-import { addQuoteRequest, type QuoteRequest } from '@/store/quotes';
+import { addQuoteRequest, syncQuoteRequests } from '@/store/quotes';
 import { useAuthUser } from '@/store/session';
 import { chip, colors, font, radius, space, text } from '@/theme';
 import { phoneUG } from '@/utils/format';
@@ -117,7 +119,9 @@ export default function QuoteRequestScreen() {
   const [contactPhone, setContactPhone] = useState(() => phoneDigits(user?.phone));
   const [photos, setPhotos] = useState<string[]>([]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [submitted, setSubmitted] = useState<QuoteRequest | null>(null);
+  /** The reference the desk will quote against, once the request reached the server. */
+  const [submitted, setSubmitted] = useState<{ reference: string } | null>(null);
+  const [sending, setSending] = useState(false);
 
   // Workstream I: quotes ask where the job is; there is no served-area list any more.
   const [jobLocation, setJobLocation] = useState('');
@@ -170,12 +174,13 @@ export default function QuoteRequestScreen() {
     setPhotos((current) => [...current, ...additions].slice(0, MAX_PHOTOS));
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!complete) {
       setTouched({ details: true, name: true, phone: true });
       return;
     }
-    const request = addQuoteRequest({
+
+    const input = {
       serviceSlug: service?.slug ?? 'custom',
       serviceName: service?.name ?? 'Custom cleaning request',
       details: details.trim(),
@@ -187,8 +192,30 @@ export default function QuoteRequestScreen() {
       contactName: contactName.trim(),
       contactPhone,
       photos,
-    });
-    setSubmitted(request);
+    };
+
+    // No API configured (preview build): keep the request on the device.
+    if (!hasApiBaseUrl) {
+      const request = addQuoteRequest(input);
+      setSubmitted({ reference: request.id });
+      return;
+    }
+
+    setSending(true);
+    try {
+      const result = await submitQuoteRequest(input);
+      await syncQuoteRequests();
+      setSubmitted({ reference: result.reference });
+    } catch (cause) {
+      Alert.alert(
+        'Could not send the request',
+        cause instanceof Error
+          ? cause.message
+          : 'Check your connection and try again. Your answers are still here.',
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   if (submitted) {
@@ -203,31 +230,32 @@ export default function QuoteRequestScreen() {
             We&apos;ll reply within 24 hours
           </Text>
           <Text style={styles.successBody} maxFontSizeMultiplier={1.3}>
-            We&apos;re pricing {submitted.serviceName.toLowerCase()} for {submitted.areaName}. We
-            may call {phoneUG(submitted.contactPhone)} if we need a few more details.
+            We&apos;re pricing {(service?.name ?? 'your request').toLowerCase()} for{' '}
+            {jobLocation.trim()}. We may call {phoneUG(contactPhone)} if we need a few more
+            details.
           </Text>
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Request</Text>
-              <Text style={styles.summaryValue}>{submitted.id}</Text>
+              <Text style={styles.summaryValue}>{submitted.reference}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Property</Text>
               <Text style={styles.summaryValue}>
-                {quotePropertyLabel(submitted.propertyType)} · {quoteSizeLabel(submitted.size)}
+                {quotePropertyLabel(propertyType)} · {quoteSizeLabel(size)}
               </Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Preferred start</Text>
-              <Text style={styles.summaryValue}>{shortDate(submitted.preferredDateISO)}</Text>
+              <Text style={styles.summaryValue}>{shortDate(preferredDateISO)}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Frequency</Text>
-              <Text style={styles.summaryValue}>{quoteFrequencyLabel(submitted.frequency)}</Text>
+              <Text style={styles.summaryValue}>{quoteFrequencyLabel(frequency)}</Text>
             </View>
           </View>
 
@@ -472,9 +500,9 @@ export default function QuoteRequestScreen() {
             { paddingBottom: Math.max(insets.bottom, space[3]) },
           ]}>
           <Button
-            label="Send request"
-            onPress={submit}
-            disabled={!complete}
+            label={sending ? 'Sending…' : 'Send request'}
+            onPress={() => void submit()}
+            disabled={!complete || sending}
             accessibilityHint="Sends your request to the Gabfix team for a fixed quote"
           />
           <Text style={styles.footerNote} maxFontSizeMultiplier={1.2}>

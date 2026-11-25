@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { QuoteRequestCard } from '@/components/booking/quote-request-card';
+import { ServerQuoteCard } from '@/components/booking/server-quote-card';
 import { SegmentedControl } from '@/components/booking/segmented-control';
 import { slotLabel } from '@/components/booking/slot-chips';
 import { Avatar } from '@/components/ui/avatar';
@@ -39,7 +40,13 @@ import {
   useBookings,
   useBookingsHydrated,
 } from '@/store/bookings';
-import { hydrateQuotes, useQuoteRequests, useQuotesHydrated } from '@/store/quotes';
+import {
+  hydrateQuotes,
+  syncQuoteRequests,
+  useQuoteRequests,
+  useQuotesHydrated,
+  useServerQuoteRequests,
+} from '@/store/quotes';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
 
@@ -242,6 +249,7 @@ export default function BookingsScreen() {
   const hydrated = useBookingsHydrated();
   const requests = useQuoteRequests();
   const requestsHydrated = useQuotesHydrated();
+  const serverRequests = useServerQuoteRequests();
   // Home's "All bookings" link opens a specific segment via `?tab=completed`.
   const params = useLocalSearchParams<{ tab?: string }>();
   const requestedTab = TABS.find((item) => item.value === params.tab)?.value;
@@ -256,10 +264,15 @@ export default function BookingsScreen() {
     expireUnpaidBookings();
   }, []);
 
+  // Quote requests live on the server; read the desk's current state on open.
+  useEffect(() => {
+    void syncQuoteRequests();
+  }, []);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([hydrateBookings(), hydrateQuotes()]);
+      await Promise.all([hydrateBookings(), hydrateQuotes(), syncQuoteRequests()]);
     } finally {
       setRefreshing(false);
     }
@@ -313,13 +326,28 @@ export default function BookingsScreen() {
           data={requestsHydrated ? requests : []}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <QuoteRequestCard request={item} />}
+          ListHeaderComponent={
+            serverRequests.length > 0 ? (
+              <View style={styles.serverList}>
+                {serverRequests.map((quote) => (
+                  <ServerQuoteCard key={quote.quoteId} quote={quote} />
+                ))}
+              </View>
+            ) : undefined
+          }
           contentContainerStyle={[
             styles.listContent,
-            requests.length === 0 && styles.listEmpty,
+            requests.length === 0 && serverRequests.length === 0 && styles.listEmpty,
           ]}
           refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={requestsHydrated ? <RequestsEmpty /> : <BookingsSkeleton />}
+          ListEmptyComponent={
+            requestsHydrated
+              ? serverRequests.length === 0
+                ? <RequestsEmpty />
+                : undefined
+              : <BookingsSkeleton />
+          }
         />
       ) : (
         <FlatList
@@ -352,6 +380,7 @@ const styles = StyleSheet.create({
   tabsWrap: { paddingHorizontal: space[4], marginBottom: space[3] },
   listContent: { paddingHorizontal: space[4], paddingBottom: 140, gap: space[3] },
   listEmpty: { flexGrow: 1, justifyContent: 'center' },
+  serverList: { gap: space[3] },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,

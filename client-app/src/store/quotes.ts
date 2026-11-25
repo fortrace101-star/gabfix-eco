@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import { fetchMyQuoteRequests, type ServerQuoteRequest } from '@/lib/api/quotes';
 import type { BookingFrequency } from '@/lib/pricing';
 
 /**
- * P25 quote requests. There is no quotes API yet, so requests are saved on the device and
- * shown in Bookings → Requests. Replace this store with `POST /quotes` when it lands.
+ * P25 quote requests. Requests made through the booking flow live on the server and are
+ * mirrored here for Bookings → Requests; the custom request form also keeps a device copy
+ * so the list still works offline.
  */
 const STORAGE_KEY = 'gabfix.quotes.v1';
 
@@ -51,10 +53,20 @@ export type QuoteRequest = QuoteRequestInput & {
 
 type QuotesState = {
   requests: QuoteRequest[];
+  /** Requests the desk already has, straight from `GET /quotes`. */
+  serverRequests: ServerQuoteRequest[];
+  serverSynced: boolean;
+  syncing: boolean;
   hydrated: boolean;
 };
 
-let state: QuotesState = { requests: [], hydrated: false };
+let state: QuotesState = {
+  requests: [],
+  serverRequests: [],
+  serverSynced: false,
+  syncing: false,
+  hydrated: false,
+};
 const listeners = new Set<() => void>();
 
 const getState = () => state;
@@ -88,7 +100,24 @@ export async function hydrateQuotes(): Promise<void> {
   } catch {
     requests = [];
   }
-  state = { requests, hydrated: true };
+  state = { ...state, requests, hydrated: true };
+  listeners.forEach((listener) => listener());
+}
+
+/**
+ * Pulls the desk's view of this customer's quote requests. Safe to call on every
+ * focus: a failure keeps the last list and never blocks the tab.
+ */
+export async function syncQuoteRequests(): Promise<void> {
+  if (state.syncing) return;
+  state = { ...state, syncing: true };
+  listeners.forEach((listener) => listener());
+  try {
+    const serverRequests = await fetchMyQuoteRequests();
+    state = { ...state, serverRequests, serverSynced: true, syncing: false };
+  } catch {
+    state = { ...state, syncing: false };
+  }
   listeners.forEach((listener) => listener());
 }
 
@@ -109,4 +138,13 @@ export function useQuoteRequests(): QuoteRequest[] {
 
 export function useQuotesHydrated(): boolean {
   return useSyncExternalStore(subscribe, getState, getState).hydrated;
+}
+
+/** Quote requests the desk has on file, newest first. */
+export function useServerQuoteRequests(): ServerQuoteRequest[] {
+  return useSyncExternalStore(subscribe, getState, getState).serverRequests;
+}
+
+export function useQuoteRequestsSynced(): boolean {
+  return useSyncExternalStore(subscribe, getState, getState).serverSynced;
 }

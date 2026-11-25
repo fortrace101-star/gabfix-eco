@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from '../lib/format';
+import type { LiveStatus } from '../lib/live';
 import type { Booking, Cleaner, Customer, PageId } from '../types';
 import { Avatar } from './ui';
 import { Icon, type IconName } from './Icon';
@@ -21,8 +22,10 @@ export function Topbar({
   readNotifications,
   onReadNotification,
   onReadAll,
+  live,
 }: {
   page: PageId;
+  live: LiveStatus;
   bookings: Booking[];
   customers: Customer[];
   cleaners: Cleaner[];
@@ -108,6 +111,8 @@ export function Topbar({
     bookings: 'Bookings',
     approvals: 'Approvals',
     quotes: 'Quotes & inspections',
+    support: 'Support',
+    costs: 'Job costs',
     payments: 'Payments',
     cash: 'Cash collections',
     customers: 'Customers',
@@ -196,6 +201,19 @@ export function Topbar({
       </div>
 
       <div className="topbar-right">
+        <span
+          className={cx('live-pill', `live-${live}`)}
+          title={
+            live === 'live'
+              ? 'Realtime is on: new bookings, payments and messages appear without refreshing'
+              : live === 'offline'
+                ? 'Realtime is unavailable; press Reload to refresh'
+                : 'Connecting to live updates…'
+          }
+        >
+          <span className="live-dot" />
+          {live === 'live' ? 'Live' : live === 'offline' ? 'Manual refresh' : 'Connecting'}
+        </span>
         <label className="date-range">
           <Icon name="clock" size={15} />
           <span className="sr-only">Date range</span>

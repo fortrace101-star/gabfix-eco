@@ -137,11 +137,10 @@ describe('apiRequest', () => {
   it('marks connection failures as network errors', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Network request failed'));
 
-    await expect(apiRequest('/me')).rejects.toMatchObject({
-      status: 0,
-      code: 'network',
-      message: 'Check your connection and try again.',
-    });
+    const error = await apiRequest('/me').catch((cause: unknown) => cause);
+    expect(error).toMatchObject({ status: 0, code: 'network' });
+    // Development builds append the host that failed, so match the start of the message.
+    expect((error as Error).message).toContain('Check your connection and try again.');
   });
 
   it('refuses to call a network when no API base URL is configured', async () => {

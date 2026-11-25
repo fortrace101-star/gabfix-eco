@@ -55,9 +55,11 @@ const ageInDays = (iso: string): number => {
 export function ApprovalsPage({
   user,
   notify,
+  refreshKey,
 }: {
   user: AdminUser;
   notify: (message: string) => void;
+  refreshKey?: number;
 }) {
   const [queue, setQueue] = useState<ApprovalsQueue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +86,7 @@ export function ApprovalsPage({
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, refreshKey]);
 
   const canDecide = user.role === 'admin' || user.role === 'operations';
   const pending = queue?.bookings ?? [];

@@ -10,12 +10,15 @@ import {
   notificationsSeed,
 } from './data';
 import { canViewPage, restoreSession, signOut, type AdminUser } from './lib/auth';
+import { subscribeToOperations, type LiveStatus } from './lib/live';
 import { assignTechnician, confirmCashHandover, loadConsoleData } from './lib/queries';
 import { ApprovalsPage } from './pages/Approvals';
 import { BookingsPage } from './pages/Bookings';
 import { CataloguePage } from './pages/Catalogue';
 import { QuotesPage } from './pages/Quotes';
 import { CashPage } from './pages/Cash';
+import { CostsPage } from './pages/Costs';
+import { SupportPage } from './pages/Support';
 import { CleanersPage } from './pages/Cleaners';
 import { CustomersPage } from './pages/Customers';
 import { FormsPage } from './pages/Forms';
@@ -47,6 +50,8 @@ const pages: PageId[] = [
   'customers',
   'cleaners',
   'catalogue',
+  'support',
+  'costs',
   'services',
   'forms',
   'promos',
@@ -59,6 +64,8 @@ const pageTitles: Record<PageId, string> = {
   bookings: 'Bookings',
   approvals: 'Approvals',
   quotes: 'Quotes & inspections',
+  support: 'Support',
+  costs: 'Job costs',
   payments: 'Payments',
   cash: 'Cash collections',
   customers: 'Customers',
@@ -86,6 +93,9 @@ export default function App() {
   const [dateRange, setDateRange] = useState<DateRange>('Last 7 days');
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
+  /** Bumped on a realtime change so pages that load their own data reload too. */
+  const [liveTick, setLiveTick] = useState(0);
+  const [live, setLive] = useState<LiveStatus>('connecting');
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
@@ -138,6 +148,16 @@ export default function App() {
     if (user) void refresh();
   }, [user, refresh]);
 
+  // The desk acts in other apps; reload instead of making someone press refresh.
+  useEffect(() => {
+    if (!user) return;
+    const stop = subscribeToOperations(() => {
+      setLiveTick((value) => value + 1);
+      void refresh();
+    }, setLive);
+    return stop;
+  }, [user, refresh]);
+
   useEffect(() => {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
@@ -176,7 +196,7 @@ export default function App() {
     const entry = cash.find((item) => item.id === id);
     if (!entry || !user) return;
     try {
-      await confirmCashHandover(entry.cleanerId, entry.amountDue, user.id);
+      await confirmCashHandover(entry.cleanerId, entry.amountDue);
       await refresh();
       notify(
         `${entry.cleaner} marked remitted · ${entry.amountDue.toLocaleString('en-UG')} UGX.`,
@@ -312,6 +332,7 @@ export default function App() {
             );
           }}
           onReadAll={() => setReadNotifications(notificationsSeed.map((item) => item.id))}
+          live={live}
         />
         <main className="page-wrap">
           {loadError ? (
@@ -344,7 +365,9 @@ export default function App() {
           {page === 'bookings' ? (
             <BookingsPage bookings={bookings} cleaners={cleaners} onAssign={assignBooking} />
           ) : null}
-          {page === 'approvals' ? <ApprovalsPage user={user} notify={notify} /> : null}
+          {page === 'approvals' ? (
+            <ApprovalsPage user={user} notify={notify} refreshKey={liveTick} />
+          ) : null}
           {page === 'payments' ? (
             <PaymentsPage
               payments={payments}
@@ -377,7 +400,15 @@ export default function App() {
             />
           ) : null}
           {page === 'catalogue' ? <CataloguePage notify={notify} /> : null}
-          {page === 'quotes' ? <QuotesPage user={user} notify={notify} /> : null}
+          {page === 'quotes' ? (
+            <QuotesPage user={user} notify={notify} refreshKey={liveTick} />
+          ) : null}
+          {page === 'support' ? (
+            <SupportPage notify={notify} refreshKey={liveTick} />
+          ) : null}
+          {page === 'costs' ? (
+            <CostsPage role={user.role} notify={notify} refreshKey={liveTick} />
+          ) : null}
           {page === 'services' ? (
             <ServicesPage rateCard={rateCard} onSave={saveRateCard} />
           ) : null}

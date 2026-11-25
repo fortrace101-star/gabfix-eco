@@ -17,6 +17,19 @@ jest.mock('@/lib/local-notifications', () => ({
   scheduleAssignmentReminder: jest.fn(async () => undefined),
   cancelAssignmentReminder: jest.fn(async () => undefined),
 }));
+// The switches are off in the app now that the desk assigns crews; this suite is the
+// regression test for the simulation code itself, so it turns them back on.
+jest.mock('@/config/mock', () => ({
+  mock: {
+    assignment: { enabled: true, delayMs: 6 * 60_000 },
+    completion: {
+      enabled: true,
+      afterScheduleEnd: true,
+      devButton: false,
+      seedNextVisit: true,
+    },
+  },
+}));
 
 const roster: Cleaner[] = [
   {

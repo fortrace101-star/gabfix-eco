@@ -13,6 +13,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { id: 'bookings', label: 'Bookings', icon: 'bookings' },
       { id: 'approvals', label: 'Approvals', icon: 'check' },
       { id: 'quotes', label: 'Quotes & inspections', icon: 'spark' },
+      { id: 'support', label: 'Support', icon: 'messages' },
       { id: 'payments', label: 'Payments', icon: 'payments' },
       { id: 'cash', label: 'Cash collections', icon: 'cash' },
     ],
@@ -36,6 +37,7 @@ const groups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Business',
     items: [
+      { id: 'costs', label: 'Job costs', icon: 'payments' },
       { id: 'reports', label: 'Reports', icon: 'reports' },
       { id: 'settings', label: 'Settings', icon: 'settings' },
     ],

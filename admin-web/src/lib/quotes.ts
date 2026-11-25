@@ -50,13 +50,23 @@ export type InspectionRow = {
   measurements: Record<string, string>;
   recommendedHours: number | null;
   recommendedCrew: number | null;
-  photos: InspectionPhoto[];
+  media: InspectionMedia[];
+  addenda: InspectionAddendum[];
 };
 
-export type InspectionPhoto = {
+export type InspectionMedia = {
   id: string;
+  kind: 'photo' | 'video';
   caption: string;
   url: string | null;
+};
+
+/** A note the desk adds after the report was submitted; the report itself stays locked. */
+export type InspectionAddendum = {
+  id: string;
+  note: string;
+  createdAt: string;
+  authorName: string;
 };
 
 export type QuoteBooking = {
@@ -84,7 +94,7 @@ const numberOrNull = (value: number | string | null): number | null =>
   value === null ? null : typeof value === 'string' ? Number(value) : value;
 
 export async function loadQuoteQueue(): Promise<QuoteQueue> {
-  const [quotesRes, inspectionsRes, mediaRes, bookingsRes, itemsRes, addressesRes, profilesRes, techRes] =
+  const [quotesRes, inspectionsRes, mediaRes, addendaRes, bookingsRes, itemsRes, addressesRes, profilesRes, techRes] =
     await Promise.all([
       supabase
         .from('quotes')
@@ -101,7 +111,11 @@ export async function loadQuoteQueue(): Promise<QuoteQueue> {
         .order('required_at', { ascending: false }),
       supabase
         .from('inspection_media')
-        .select('id, inspection_id, storage_path, caption')
+        .select('id, inspection_id, storage_path, caption, kind')
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('inspection_addenda')
+        .select('id, inspection_id, note, created_at, author_id')
         .order('created_at', { ascending: true }),
       supabase
         .from('bookings')
@@ -116,6 +130,7 @@ export async function loadQuoteQueue(): Promise<QuoteQueue> {
     quotesRes.error ??
     inspectionsRes.error ??
     mediaRes.error ??
+    addendaRes.error ??
     bookingsRes.error ??
     itemsRes.error ??
     addressesRes.error ??
@@ -147,15 +162,28 @@ export async function loadQuoteQueue(): Promise<QuoteQueue> {
       if (entry.path && entry.signedUrl) signedByPath.set(entry.path, entry.signedUrl);
     }
   }
-  const photosByInspection = new Map<string, InspectionPhoto[]>();
+  const mediaByInspection = new Map<string, InspectionMedia[]>();
   for (const row of mediaRows) {
-    const list = photosByInspection.get(row.inspection_id) ?? [];
+    const list = mediaByInspection.get(row.inspection_id) ?? [];
     list.push({
       id: row.id,
+      kind: row.kind === 'video' ? 'video' : 'photo',
       caption: row.caption ?? '',
       url: signedByPath.get(row.storage_path) ?? null,
     });
-    photosByInspection.set(row.inspection_id, list);
+    mediaByInspection.set(row.inspection_id, list);
+  }
+
+  const addendaByInspection = new Map<string, InspectionAddendum[]>();
+  for (const row of addendaRes.data ?? []) {
+    const list = addendaByInspection.get(row.inspection_id) ?? [];
+    list.push({
+      id: row.id,
+      note: row.note,
+      createdAt: row.created_at,
+      authorName: profileById.get(row.author_id ?? '')?.full_name ?? 'Desk',
+    });
+    addendaByInspection.set(row.inspection_id, list);
   }
 
   const bookings: Record<string, QuoteBooking> = {};
@@ -209,7 +237,8 @@ export async function loadQuoteQueue(): Promise<QuoteQueue> {
           : {},
       recommendedHours: numberOrNull(row.recommended_hours),
       recommendedCrew: row.recommended_crew,
-      photos: photosByInspection.get(row.id) ?? [],
+      media: mediaByInspection.get(row.id) ?? [],
+      addenda: addendaByInspection.get(row.id) ?? [],
     })),
     bookings,
     inspectors: (techRes.data ?? []).map((row) => ({
@@ -287,6 +316,25 @@ export async function scheduleInspection(input: {
     .update({ status: 'inspection_scheduled' })
     .eq('id', input.quoteId);
   if (quoteError) fail(quoteError.message);
+}
+
+/**
+ * Submitted reports are locked, so a correction is recorded as an addendum
+ * instead of editing the inspector's words.
+ */
+export async function addInspectionAddendum(input: {
+  inspectionId: string;
+  authorId: string;
+  note: string;
+}): Promise<void> {
+  const note = input.note.trim();
+  if (!note) throw new Error('Write the note first.');
+  const { error } = await supabase.from('inspection_addenda').insert({
+    inspection_id: input.inspectionId,
+    author_id: input.authorId,
+    note,
+  });
+  if (error) fail(error.message);
 }
 
 /** Desk-side record of the customer's answer when it comes in by phone. */

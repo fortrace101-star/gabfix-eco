@@ -16,8 +16,13 @@ import { errorHaptic, successHaptic } from '@/utils/haptics';
 const RESEND_SECONDS = 30;
 
 export default function OtpScreen() {
-  const { phone: phoneParam } = useLocalSearchParams<{ phone?: string }>();
+  const { phone: phoneParam, debugCode: debugParam } = useLocalSearchParams<{
+    phone?: string;
+    debugCode?: string;
+  }>();
   const phone = typeof phoneParam === 'string' ? phoneParam : '';
+  // Only the local backend returns a code (no SMS provider yet, D12).
+  const debugCode = __DEV__ && typeof debugParam === 'string' ? debugParam : '';
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,6 +110,12 @@ export default function OtpScreen() {
         </View>
       ) : null}
 
+      {debugCode ? (
+        <Text style={styles.devHint} maxFontSizeMultiplier={1.3}>
+          Development code: {debugCode}
+        </Text>
+      ) : null}
+
       <View style={styles.resendRow}>
         {seconds > 0 ? (
           <Text style={styles.muted} maxFontSizeMultiplier={1.3}>
@@ -167,6 +178,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: auth.error,
+  },
+  devHint: {
+    marginTop: 10,
+    fontFamily: font.poppinsSemi,
+    fontSize: 12,
+    lineHeight: 18,
+    color: auth.accent,
+    textAlign: 'center',
   },
   resendRow: { minHeight: 32, justifyContent: 'center', marginTop: 8 },
   muted: {

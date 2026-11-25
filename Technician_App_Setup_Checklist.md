@@ -4,16 +4,19 @@ Scope: what has to be true before `erp-app/` (the staff ERP / technician mobile 
 technician work against the local Supabase stack, plus the remaining `admin-web/` work and the
 client-app follow-ups already agreed.
 
-References: `Full_App_Architecture_2.md` (§2 repository, §3 local dev, §5 backend, §10 roles,
+References: `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` (§2 repository, §3 local dev, §5 backend, §10 roles,
 §11 tables, §13 D1/D7/D9), `supabase-guidelines.md`, `client-app/Gabfix_UI_Progress.md`.
 
 Legend: `[x]` done and verified · `[ ]` open · `[~]` partially done in the existing scaffold.
 
 ---
 
-## 0. Current state (checked 2026-11-24)
+## 0. Current state (checked 2026-11-25)
 
-- [x] **Hono client API and catalogue/availability cutover (local, 2026-11-24).** `backend/supabase/functions/api/index.ts` now serves health/profile/catalogue/services/service-categories/search/availability/bookings/quotes/support/notifications. `client-app` reads categories/services/detail through API-backed hooks behind `EXPO_PUBLIC_API_BASE_URL`, with bundled config as offline fallback. Local smoke checks passed for availability; booking creation does not yet enforce availability/capacity server-side. Next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13.
+- **2026-11-25, later session:** the Hono auth batch (`/auth/login`, `/auth/register`, `/auth/otp/*`, `/auth/refresh`), `GET /services/:slug/form` with negotiated booking-form versions, the client media-upload cutover, and `backend/tests/api-contract.test.mjs` (9/9) are in the local stack. `/auth/*` is now usable by staff tooling too; SMS OTP delivery is still open (D12), and the local stack echoes `debugCode`. No device verification.
+
+- [x] **Hono client API, availability, booking hardening and form seed (local, 2026-11-24).** `backend/supabase/functions/api/index.ts` serves health/profile/catalogue/services/service-categories/search/availability/bookings/quotes/support/notifications. `client-app` reads categories/services/detail through API-backed hooks behind `EXPO_PUBLIC_API_BASE_URL`, with bundled fallback. `GET /availability` subtraction was smoke-verified with a temporary assigned booking. `POST /bookings` now enforces 3-hour lead and technician availability/capacity server-side after idempotency replay lookup. 7 category `service_form_definitions` are seeded from client schemas; booking create validates `scope.answers` against the stored current definition and writes server-selected `booking_form_snapshots`. Local smoke passed (201/201 replay/409 lead/409 occupied/400 unknown field/400 missing required/201 valid snapshot); temp probe rows cleaned. Remaining: media/payment/wallet/referral/review/push routes, service-level form defs, RLS negative suite, and device/staging verification.
+- [x] **Booking media contract and receipts RLS (local, 2026-11-25).** `20261125120000_booking_media.sql` adds the `booking_media` metadata table with RLS and audit, and fixes the receipts desk-issue policy so the desk can issue to the booking's customer. Hono `api` now serves `POST /bookings/:id/media/targets`, `/complete`, `/refresh` and `DELETE /bookings/:id/media/:mediaId`, returns `uploads` from `POST /bookings`, and rejects >10 items, >25 MB, >30 s video and unsupported mime types. Local smoke: PUT 200 → complete 200 uploaded → refresh 409 → delete 200; 11 items/oversized video/long video/bad mime 400; receipts desk 201, customer 403, wrong `issued_to` 403. Staff DB types regenerated; `admin-web` and `erp-app` `tsc` pass. Client upload UI still mock; no device verification.
 - [x] **admin-web import error fixed.** The reported failure
       `Failed to resolve import "@mobile/config/services" from "src/pages/Services.tsx"` was a path
       bug, not a missing module. `admin-web/vite.config.ts` aliased `@mobile` to

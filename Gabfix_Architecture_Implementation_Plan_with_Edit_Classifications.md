@@ -38,7 +38,7 @@ The architecture document is the source of truth for behaviour and decisions. Ex
 | Client app | All 40 page builds exist; Phase 1 is closed at code level; mock API, style gate and responsive gallery exist. Client progress reports 68.9% weighted overall, 15 Jest suites / 112 tests, and no real-device page verification. | Preserve the existing screens and finish device acceptance and backend cutover rather than rebuilding UI. |
 | ERP app | Foundation and technician workflow exist: auth, role/capability gates, home, jobs, job detail, schedule, cash, notifications and profile. Setup checklist reports 13/19 ERP items complete; native/device verification remains open. | Extend the current shell into the remaining role workspaces and verify on real devices. |
 | Admin web | React 19 + Vite SPA exists, with Supabase auth and live operational reads already wired for core entities. Current ecosystem progress estimates about 3/7 checklist areas complete (~43%). | Keep Vite (already in use); finish the real-data pages, forms and desk workflows. |
-| Backend | Local Supabase migrations, seed data, RLS, RPCs and Hono API are present. Ecosystem progress estimates about 78% of M2 scope; API routes and integrations remain incomplete. | Stabilise the local schema/API contract, complete missing routes and test all security boundaries. |
+| Backend | Local Supabase migrations, seed data, RLS, RPCs and Hono API are present. Ecosystem progress estimates about 84% of M2 scope; the booking media contract is complete locally, while auth, payment, wallet, security, referral, review and push routes remain. | Stabilise the local schema/API contract, complete missing routes and test all security boundaries. |
 | Architecture decisions | Current architecture document says 20/25 decisions are confirmed (80%). D18, D19, D21, D22 and D23 remain open. | Resolve these decisions before implementing dependent flows. |
 
 **Important status distinction:** percentages above are area-specific measures from the project’s own progress files. They are not a single ecosystem completion percentage and must not be added together. “Implemented in code”, “verified in a browser”, “verified against local Supabase” and “verified on a physical device” are separate states.
@@ -368,10 +368,10 @@ This section is the baseline ledger. Items below were found in the uploaded repo
 - Local REST checks verified technician-scoped access versus manager/desk-wide access.
 - Booking status RPC flow and key assignment constraints were tested.
 - Hono `api` has local routes for health, profile, catalogue, services, search, availability, bookings, quotes, support and notifications; idempotent booking writes have been smoke-tested.
-- The project progress reports roughly 78% of M2 scope.
+- The project progress reports roughly 84% of M2 scope.
 
 **Remaining backend work**
-- Complete missing Hono routes for media, payment, wallet, referrals, reviews, push and any remaining client store contracts.
+- Complete missing Hono routes for auth, payment, wallet/receipts, security/sessions, referrals, reviews, push and any remaining client store contracts (booking media targets/complete/refresh/delete are done).
 - Complete payment webhook and adapter behaviour; keep fake gateway until provider selection.
 - Implement and verify notification event triggers, de-duplication, quiet hours and push receipt cleanup.
 - Complete scheduled jobs for reminders, plan visits, guest link expiry and housekeeping.
@@ -1033,7 +1033,7 @@ Use this as the UI design and QA checklist. Every screen must include loading, e
 - [ ] Unified support queue
 - [ ] Tickets and booking chat read-only view
 - [ ] Service/category catalogue
-- [ ] Dynamic form builder and version history
+- [x] Dynamic form builder and version history
 - [ ] Pricing and settings
 - [ ] Payments
 - [ ] Cash handovers and disputes
@@ -1213,7 +1213,11 @@ This register deliberately separates **already existing progress** from **new im
 - [x] Seed data and successful local reset reported.
 - [x] Hono `api` function and local routes for health/profile/catalogue/services/search/availability/bookings/quotes/support/notifications.
 - [x] Idempotent booking write smoke test.
-- [ ] Complete remaining client API routes and provider integrations.
+- [x] Booking create enforces 3-hour same-day lead and technician availability/capacity server-side; idempotency replay preserved.
+- [x] Category form definitions seeded from client schemas (7 categories); booking create validates answers against stored current definition and writes `booking_form_snapshots` with server-selected definition/version.
+- [x] Booking media contract: `booking_media` table with RLS, signed upload target/complete/refresh/delete routes, upload targets returned by `POST /bookings`, and server-side 10-item/25 MB/30 s-video/mime checks. Local smoke: upload → complete → refresh 409 → delete 200; 11th item, oversized video, 30 s+ video and unsupported mime all 400.
+- [x] Receipts desk-issue policy fixed: desk/admin/CR can issue a receipt for a booking (issued_to must be that booking's customer); customer insert still 403.
+- [ ] Complete remaining client API routes and provider integrations (auth, payments/wallet/receipts, security/sessions, referrals, reviews, push).
 - [ ] Complete full role-by-role RLS and storage negative test suite.
 
 ### 11.3 New implementation progress tracker
@@ -1227,13 +1231,13 @@ Status legend: `⬜ Not started` · `🟨 In progress` · `🟦 Ready for verifi
 |---|---|---|---|---|
 | A1 | Clean local setup and migration replay | 🟦 | Backend | Re-run from clean checkout and attach logs |
 | A2 | App-level typecheck/lint/test baseline | 🟦 | App leads | Record per-app command output |
-| B1 | Complete Hono route inventory and contract map | 🟨 | Backend | Route map now includes health/profile/catalogue/services/service-categories/search/availability/bookings/quotes/support/notifications. Still missing: media upload targets/complete, payments, wallet, security/sessions, referrals, reviews, push token lifecycle, webhook/scheduled handlers. |
-| B2 | Complete missing client API routes | ⬜ | Backend | Prioritise media upload signed URLs/complete (W3), then payment/wallet (W6), security/sessions (W7), referrals/reviews (W8), push (W7/J). |
-| B3 | Full RLS and negative permission tests | 🟨 | Backend | Test every role and cross-customer access; add receipts desk-issue policy fix before W5/W6 desk flows. |
+| B1 | Complete Hono route inventory and contract map | 🟨 | Backend | Route-by-route client map recorded in §11.5. Media targets/complete/refresh/delete now live and smoke-tested. Still missing: auth routes, payments, wallet/receipts, security/sessions, referrals, reviews, push token lifecycle, tracking (D21), webhook/scheduled handlers. |
+| B2 | Complete missing client API routes | 🟨 | Backend | Media upload contract done (W3). Next: auth routes, then payment/wallet/receipts (W6), security/sessions (W7), referrals/reviews (W8), push (W7/J). |
+| B3 | Full RLS and negative permission tests | 🟨 | Backend | Receipts desk-issue policy fixed and checked positive/negative (desk 201, customer 403, wrong issued_to 403). `booking_media` RLS added. Quotes, support threads and notifications now have positive/negative contract tests (customers see only their own). Full role-by-role negative suite still open. |
 | C1 | Customer/staff auth and invite lifecycle | 🟨 | Backend + apps | Complete invite, deactivation, device reset |
 | C2 | Permanent deletion flow | ⬜ | Backend + client | D14 safeguards and preserved financial history |
-| D1 | Server-driven catalogue and pricing cutover | 🟨 | Backend + client + admin | Client reads categories/services/detail via API with bundled fallback; server form definitions, form-version validation, cache and admin form builder remain. |
-| D2 | Admin form builder and version history | ⬜ | Admin Web | Implement schema editor and preview |
+| D1 | Server-driven catalogue and pricing cutover | 🟨 | Backend + client + admin | Client reads categories/services/detail via API with bundled fallback; 7 category form definitions seeded and booking create validates answers/writes server-selected snapshots; booking media metadata/signed uploads now server-owned. Service-level definitions can now be authored in the admin form builder; client form-version cache is in place. Remaining: definition migration when answers reference removed fields. |
+| D2 | Admin form builder and version history | 🟨 | Admin Web | `admin-web/src/pages/Forms.tsx` + `components/FormBuilder.tsx`: category/service picker, section/field palette (9 field types), reorder, required toggle, option minutes/quote flags, conditional rules, disabled mobile preview, `validateSchema` gate, publish-as-new-version (retire-then-insert), version history with restore-as-new-version. Publish path verified through REST as admin (v1 retired → v2 served by `GET /services/:slug/form` → restored); no in-browser click-through yet. Remaining: service-specific definitions authored by the business, answer migration on field removal. |
 | E1 | Booking state machine and history | 🟨 | Backend + apps | Add exhaustive transition tests |
 | E2 | Quotes and optional inspections | 🟨 | Backend + admin + ERP | Complete inspection capture and manager queue |
 | E3 | Staff-created booking confirmation/cancellation | ⬜ | Backend + admin + ERP | Manager decision queue |
@@ -1255,6 +1259,39 @@ Status legend: `⬜ Not started` · `🟨 In progress` · `🟦 Ready for verifi
 
 *The tracker is a working baseline, not a substitute for the per-app checklists. If a per-app checklist has a more precise status or newer evidence, update both records together.*
 
+### 11.5 Client API route map (recorded 2026-11-25)
+
+> **Edit required: Enhance.** Keep this map current as routes are added; it is the B1 gap map used to pick the next backend batch.
+
+| Client call (`client-app/src/lib/api/`) | Hono route | Tables / RPC | Access / RLS | Status |
+|---|---|---|---|---|
+| `auth.login` | `POST /auth/login` | Supabase Auth, profiles | anon; email or `07` phone identifier | ✅ Local contract test |
+| `auth.register` | `POST /auth/register` | Auth + profiles trigger | anon; phone-first accounts get `<phone>@phone.gabfix.ug` | ✅ Local contract test (201, duplicate 409) |
+| `auth.requestOtp` / `auth.verifyOtp` | `POST /auth/otp/request`, `/auth/otp/verify` | `phone_otp_codes`, Auth magic-link verify | anon; hashed code, 10 min, 5 tries, 60 s resend; **no SMS delivery yet (D12)** — the local stack echoes `debugCode` | ✅ Local contract test (log/echo → session, replay 400) |
+| `auth.refreshSession` | `POST /auth/refresh` | Supabase Auth | anon | ✅ Local contract test |
+| `discovery.getServiceCategories` | `GET /service-categories` | categories | public (service role) | ✅ Local smoke |
+| `discovery.getServices` | `GET /services` | services + categories + form defs | public | ✅ Local smoke |
+| `discovery.getService` | `GET /services/:slug` | services, categories, service_form_definitions | public | ✅ Local smoke |
+| `forms.loadFormDefinition` (new) | `GET /services/:slug/form` | service_form_definitions (service-level, else category-level) | public | ✅ Local contract test; client caches per service for 24 h |
+| `discovery.searchServices` | `GET /search?q=` | services (in-memory filter) | public | ✅ Local smoke |
+| `availability.getAvailability` | `GET /availability?service=&date=` | services, technician_profiles/skills/availability/overrides, job_assignments+bookings | public | ✅ Local smoke (subtraction verified) |
+| `bookings.createBooking` | `POST /bookings` | bookings, booking_items, booking_form_snapshots, booking_media, idempotency_keys, services | customer JWT; capacity/lead/form checks; negotiated `form.definitionId` must still be current (409 `form_version_stale`) | ✅ Local contract test |
+| `bookings` list/detail (screens call directly) | `GET /bookings`, `GET /bookings/:id` | bookings, items, snapshots, addresses, assignments | caller JWT via RLS | ✅ Local smoke |
+| `media-upload` complete | `POST /bookings/:id/media/:mediaId/complete` | booking_media, storage.objects | owner/desk | ✅ Local smoke (uploaded object verified) |
+| `media-upload` target (new) | `POST /bookings/:id/media/targets` | booking_media, storage signed upload | owner/desk; ≤10 items, 25 MB, 30 s video | ✅ Local smoke |
+| `media-upload` refresh (new) | `POST /bookings/:id/media/:mediaId/refresh` | booking_media, storage signed upload | owner/desk; 409 once uploaded | ✅ Local smoke |
+| `media-upload` delete (new) | `DELETE /bookings/:id/media/:mediaId` | booking_media, storage.objects | owner/desk | ✅ Local smoke |
+| `tracking.getLiveTracking` | `GET /bookings/:id/tracking` | — (D21 open) | — | 🚫 Blocked on D21 |
+| Quotes read (`quotes` screens) | `GET /quotes` | quotes, inspections | caller JWT; booking customer + desk only | ✅ Local contract test |
+| Support conversation/messages | `GET /support/conversation`, `POST /support/messages` | support_conversations, support_messages | caller JWT; one conversation per customer (D13), other customers see nothing | ✅ Local contract test |
+| Notifications | `GET /notifications`, `PATCH /notifications/:id/read` | notifications | caller JWT; own rows only | ✅ Local contract test |
+| Payments / wallet / receipts | — | payments, saved_wallet_numbers, receipts | — | ⬜ No client route yet |
+| Security / sessions / devices | — | login_events, device_tokens | — | ⬜ No client route yet |
+| Referrals / reviews | — | referrals, reviews | — | ⬜ No client route yet |
+| Push token lifecycle | — | device_tokens | — | ⬜ No client route yet |
+
+**Readings:** every public catalogue/availability path, the auth batch and the customer booking write path are covered by the Hono function; tracking, payments, wallet/receipts, security, referrals, reviews and push remain the open batches (payments/receipts next, then the rest). Automated contract/RLS coverage lives in `backend/tests/api-contract.test.mjs` (`cd backend && npm test`).
+
 ### 11.4 Session log
 
 > **Edit required: Enhance.** Append a dated record after each implementation session, including files changed, tests run, outcomes and blockers.
@@ -1265,6 +1302,10 @@ Status legend: `⬜ Not started` · `🟨 In progress` · `🟦 Ready for verifi
 | 2026-11-24 | Architecture and repository baseline reviewed | Baseline established for this plan | Separate current architecture upload: 20/25 decisions; repository progress and checklists inspected |
 | 2026-11-24 | Client catalogue cutover + availability route (local) | D1/B1 moved forward; availability route added | `backend/supabase/functions/api/index.ts` gained `GET /availability` (public, 07:00–16:00 grid, 3-hour same-day lead, technician windows/overrides/booked-time subtraction). Client added `useService`/`useServiceCategories` and API-backed reads in Services/Home/service landing/booking steps with bundled fallback. `client-app`: `tsc --noEmit`, `eslint`, `jest --runInBand` (15 suites/112 tests), `check:style` pass. Local smoke: `/availability` returns slots for future date, Sunday/past empty, bad date/missing service 400. Docs updated: `gabfix-eco-progress.md`, `client-app/Phase_2_Unified_Implementation_Checklist.md`. No device/staging verification; booking creation does not yet enforce availability; seeded booking subtraction still needs explicit verification. |
 | 2026-11-24 | Next-session plan created (this session) | Planning only; no implementation evidence | Plan recorded in §13 and communicated in session response. Aligned to Workstreams B/D/E/F and §9 dependencies; authoritative precedence retained per §0/§14. |
+| 2026-11-25 (form-builder session) | Admin booking-form builder + version history; audit-log FK fix; quotes/support/notifications contract tests | D2 ⬜→🟨, D1 evidence, B3 coverage | New admin `Booking forms` page (`admin-web/src/pages/Forms.tsx`, `components/FormBuilder.tsx`, `lib/forms.ts`): category/service list with live version chips, editor for heading/media rules/sections/fields, all nine field types, reorder, required toggle, option minutes + quote flag, conditional `showIf` rules, `validateSchema` gate and a disabled mobile preview. Publishing retires the current row and inserts `version + 1` (restore does the same from history). Verified through the local REST/API path as `admin@gabfix.ug`: v2 insert 201 while v1 retired, `GET /services/home-clean/form` served v2, then v1 restored — no in-browser click-through. Migration `20261125160000_audit_log_actor_null.sql` drops the `audit_log.actor_id` FK so profile/account deletion is no longer blocked by append-only audit rows (`on delete set null` cannot work because the cascade is an UPDATE). Contract suite grew to 12 tests: support (one conversation per customer D13, empty message 400, cross-customer thread isolation), quotes (customer + desk read, other customer does not), notifications (owner read/mark-read, another customer's mark-read changes nothing); fixtures cleaned, `db reset` clean through 14 migrations, admin-web `tsc -b` and `vite build` pass. No device/browser verification, no SMS delivery. |
+| 2026-11-25 (later session) | Client media cutover, auth routes, automated contract/RLS tests, P1 form negotiation | B1/B2/B3/D1/P1/W3/W10 moved forward locally | Client `media-upload.ts` now consumes `POST /bookings` upload targets (cache per booking), PUTs to the signed URL, calls `/complete`, and refreshes an expired/failed link via `/media/:id/refresh`; `review.tsx` remembers targets; `tsc --noEmit` pass. New Hono auth batch: `/auth/login` (email or 07 phone), `/auth/register` (phone-first `<phone>@phone.gabfix.ug`), `/auth/otp/request` + `/auth/otp/verify` (migration `20261125140000_auth_otp.sql`, `phone_otp_codes`, SHA-256 peppered hash, 10 min, 5 tries, 60 s throttle; local stack echoes `debugCode` because no SMS provider, D12), `/auth/refresh`. New `GET /services/:slug/form` (service-level definition, else category) and `POST /bookings` now honours `form.definitionId`, rejecting a non-current id with 409 `form_version_stale` and snapshotting the negotiated definition. Client `src/lib/api/forms.ts` caches the definition per service for 24 h, `scope.tsx` registers the server schema and records `formDefinitionId`, `createBooking` sends it. `db reset` clean through 13 migrations. Automated `backend/tests/api-contract.test.mjs` (node:test, `cd backend && npm test`): 9/9 pass covering auth login/register/OTP/refresh, media validation, signed upload→complete→refresh(409)→delete, cross-customer RLS, receipts RLS and form negotiation; fixtures cleaned. Client connectivity: dev builds now rewrite loopback API URLs to the Expo dev host and the network error names the failing URL; `.env.example` added. No device/staging verification, no SMS delivery. |
+| 2026-11-25 | Booking media contract + receipts desk-issue RLS fix | B1/B2/B3/D1/W3/W6 moved forward locally | Added `20261125120000_booking_media.sql` (`booking_media` table + RLS + audit trigger; receipts desk-issue policy now allows desk to issue to the booking's customer). Hono `api` gained `POST /bookings/:id/media/targets`, `/complete`, `/refresh`, `DELETE /bookings/:id/media/:mediaId`; `POST /bookings` returns `uploads` for supplied media and rejects >10 items, >25 MB, >30 s video, unsupported mime. Storage origin override `STORAGE_PUBLIC_URL` (local `kong:8000` rewritten to `127.0.0.1:54321`). `db reset` clean through the new migration. Smoke: upload PUT 200 → complete 200 uploaded → refresh 409 → delete 200; 11 items/oversized video/long video/bad mime 400; receipts desk 201, customer 403, wrong `issued_to` 403. Types regenerated for `admin-web`/`erp-app`; admin `queries.ts` null-booking-id guard added; both `tsc --noEmit` pass. Smoke rows/objects/receipts cleaned. No device/staging verification. |
+| 2026-11-24 | Availability subtraction verified; booking create hardened; form definitions seeded/validated | B1/B3/D1/E1 moved forward locally | Verified `GET /availability` subtraction with temporary assigned booking (10:00–12:00 Kampala blocked 09:00/10:00/11:00, surrounding slots free; temp rows cleaned). Added server-side `POST /bookings` lead-time/capacity checks after idempotency replay lookup (`availableTechnicianCount`, Kampala-aware `LEAD_HOURS=3`); smoke: 201 for free slot, 201 replay same idempotency key/booking id, 409 for under-3-hour lead, 409 for occupied slot, 201 for different free slot; temp bookings cleaned. Seeded 7 category `service_form_definitions` from client schemas via `seed.sql`/`db reset`; booking create now validates answers against stored current definition and writes server-selected snapshot; smoke: unknown field 400, missing required 400, valid booking 201 with `booking_form_snapshots` row, temp booking/idempotency keys cleaned. Client schedule already wired to live availability (inspection only). Focused check: `client-app` `npx tsc --noEmit` pass. No device/staging verification. |
 
 ---
 
@@ -1293,19 +1334,20 @@ Status legend: `⬜ Not started` · `🟨 In progress` · `🟦 Ready for verifi
 > **Edit required: Optimize.** Prioritize the next actions against current repository state and dependencies; remove completed actions from the active queue but retain their evidence in progress.
 
 
-### Next-session plan (planned 2026-11-24, execute in next implementation session)
+### Next-session plan (planned 2026-11-24, updated 2026-11-24 after implementation)
 
-This plan is scoped to the next session. It follows the authoritative architecture and §9 dependencies: stabilise the contract before broad client cutover (Workstream B), complete server-driven catalogue/form behaviour (D), and harden booking creation/dispatch rules (E/F).
+This plan follows the authoritative architecture and §9 dependencies: stabilise the contract before broad client cutover (Workstream B), complete server-driven catalogue/form behaviour (D), and harden booking creation/dispatch rules (E/F).
 
-| Priority | Work item | Workstream / refs | Deliverable | Verification / evidence |
+| Priority | Work item | Workstream / refs | Status | Deliverable / evidence |
 |---|---|---|---|---|
-| P0 | **Verify and harden availability** | B, E, F; W0/W4 | Confirm `/availability` subtracts seeded/active bookings correctly (GBX-DUE1/GBX-LEAD cases), respects technician skill/service matching, weekly windows, overrides, 3-hour lead, and service duration. Fix any mismatch found. | Local `curl` cases + `supabase db query` evidence recorded in session log; add focused API test if test harness exists. |
-| P0 | **Wire client schedule to live availability** | B, D, E; W2/W4 | `client-app` schedule step fetches `GET /availability?service=&date=` when API is configured; keeps bundled/local fallback when unavailable; maps unavailable/remaining slots clearly; no booking UI invented beyond existing layout. | `tsc`, lint, Jest/check:style pass; manual local smoke against running API. |
-| P0 | **Enforce availability/capacity server-side on booking create** | B, E, F; W4 | `POST /bookings` validates selected slot against server availability/capacity rules (not client-trusted). Reject stale/unavailable slots with stable error code; preserve idempotency-key behaviour. | Contract smoke: duplicate idempotent create still same booking; unavailable slot returns 4xx conflict/validation. |
-| P1 | **Seed and validate service form definitions** | D; W2/W3 | Add versioned `service_form_definitions` seed rows for active services; make booking create validate answers against stored form version and write `booking_form_snapshots`. Keep existing client form engine/layouts. | `supabase db reset` clean; API rejects unknown/invalid answers; old snapshot renders from stored version. |
-| P1 | **Media upload contract start** | B, D; W3 | Add signed upload target + complete/refresh/delete route(s) for booking media, with private bucket policies and size/item/video limits enforced server-side. Client remains on mock queue until cutover passes. | Route contract tests/smoke; no public bucket exposure; upload failure does not block booking. |
-| P1 | **Fix receipts desk-issue RLS** | G, M; W6 | Add/adjust policy or RPC so authorised desk/admin roles can issue receipts without violating `issued_to = my_profile_id()` where architecture allows; keep audit trail. | RLS negative/positive SQL check; desk issue succeeds, unauthorised role fails. |
-| P2 | **Route-by-route backend gap map** | B; W0 | Produce a table mapping every client `src/lib/api/*` call to Hono route, DB tables/RPC, RLS/policy, and test status. Use it to pick the next route batch (payments/wallet/security/referrals/reviews/push). | Checked-in markdown table in backend/docs or checklist update with evidence. |
+| P0 | **Verify and harden availability** | B, E, F; W0/W4 | ✅ Local smoke | Temporary assigned booking 10:00–12:00 Kampala blocked 09:00/10:00/11:00 on `GET /availability`; surrounding slots remained available; temp rows cleaned. Further skill/window/override cases still worth focused API tests when harness exists. |
+| P0 | **Wire client schedule to live availability** | B, D, E; W2/W4 | ✅ Existing (verified by inspection) | `client-app/src/app/book/[slug]/schedule.tsx` uses `useAvailability(slug, selectedISO)` with API-backed `getAvailability` and local fallback; no code change needed this session. |
+| P0 | **Enforce availability/capacity server-side on booking create** | B, E, F; W4 | ✅ Local smoke | `POST /bookings` checks 3-hour lead and `availableTechnicianCount` after idempotency replay lookup. Smoke: 201 free slot, 201 replay same key/id, 409 under-3-hour lead, 409 occupied slot, 201 different free slot. Temp rows cleaned. |
+| P1 | **Seed and validate service form definitions** | D; W2/W3 | 🟨 In progress | 7 category definitions seeded; booking create validates against the stored definition and snapshots it. This session added `GET /services/:slug/form` (service-level first, then category), client `forms.ts` cache (24 h, stale cache survives offline), `scope.tsx` server-schema registration + `formDefinitionId` on the draft, and `POST /bookings` negotiation (409 `form_version_stale`). Contract test proves a valid id snapshots that definition and an unknown id is rejected. Remaining: admin form builder/version-history UI, service-specific definitions authored in admin, definition migration when answers reference removed fields. |
+| P1 | **Media upload contract** | B, D; W3 | ✅ Local smoke + contract test | `booking_media` table + RLS; `POST /bookings/:id/media/targets` and `/complete`/`/refresh`/`DELETE` live; `POST /bookings` returns `uploads` and rejects >10 items / >25 MB / >30 s video / bad mime. Client `media-upload.ts` now uses the signed target, shows retries, and refreshes an expired link. Upload→complete→delete verified by the automated contract test; refresh after upload 409. Device upload not yet verified. |
+| P1 | **Fix receipts desk-issue RLS** | G, M; W6 | ✅ Local smoke | Desk/admin/CR can insert a receipt for a booking; `issued_to` must match that booking's customer. Positive (201) and negative (customer 403, wrong customer 403) checked; no audit bypass introduced. |
+| P2 | **Route-by-route backend gap map** | B; W0 | ✅ Recorded | §11.5 maps every client `src/lib/api/*` call to route, tables/RPC, access and test status. Next batches: auth, payments/wallet/receipts, security/sessions, referrals/reviews/push. |
+| P2 | **Regenerate staff DB types + contract tests** | B; W0/W10 | ✅ Local automated suite | `admin-web`/`erp-app` types regenerated after `booking_media`; both `tsc --noEmit` pass. `backend/tests/api-contract.test.mjs` runs 9 tests (`cd backend && npm test`) over auth, media, booking, form negotiation, cross-customer RLS and receipts RLS; fixtures are removed in `after`. Broader route coverage (quotes/support/notifications/payments) still to add. |
 
 **Session guardrails:** no device/EAS/store verification claims; no commits unless explicitly asked; do not weaken tests/RLS to pass; keep `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` authoritative on conflicts; update §11 session log and affected progress docs before ending the session.
 

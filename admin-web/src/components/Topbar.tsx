@@ -111,6 +111,7 @@ export function Topbar({
     customers: 'Customers',
     cleaners: 'Cleaners',
     services: 'Services & pricing',
+    forms: 'Booking forms',
     promos: 'Promos',
     reports: 'Reports',
     settings: 'Settings',

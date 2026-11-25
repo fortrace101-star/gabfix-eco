@@ -147,6 +147,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"booking_media": {
+                  Row: {
+                    "booking_id": string,"bytes": number | null,"client_id": string | null,"created_at": string,"created_by": string | null,"duration_ms": number | null,"height": number | null,"id": string,"kind": string,"mime_type": string | null,"status": string,"storage_path": string,"uploaded_at": string | null,"width": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"bytes"?: number | null,"client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"duration_ms"?: number | null,"height"?: number | null,"id"?: string,"kind": string,"mime_type"?: string | null,"status"?: string,"storage_path": string,"uploaded_at"?: string | null,"width"?: number | null
+                  }
+                  Update: {
+                    "booking_id"?: string,"bytes"?: number | null,"client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"duration_ms"?: number | null,"height"?: number | null,"id"?: string,"kind"?: string,"mime_type"?: string | null,"status"?: string,"storage_path"?: string,"uploaded_at"?: string | null,"width"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "booking_media_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: false
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_media_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"booking_status_history": {
                   Row: {
                     "booking_id": string,"changed_at": string,"changed_by": string | null,"from_status": Database["public"]['Enums']["booking_status"] | null,"id": string,"note": string | null,"to_status": Database["public"]['Enums']["booking_status"]

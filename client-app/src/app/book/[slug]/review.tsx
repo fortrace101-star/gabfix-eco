@@ -33,6 +33,7 @@ import { hourlyRate, pricing } from '@/config/pricing';
 import { ScopeSummary } from '@/components/booking/scope-summary';
 import { snapshotScope } from '@/lib/booking-scope';
 import { createBooking } from '@/lib/api/bookings';
+import { rememberUploadTargets } from '@/lib/media-upload';
 import {
   price,
   servicePricing,
@@ -501,7 +502,9 @@ export default function ReviewScreen() {
         ? { ...current, scope: snapshotScope(current.scope) }
         : current;
       if (scoped.scope) patchDraft({ scope: scoped.scope });
-      const { bookingId } = await createBooking(scoped, isQuote ? 0 : total);
+      const { bookingId, uploads } = await createBooking(scoped, isQuote ? 0 : total);
+      // Keep the signed upload targets so P14 can start the byte queue.
+      rememberUploadTargets(bookingId, uploads);
 
       if (isQuote) {
         router.push({

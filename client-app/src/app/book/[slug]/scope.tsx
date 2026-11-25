@@ -13,6 +13,8 @@ import { SummarySheet } from '@/components/booking/summary-sheet';
 import { KeyboardScreen } from '@/components/ui/keyboard-screen';
 import { TopBar } from '@/components/ui/top-bar';
 import { jobMedia } from '@/config/media';
+import { registerFormSchema } from '@/config/form-schemas';
+import { loadFormDefinition } from '@/lib/api/forms';
 
 import {
   isScopeComplete,
@@ -21,7 +23,7 @@ import {
   suggestJob,
   suggestionCopy,
 } from '@/lib/booking-scope';
-import { validateAnswers, type FormField, type FormValue } from '@/lib/form-schema';
+import { validateAnswers, type FormField, type FormSchema, type FormValue } from '@/lib/form-schema';
 import { deleteMediaFile } from '@/lib/media';
 import { useService } from '@/hooks/use-service';
 import { price, servicePricing, type BookingMediaItem } from '@/lib/pricing';
@@ -51,6 +53,7 @@ export default function JobScopeScreen() {
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sheetSlot, setSheetSlot] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<BookingMediaItem | null>(null);
+  const [remoteSchema, setRemoteSchema] = useState<FormSchema | null>(null);
 
   const { requestExit, sheet } = useDraftExit({ step: 'scope' });
   const ready = useDraftGuard(slug);
@@ -61,9 +64,32 @@ export default function JobScopeScreen() {
     if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
   }, [slug, service]);
 
+  // P1: prefer the current server definition (cached per service) and record its
+  // id/version on the draft so the API can reject a stale submission.
+  useEffect(() => {
+    if (!slug) return;
+    let cancelled = false;
+    void loadFormDefinition(slug).then((definition) => {
+      if (cancelled || !definition) return;
+      registerFormSchema(definition.schema);
+      setRemoteSchema(definition.schema);
+      const current = getBookingDraft();
+      if (current?.serviceSlug === slug && current.scope) {
+        patchScope({
+          schemaId: definition.schema.id,
+          schemaVersion: definition.version,
+          formDefinitionId: definition.id,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
   const scope = active?.scope;
   const mediaItems = active?.media?.items ?? [];
-  const schema = scope ? schemaForScope(scope) : schemaForService(slug);
+  const schema = remoteSchema ?? (scope ? schemaForScope(scope) : schemaForService(slug));
   const mediaSlots = useMemo(
     () =>
       schema.sections

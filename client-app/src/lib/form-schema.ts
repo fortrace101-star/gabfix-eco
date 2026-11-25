@@ -96,6 +96,8 @@ export type ScopeSnapshotRow = {
 export type BookingScope = {
   schemaId: string;
   schemaVersion: number;
+  /** Server `service_form_definitions.id` the answers were entered against. */
+  formDefinitionId?: string;
   /** Keyed by field id. */
   answers: Record<string, FormValue>;
   notes?: string;

@@ -88,8 +88,11 @@ export default function LoginScreen() {
     }
     const phone = normalisePhone(identifier);
     try {
-      await requestOtp({ phone });
-      router.push({ pathname: '/otp', params: { phone } });
+      const otp = await requestOtp({ phone });
+      router.push({
+        pathname: '/otp',
+        params: { phone, ...(otp.debugCode ? { debugCode: otp.debugCode } : {}) },
+      });
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not send the code. Try again.';
       setErrors((current) => ({ ...current, identifier: message }));

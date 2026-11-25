@@ -48,6 +48,10 @@ export async function createBooking(draft: BookingDraft, total: number): Promise
       payment: draft.payment,
       promoCode: draft.promoCode,
       scope: draft.scope,
+      // The definition the answers were entered against (P1 version negotiation).
+      form: draft.scope?.formDefinitionId
+        ? { definitionId: draft.scope.formDefinitionId, version: draft.scope.schemaVersion }
+        : undefined,
       media: (draft.media?.items ?? []).map(({ id, kind, mimeType, sizeBytes, width, height, durationSec }) => ({
         clientId: id,
         kind,

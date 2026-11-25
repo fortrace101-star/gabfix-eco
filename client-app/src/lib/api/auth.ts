@@ -22,6 +22,8 @@ export type RegisterPayload = {
   password: string;
 };
 export type OtpRequestPayload = { phone: string };
+/** `debugCode` is only returned by the local backend while no SMS provider exists. */
+export type OtpRequestResponse = { ok: true; debugCode?: string };
 export type OtpVerifyPayload = { phone: string; code: string };
 export type RefreshResponse = { accessToken: string; refreshToken?: string };
 
@@ -65,12 +67,12 @@ export async function register(payload: RegisterPayload): Promise<{ ok: true }> 
   });
 }
 
-export async function requestOtp(payload: OtpRequestPayload): Promise<{ ok: true }> {
+export async function requestOtp(payload: OtpRequestPayload): Promise<OtpRequestResponse> {
   if (!hasApiBaseUrl) {
     await delay(400);
     return { ok: true };
   }
-  return apiRequest<{ ok: true }>('/auth/otp/request', {
+  return apiRequest<OtpRequestResponse>('/auth/otp/request', {
     method: 'POST',
     body: payload,
     auth: false,

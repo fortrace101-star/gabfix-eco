@@ -105,7 +105,13 @@ async function send(
     if (controller.signal.aborted) {
       throw new ApiError(TIMEOUT_MESSAGE, 0, 'timeout');
     }
-    throw new ApiError(NETWORK_MESSAGE, 0, 'network');
+    // In development name the host that failed; on a device this is usually a
+    // misconfigured API base URL rather than a real connection problem.
+    throw new ApiError(
+      __DEV__ ? `${NETWORK_MESSAGE} Could not reach ${API_BASE_URL}.` : NETWORK_MESSAGE,
+      0,
+      'network',
+    );
   } finally {
     clearTimeout(timeout);
   }

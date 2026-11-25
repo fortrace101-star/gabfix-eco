@@ -114,6 +114,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
   const cashByTechnician = new Map<string, number>();
   const cashConfirmedByTechnician = new Map<string, string>();
   for (const payment of paymentRows) {
+    // Laundry payments have no booking; they belong to the laundry ledger.
+    if (!payment.booking_id) continue;
     if (payment.status === 'refunded') refundedByBooking.add(payment.booking_id);
     const amount = money(payment.amount);
     if (payment.status === 'paid') {

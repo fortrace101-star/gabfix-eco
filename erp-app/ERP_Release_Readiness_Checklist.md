@@ -6,7 +6,7 @@ Android APK. This is the release gate that follows the build-out in
 
 Legend: `[x]` done and verified · `[~]` done on web/build only, or partially done · `[ ]` open.
 
-Last updated: 2026-11-24 (next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13; no new ERP release verification this session).
+Last updated: 2026-11-25, later session (Hono auth batch, form-definition negotiation and the 9-test backend contract suite; client media upload cutover. No device verification; SMS OTP delivery still open.) Prior update: 2026-11-25 (backend booking-media contract — `booking_media` + signed upload/complete/refresh/delete and server-side limits — and receipts desk-issue RLS fix landed locally and smoke-tested; staff DB types regenerated and `erp-app` `tsc` passes. No new ERP runtime/release verification this session; client API gap map in the plan §11.5).
 
 ---
 

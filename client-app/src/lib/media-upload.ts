@@ -7,20 +7,40 @@ import type { BookingMediaItem } from '@/lib/pricing';
 import { enqueueUploads, updateUpload } from '@/store/media-uploads';
 
 /**
- * Upload queue (3.11). With no backend configured, files are moved by
- * `finalizeDraftMedia` and marked uploaded so P14/P15b show the finished state.
- * Set EXPO_PUBLIC_MOCK_UPLOAD_FAIL=2 in development to fail the second item.
+ * Upload queue (3.11). `POST /bookings` issues one signed target per attachment;
+ * the queue PUTs bytes to the target, then confirms with `/media/:id/complete`.
+ * Targets are cached per booking so the confirmation screen can start the queue
+ * without re-issuing metadata rows. An expired link is refreshed through
+ * `/media/:id/refresh` on the next attempt. With no backend configured, files
+ * are moved by `finalizeDraftMedia` and marked uploaded so P14/P15b show the
+ * finished state. Set EXPO_PUBLIC_MOCK_UPLOAD_FAIL=2 in development to fail the
+ * second item.
  */
 
 const RETRY_DELAYS = [2000, 8000, 30000];
+const TARGET_EXPIRY_MARGIN_MS = 60_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const targetCache = new Map<string, UploadTarget[]>();
+
+/** Keeps the targets returned by `POST /bookings` for the upload queue. */
+export function rememberUploadTargets(bookingId: string, targets?: UploadTarget[]): void {
+  if (targets && targets.length > 0) targetCache.set(bookingId, targets);
+}
+
+const targetFor = (targets: UploadTarget[] | undefined, clientId: string) =>
+  targets?.find((candidate) => candidate.clientId === clientId);
+
+const isFresh = (target: UploadTarget | undefined) =>
+  Boolean(target && Date.parse(target.expiresAtISO) - Date.now() > TARGET_EXPIRY_MARGIN_MS);
+
 export function prepareBookingUploads(bookingId: string, items: BookingMediaItem[]) {
+  const targets = targetCache.get(bookingId);
   enqueueUploads(
     items.map((item) => ({
       bookingId,
       clientId: item.id,
-      mediaId: item.id,
+      mediaId: targetFor(targets, item.id)?.mediaId ?? item.id,
       uri: item.uri,
       kind: item.kind,
       mimeType: item.mimeType,
@@ -33,32 +53,64 @@ export function prepareBookingUploads(bookingId: string, items: BookingMediaItem
   );
 }
 
+type UploadLink = Pick<UploadTarget, 'uploadUrl' | 'headers' | 'expiresAtISO'>;
+
+/** Refresh issues a new signed PUT link for an attachment that has not landed yet. */
+async function refreshTarget(bookingId: string, mediaId: string): Promise<UploadLink | null> {
+  try {
+    const result = await apiRequest<{ upload: UploadLink }>(
+      `/bookings/${bookingId}/media/${mediaId}/refresh`,
+      { method: 'POST' },
+    );
+    return result.upload;
+  } catch {
+    return null;
+  }
+}
+
 async function uploadOne(
   bookingId: string,
   clientId: string,
+  mediaId: string,
   uri: string,
-  target?: UploadTarget,
+  initial?: UploadTarget,
 ): Promise<boolean> {
-  if (!hasApiBaseUrl || !target) {
+  if (!hasApiBaseUrl) {
     await sleep(120);
-    updateUpload(bookingId, clientId, { state: 'uploaded', progress: 1, mediaId: clientId });
+    updateUpload(bookingId, clientId, { state: 'uploaded', progress: 1 });
     return true;
   }
 
-  for (let attempt = 0; attempt < RETRY_DELAYS.length + 1; attempt += 1) {
+  let link: UploadLink | undefined = isFresh(initial) ? initial : undefined;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt += 1) {
     updateUpload(bookingId, clientId, {
       state: 'uploading',
       attempts: attempt + 1,
       error: undefined,
     });
+
+    if (!link) {
+      const refreshed = await refreshTarget(bookingId, mediaId);
+      if (!refreshed) {
+        updateUpload(bookingId, clientId, {
+          state: 'failed',
+          error: 'The upload link expired. Tap retry to get a new one.',
+        });
+        return false;
+      }
+      link = refreshed;
+    }
+
+    let retryNow = false;
     try {
       const task = FileSystem.createUploadTask(
-        target.uploadUrl,
+        link.uploadUrl,
         uri,
         {
           httpMethod: 'PUT',
           uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: target.headers,
+          headers: link.headers,
         },
         ({ totalBytesSent, totalBytesExpectedToSend }) => {
           if (totalBytesExpectedToSend > 0) {
@@ -70,24 +122,36 @@ async function uploadOne(
       );
       const result = await task.uploadAsync();
       if (result && result.status >= 200 && result.status < 300) {
-        await apiRequest(`/bookings/${bookingId}/media/${target.mediaId}/complete`, {
-          method: 'POST',
-        }).catch(() => undefined);
-        updateUpload(bookingId, clientId, {
-          state: 'uploaded',
-          progress: 1,
-          mediaId: target.mediaId,
-        });
+        try {
+          await apiRequest(`/bookings/${bookingId}/media/${mediaId}/complete`, { method: 'POST' });
+        } catch {
+          updateUpload(bookingId, clientId, {
+            state: 'failed',
+            progress: 1,
+            error: 'The file uploaded but could not be saved. Tap retry.',
+          });
+          return false;
+        }
+        updateUpload(bookingId, clientId, { state: 'uploaded', progress: 1, mediaId });
         return true;
       }
+      // 410/401/403 means the signed link is gone; ask for a new one.
       if (result && [401, 403, 410].includes(result.status)) {
-        updateUpload(bookingId, clientId, { state: 'failed', error: 'The upload link expired.' });
-        return false;
+        link = undefined;
+        retryNow = true;
       }
     } catch {
       // Fall through to the back-off below.
     }
-    if (attempt < RETRY_DELAYS.length) await sleep(RETRY_DELAYS[attempt]);
+
+    if (retryNow) {
+      if (attempt < RETRY_DELAYS.length) {
+        await sleep(500);
+        continue;
+      }
+    } else if (attempt < RETRY_DELAYS.length) {
+      await sleep(RETRY_DELAYS[attempt]);
+    }
   }
 
   updateUpload(bookingId, clientId, {
@@ -103,7 +167,10 @@ export async function startBookingUploads(
   items: BookingMediaItem[],
   targets?: UploadTarget[],
 ): Promise<void> {
+  if (targets) rememberUploadTargets(bookingId, targets);
+  const available = targets ?? targetCache.get(bookingId);
   const mockFailIndex = Number(process.env.EXPO_PUBLIC_MOCK_UPLOAD_FAIL ?? 0);
+
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (mockFailIndex === index + 1 && !hasApiBaseUrl) {
@@ -114,8 +181,8 @@ export async function startBookingUploads(
       });
       continue;
     }
-    const target = targets?.find((candidate) => candidate.clientId === item.id);
-    await uploadOne(bookingId, item.id, item.uri, target);
+    const target = targetFor(available, item.id);
+    await uploadOne(bookingId, item.id, target?.mediaId ?? item.id, item.uri, target);
   }
 }
 

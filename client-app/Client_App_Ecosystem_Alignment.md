@@ -17,7 +17,11 @@ architecture, the architecture wins (architecture §13, documentation rule).
 | **Companion docs** | `Technician_App_Setup_Checklist.md` (build backlog), `gabfix-eco-progress.md` (ecosystem status) |
 | **Legend** | ✅ aligned · 🟨 edit required · ⬜ not written · 🚫 blocked by an open decision |
 
-**Progress note (2026-11-24):** Client catalogue/services/detail reads are API-backed behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback; `GET /availability` is live locally in Hono. Next-session plan is recorded in `../Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13; progress mirrored across plan documents for redundancy.
+**Progress note (2026-11-24):** Client catalogue/services/detail reads are API-backed behind `EXPO_PUBLIC_API_BASE_URL` with bundled fallback; `GET /availability` is live locally in Hono. `POST /bookings` now enforces 3-hour lead and technician capacity server-side (idempotency preserved), and validates `scope.answers` against seeded current category form definitions, writing server-selected `booking_form_snapshots`. Local smoke checks passed; temp probe rows cleaned. Plan/progress status is recorded in `../Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §11.4/§13 and mirrored across plan documents.
+
+**Progress note (2026-11-25):** Booking media contract is live locally: `booking_media` metadata + RLS, signed upload targets issued by `POST /bookings` and `/bookings/:id/media/targets`, complete/refresh/delete routes, and server-side 10-item/25 MB/30 s-video/mime limits. Receipts desk-issue policy now lets the desk issue a receipt to the booking's customer. Client `media-upload.ts` still uses the mock path; the full client-call gap map is in the plan §11.5. No device/staging verification.
+
+**Progress note (2026-11-25, later session):** The client upload queue is cut over to the signed-target contract (target → PUT → complete → refresh on failure) and auth is API-backed locally through `/auth/login`, `/auth/register`, `/auth/otp/*`, `/auth/refresh` (hashed OTP store; SMS delivery still open, D12). Job-detail forms are negotiated: `GET /services/:slug/form` (service-level, else category), a 24 h per-service cache, and `formDefinitionId` sent with the booking so stale answers get 409 `form_version_stale`. Dev builds rewrite loopback API hosts to the Expo dev server and name the URL in connection errors. `backend/tests/api-contract.test.mjs` (9 tests) passes. No device/staging verification.
 
 ---
 

@@ -16,6 +16,15 @@ export const formatDate = (iso: string): string => {
   });
 };
 
+export const formatDateTime = (iso: string): string =>
+  new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
 export const formatShortDate = (iso: string): string => {
   if (iso === '2026-11-20') return 'Today';
   if (iso === '2026-11-21') return 'Tomorrow';

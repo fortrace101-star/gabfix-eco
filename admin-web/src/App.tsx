@@ -15,6 +15,7 @@ import { BookingsPage } from './pages/Bookings';
 import { CashPage } from './pages/Cash';
 import { CleanersPage } from './pages/Cleaners';
 import { CustomersPage } from './pages/Customers';
+import { FormsPage } from './pages/Forms';
 import { Overview } from './pages/Overview';
 import { PaymentsPage } from './pages/Payments';
 import { PromosPage } from './pages/Promos';
@@ -41,6 +42,7 @@ const pages: PageId[] = [
   'customers',
   'cleaners',
   'services',
+  'forms',
   'promos',
   'reports',
   'settings',
@@ -54,6 +56,7 @@ const pageTitles: Record<PageId, string> = {
   customers: 'Customers',
   cleaners: 'Cleaners',
   services: 'Services & pricing',
+  forms: 'Booking forms',
   promos: 'Promos',
   reports: 'Reports',
   settings: 'Settings',
@@ -366,6 +369,7 @@ export default function App() {
           {page === 'services' ? (
             <ServicesPage rateCard={rateCard} onSave={saveRateCard} />
           ) : null}
+          {page === 'forms' ? <FormsPage user={user} notify={notify} /> : null}
           {page === 'promos' ? (
             <PromosPage
               promos={promos}

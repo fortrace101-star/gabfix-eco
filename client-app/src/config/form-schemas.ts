@@ -402,8 +402,17 @@ export const formSchemas: readonly FormSchema[] = [
   defaultSchema,
 ];
 
-export const formSchemaById = (id?: string): FormSchema | undefined =>
-  formSchemas.find((schema) => schema.id === id);
+/** Definitions fetched from the API override the bundled copy with the same id. */
+const runtimeSchemas = new Map<string, FormSchema>();
+
+export const registerFormSchema = (schema: FormSchema): void => {
+  runtimeSchemas.set(schema.id, schema);
+};
+
+export const formSchemaById = (id?: string): FormSchema | undefined => {
+  if (!id) return undefined;
+  return runtimeSchemas.get(id) ?? formSchemas.find((schema) => schema.id === id);
+};
 
 /** Service → category → default, the resolution order in Section 14.4. */
 export const schemaFor = (serviceSchemaId?: string, categorySchemaId?: string): FormSchema =>

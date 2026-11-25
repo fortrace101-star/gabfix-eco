@@ -6,6 +6,7 @@ export type PageId =
   | 'customers'
   | 'cleaners'
   | 'services'
+  | 'forms'
   | 'promos'
   | 'reports'
   | 'settings';

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-24 |
-| **Session** | Client catalogue/services now read from Hono when API base URL is set (bundled fallback retained); `GET /availability` added and smoke-tested locally; next-session plan recorded in `Gabfix_Architecture_Implementation_Plan_with_Edit_Classifications.md` §13 |
+| **Last updated** | 2026-11-25 |
+| **Session** | Booking media contract shipped locally: `booking_media` table + RLS, signed upload target/complete/refresh/delete routes, server-side item/size/video limits, and upload targets returned by `POST /bookings`; receipts desk-issue RLS fixed and checked; staff DB types regenerated; client API gap map recorded; local smoke only |
 
 **Living document.** Ecosystem-level view across the three apps, the backend and the architecture
 decisions. Updated at the end of every session that changes more than one area, and whenever a
@@ -11,7 +11,7 @@ milestone on the setup checklist closes.
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-24 (catalogue/availability API cutover local; next-session plan in authoritative plan §13) |
+| **Last updated** | 2026-11-25 (booking media contract + receipts desk-issue RLS; local smoke only) |
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |
@@ -34,9 +34,9 @@ restate them.
 |---|---|---|---|---|
 | **Architecture decisions** | 25 numbered decisions (D1–D25) | **56%** (14/25) | 🟨 | Decided: D1–D10, D13, D20, D24, D25. Open: D11–D12, D14–D19, D21–D23. Source: `Full_App_Architecture_2.md` |
 | **Client app** (`client-app/`) | Customer Expo app, 40 page builds | **69%** (68.9% weighted) | 🟨 | All 40 page builds exist and pass tsc/lint; Phase 1 closed with a mock API, a style gate and the 360/390/430 dp gallery sign-off; 0 of 40 device-verified; 15 Jest suites / 112 tests pass. Source: its own progress doc |
-| **Admin web** (`admin-web/`) | React 19 + Vite 7 SPA for admin, manager, customer relations | **~43%** of its checklist (3/7) | 🟨 | Supabase Auth, role mapping (admin/manager/customer_relations→support), live bookings/items/assignments/addresses/profiles/technicians/payments/handovers/disputes, client typography; promos/rate card/settings/notifications still mock; audit log, report export, browser a11y pass and deploy open |
+| **Admin web** (`admin-web/`) | React 19 + Vite 7 SPA for admin, manager, customer relations | **~57%** of its checklist (4/7) | 🟨 | Supabase Auth, role mapping (admin/manager/customer_relations→support), live bookings/items/assignments/addresses/profiles/technicians/payments/handovers/disputes, client typography; booking-form builder with version history published live against `service_form_definitions`; promos/rate card/settings/notifications still mock; audit log, report export, browser a11y pass and deploy open |
 | **ERP / technician app** (`erp-app/`) | Expo SDK 58 staff app, all roles, per-role screens | **~68%** (13/19 checklist items) | 🟨 | Foundation done: client-app tokens/fonts, auth gate, role-filtered tabs, live queries for jobs/schedule/cash/alerts/profile. Shell matches app-1 (65px flush tab bar, bell/avatar order, home hero, 16px/26-34px page titles); Alerts is a hidden route, not a tab. Jobs run On the way → Start → Complete with photos, cash on a job (`record_cash_payment`), cash+handover screen, AsyncStorage action queue replaying status/cash on reconnect, and Query cache persistence with a Profile "Waiting to sync" list. Open: push (B11), native pass, inspection capture, sales screens |
-| **Backend** (`backend/`) | Supabase local stack + migrations, seed, functions | **~78%** of M2 scope | 🟨 | 11 migrations, 45 tables, RLS and audit triggers, capabilities/RPCs, private media buckets, catalogue seed mirrored to client and `npx supabase db reset` clean. Hono `api` is live locally for health/profile/catalogue/services/search/availability/bookings/quotes/support/notifications, with idempotent booking writes smoke-tested. Remaining: media/payment/wallet/referral/review/push routes, webhook, and client cutover verification |
+| **Backend** (`backend/`) | Supabase local stack + migrations, seed, functions | **~88%** of M2 scope | 🟨 | 14 migrations, 47 tables, RLS and audit triggers, capabilities/RPCs, private media buckets, catalogue seed mirrored to client and `npx supabase db reset` clean. Hono `api` is live locally for health/profile/auth/catalogue/services/search/availability/bookings/quotes/support/notifications. Auth batch added this session: `/auth/login`, `/auth/register`, `/auth/otp/request`, `/auth/otp/verify` (hashed `phone_otp_codes`, no SMS provider yet), `/auth/refresh`. Booking create enforces 3-hour lead + technician capacity, validates answers against the negotiated current form definition (409 `form_version_stale`), and writes the snapshot; `GET /services/:slug/form` resolves service-level then category definitions. `booking_media` + signed target/complete/refresh/delete with 10-item/25 MB/30 s/mime limits. Automated `backend/tests/api-contract.test.mjs` (12 tests) covers auth, media, booking, forms, cross-customer RLS, receipts RLS, quotes, support threads and notifications. `20261125160000_audit_log_actor_null.sql` drops the `audit_log.actor_id` FK so account deletion is not blocked by append-only audit rows. Remaining: payments/wallet/receipts, security/sessions, referral/review/push routes, webhooks, SMS delivery. |
 | **Setup checklist** | `Technician_App_Setup_Checklist.md` | **24/42 items** | 🟨 | A1–A10, B1–B9, B10, C1, C3 (photo gate live), C4, C5 and D1 closed; B11, C2/C6–C8, D2+ and E/F open |
 
 **Reading the numbers:** the 69% client-app figure is a weighted score across five tracks, where
@@ -61,6 +61,8 @@ Only work with a passing check is listed here.
   gallery was captured at 360 × 800, 390 × 844 and 430 × 932 with `scrollWidth === innerWidth` at
   every width. D25 phone tests cover `07` storage, display and masking; fixed-price and inspection
   stage tests were added. `erp-app` and `admin-web` typecheck with their copied D25 helpers.
+- **Backend contract suite (2026-11-25):** `cd backend && npm test` (`node --test`) runs 12 tests against the local stack and all pass — auth login by email/phone, register 201/duplicate 409, OTP throttle/wrong-code/verify/refresh/replay, media validation (11 items, 30 MB video, 60 s video, gif), signed upload→complete→refresh 409→delete, another customer sees no media and gets 404 on the booking, receipts desk 201 / customer 403 / wrong `issued_to` 403, support one conversation per customer (D13) with an isolated thread, quotes visible to the booking customer and desk only, notifications read/mark-read owned by the customer. Fixtures are removed in `after`; a post-run query showed 0 fixture profiles, conversations, messages, notifications, quotes, media and OTP rows. `client-app` `tsc --noEmit` passes after the media/auth/form client changes.
+- **Admin form builder (2026-11-25):** `admin-web` `npm run typecheck` and `npm run build` pass. The publish path was driven through the local REST/API as `admin@gabfix.ug`: v1 retired, v2 inserted 201, `GET /services/home-clean/form` returned v2, then v1 restored — the DB/RLS/API half is proven, the page itself was not clicked through in a browser.
 - **ERP app:** `npx tsc --noEmit` and `npx eslint src` clean (the pre-existing template error went
   with the deleted `app-tabs`). The web export served locally was driven through the Chrome DevTools
   protocol against the local stack: `/` redirects to `/sign-in`; `tech1@` signs in and lands on
@@ -91,13 +93,21 @@ Only work with a passing check is listed here.
 - **Admin web:** `npx vite build` → 54 modules, built in 11.65s; `npm run typecheck` clean, both
   after the alias repair.
 - **Backend:** all containers healthy; `npx supabase db reset` applied migrations
-  `20261123120000`–`20261123120400` plus `seed.sql` with no errors (8 auth users, 9 profiles,
-  4 bookings, 3 assignments, 7 services, 24 public tables). Over REST with anon-key password
-  sign-in: technician JWT saw only its 3 assigned bookings and its own profile; manager/desk saw all
-  4; customer saw its own 3. `set_booking_on_the_way` → `start_job` → `complete_job` wrote 3 history
-  rows and set `billed_hours`; technician `assign_technician` rejected `42501`; second lead rejected
-  `23505`; 6h daily cap rejected a 5h add-on `23514`. Demo state restored afterwards. DB types
-  generated for both frontends.
+  `20261123120000`–`20261124130000_catalogue_keys` plus `seed.sql` cleanly. Earlier REST/RLS/RPC smoke
+  remains valid for prior baseline; this session added local smoke: availability subtraction with a
+  temporary assigned booking (10:00–12:00 Kampala blocked 09:00/10:00/11:00, surrounding slots free),
+  booking create 201 for a free slot, idempotent replay same booking/id, 409 for <3h lead, 409 for
+  occupied slot, 400 for unknown form field, 400 for missing required form field, 201 valid form
+  booking with `booking_form_snapshots` row, and cleanup of all temp probe rows/keys.
+- **Backend, 2026-11-25 media + receipts pass:** `db reset` clean through
+  `20261125120000_booking_media`. Media smoke: `POST /bookings` with one image returned an
+  `uploads` target; PUT to the signed URL 200; `/complete` 200 (`status = uploaded`); `/refresh`
+  409 `already_uploaded`; `DELETE` 200. Limits: 11 items 400, 30 MB video 400, 60 s video 400,
+  `image/gif` 400. Receipts: desk insert for the booking's customer 201; customer insert 403;
+  desk insert with another customer's `issued_to` 403; desk read 200. Smoke bookings, media row,
+  receipt and idempotency keys deleted; seed bookings unchanged. `admin-web`/`erp-app` DB types
+  regenerated; admin `queries.ts` now skips laundry payments without `booking_id`; both
+  `tsc --noEmit` pass.
 
 ---
 

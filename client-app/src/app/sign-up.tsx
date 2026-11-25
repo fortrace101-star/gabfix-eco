@@ -69,9 +69,12 @@ export default function SignUpScreen() {
         email: email.trim() || undefined,
         password,
       });
-      await requestOtp({ phone: phoneNumber });
+      const otp = await requestOtp({ phone: phoneNumber });
       setUserName(name.trim().split(/\s+/)[0]);
-      router.push({ pathname: '/otp', params: { phone: phoneNumber } });
+      router.push({
+        pathname: '/otp',
+        params: { phone: phoneNumber, ...(otp.debugCode ? { debugCode: otp.debugCode } : {}) },
+      });
     } catch (error) {
       const message =
         error instanceof ApiError ? error.message : 'Could not create your account. Try again.';

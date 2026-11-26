@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { signIn, type AdminUser } from '../lib/auth';
+import { Icon } from './Icon';
 import { Button, Field } from './ui';
 
 /** P27g sign-in. Supabase Auth; the console role comes from the staff profile. */
 export function Login({ onSignedIn }: { onSignedIn: (user: AdminUser) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -60,16 +62,27 @@ export function Login({ onSignedIn }: { onSignedIn: (user: AdminUser) => void })
             />
           </Field>
           <Field label="Password" htmlFor="admin-password">
-            <input
-              id="admin-password"
-              className="text-input"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Your password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
+            <div className="password-field">
+              <input
+                id="admin-password"
+                className="text-input"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Your password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                title={showPassword ? 'Hide password' : 'Show password'}>
+                <Icon name={showPassword ? 'eyeOff' : 'eye'} size={16} />
+              </button>
+            </div>
           </Field>
 
           {error ? (

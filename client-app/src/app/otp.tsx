@@ -22,7 +22,9 @@ export default function OtpScreen() {
   }>();
   const phone = typeof phoneParam === 'string' ? phoneParam : '';
   // Only the local backend returns a code (no SMS provider yet, D12).
-  const debugCode = __DEV__ && typeof debugParam === 'string' ? debugParam : '';
+  const [debugCode, setDebugCode] = useState(
+    __DEV__ && typeof debugParam === 'string' ? debugParam : '',
+  );
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,11 @@ export default function OtpScreen() {
 
   const resend = async () => {
     try {
-      if (phone) await requestOtp({ phone });
+      if (phone) {
+        const otp = await requestOtp({ phone });
+        // A resend issues a fresh code; keep the local development hint in step.
+        if (__DEV__ && otp.debugCode) setDebugCode(otp.debugCode);
+      }
       setSeconds(RESEND_SECONDS);
       setCode('');
       setError(null);

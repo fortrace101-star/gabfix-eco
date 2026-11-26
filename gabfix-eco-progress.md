@@ -11,7 +11,7 @@ milestone on the setup checklist closes.
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-26 (cash the cleaner records in the ERP now reaches the customer’s own dashboard and wallet as a confirmed cash payment, and service images can finally be uploaded from the admin catalogue; a job completed by the cleaner in the ERP now moves to Completed in the customer app; admin Bookings rows are clickable and open one dialog with the full booking and the cleaner assignment; the wallet's Pay balance drawer takes a typed amount up to the balance due, like the booking detail; in-app checkout/deposit/balance payments now write a `payments` row so the desk ledger sees them, verified by clicking the balance flow in the Expo web build, with the exact method kept in `provider` and sign-up refusing a number that already has an active account; quote expiry every 15 min and Expo push on quote send; accepted quotes show the assigned cleaner in the client and on the ERP dashboard; booking detail now re-pulls dispatch’s assignment; client part-payments accept a typed amount up to the balance due; ERP `env.ts` no longer reads `window.location` on native, which was crashing the release APK) |
+| **Last updated** | 2026-11-26 (admin sign-in now has a Show/Hide password toggle, and customer account creation works locally again: the client `.env.local` had been pointing at the deployed API, which never echoes the development OTP, so `EXPO_PUBLIC_API_BASE_URL` is back on the local stack and the OTP screen refreshes the dev code after a resend; cash the cleaner records in the ERP now reaches the customer’s own dashboard and wallet as a confirmed cash payment, and service images can finally be uploaded from the admin catalogue; a job completed by the cleaner in the ERP now moves to Completed in the customer app; admin Bookings rows are clickable and open one dialog with the full booking and the cleaner assignment; the wallet's Pay balance drawer takes a typed amount up to the balance due, like the booking detail; in-app checkout/deposit/balance payments now write a `payments` row so the desk ledger sees them, verified by clicking the balance flow in the Expo web build, with the exact method kept in `provider` and sign-up refusing a number that already has an active account; quote expiry every 15 min and Expo push on quote send; accepted quotes show the assigned cleaner in the client and on the ERP dashboard; booking detail now re-pulls dispatch’s assignment; client part-payments accept a typed amount up to the balance due; ERP `env.ts` no longer reads `window.location` on native, which was crashing the release APK) |
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |
@@ -223,6 +223,22 @@ Only work with a passing check is listed here.
   build: the editor shows one file input, choosing a PNG uploaded to `service-icons`
   (`service/ac-blowing-<timestamp>.png`) and the preview rendered from the public bucket URL with the
   Remove action; the probe objects were deleted again. `npm run build` passes.
+- **Password reveal on admin sign-in, and local account creation restored (2026-11-26):** the staff
+  sign-in password field gained an eye / eye-off toggle (`admin-web` `components/Login.tsx`, new
+  `eye`/`eyeOff` paths in `components/Icon.tsx` plus `.password-field` / `.password-toggle` in
+  `styles.css`) that flips the input between `password` and `text` with an `aria-pressed` state and an
+  accessible label. Customer sign-up was blocked because
+  `client-app/.env.local` pointed at the deployed project: only the local stack echoes `debugCode`
+  (there is no SMS provider yet, D12), so no code ever reached the OTP screen. The env file now uses
+  `http://127.0.0.1:54321/functions/v1/api`, and the OTP screen keeps the development hint in state so
+  a **Resend code** shows the newly issued code instead of the stale one. Verified against the local
+  stack end to end: `POST /auth/register` returned 201, `/auth/otp/request` returned a 6-digit
+  `debugCode`, and `/auth/otp/verify` with it returned a session; the probe user and OTP rows were
+  removed afterwards.   `client-app` `tsc --noEmit` clean, `admin-web` `npm run build` passes.
+- **Production migration state (2026-11-26):** `npx supabase migration list --linked` shows all 25
+  migrations applied on `qdnlclphbnsddnixqnkv`, including `20261126120000_payment_kind.sql` and
+  `20261126130000_backfill_ledger_payments.sql`, so no payment migration is pending; per instruction
+  the API function and `admin-web` were not redeployed.
 
 ---
 
@@ -341,6 +357,12 @@ Added later on 2026-11-26 and still uncommitted: `backend/supabase/functions/api
 `client-app/src/app/(tabs)/bookings.tsx` and `client-app/src/app/booking/[id].tsx`,
 `client-app/src/store/__tests__/sync-from-server.test.ts`, `client-app/src/lib/__tests__/wallet.test.ts`,
 and `admin-web/src/pages/Catalogue.tsx` (service image file input).
+
+---
+
+The working tree was committed on 2026-11-26 (`31a1cf3 Index.ts Fix`, after `b940592 Production
+Push`); this session's edits (`admin-web/src/components/Login.tsx`, `admin-web/src/styles.css`,
+`client-app/src/app/otp.tsx` and the git-ignored `client-app/.env.local`) are uncommitted again.
 
 ---
 

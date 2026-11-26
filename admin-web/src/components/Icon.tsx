@@ -135,6 +135,19 @@ const paths = {
       <path d="M8 9h8M8 13h5" />
     </>
   ),
+  eye: (
+    <>
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M2 12s3.6-6.5 10-6.5c1.5 0 2.9.35 4.1.95M22 12s-3.6 6.5-10 6.5c-1.5 0-2.9-.35-4.1-.95" />
+      <path d="M4 4l16 16" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
   dot: <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />,
 } satisfies Record<string, ReactNode>;
 

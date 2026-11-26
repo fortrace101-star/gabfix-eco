@@ -14,8 +14,17 @@ import { cors } from 'npm:hono@4/cors';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const readKeys = (name: string): Record<string, string> => {
+  try {
+    return JSON.parse(Deno.env.get(name) ?? '{}');
+  } catch {
+    return {};
+  }
+};
+const ANON_KEY =
+  readKeys('SUPABASE_PUBLISHABLE_KEYS').default ?? Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const SERVICE_KEY =
+  readKeys('SUPABASE_SECRET_KEYS').default ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
   console.error('[api] SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are required');

@@ -2506,18 +2506,11 @@ h3 {
   border-radius: var(--r-input);
 }
 
-/* 1280–1360: the 320px action rail leaves the seven-column live bookings table
-   574px, so the dashboard stacks and the rail becomes a three-up row. */
-@media (min-width: 1280px) and (max-width: 1360px) {
-  .overview-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .overview-layout > .rail {
-    position: static;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
+/* The action rail stays beside the charts from 1280 up, matching the 1440
+   design and production. The 1280–1360 band used to stack it because the
+   seven-column live bookings table needed 574px; the tightened gutters below
+   1440 keep that table inside its card now, so the dashboard no longer flips
+   shape a few pixels below the design width. */
 
 /* Narrow desks, 1024–1439: the collapsed-then-full sidebar leaves less room
    than the 1440 design, so the gutters tighten and header labels may wrap on

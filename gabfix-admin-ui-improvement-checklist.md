@@ -32,10 +32,14 @@ exceeds the viewport.
 - [x] **P0 — Payments at 1440.** Fixed by folding the booking reference under the transaction id
       (9 columns → 8), so the table reads 1078 / 1078 at 1440. It still clips below 1440 (`994` against
       918 at 1280 and 854 at 1024) — see the P1 below.
-- [x] **P0 — Overview "Live bookings" at 1440 and 1280.** Fixed two ways: the time moved into the
-      booking sub-line (Booking · area · time) and, between 1280 and 1360, the dashboard stacks so the
-      action rail becomes a three-up row below. Reads 734 / 734 at 1440, 918 / 918 at 1280 and
-      854 / 854 at 1024.
+- [x] **P0 — Overview "Live bookings" at 1440 and 1280.** Fixed by moving the time into the booking
+      sub-line (Booking · area · time); the action rail then keeps its place beside the charts from 1280
+      up. Reads 734 / 734 at 1440, 660 / 660 at 1366, 654 / 654 at 1360, 918 / 918 at 1280 (stacked
+      rail, collapsed sidebar) and 854 / 854 at 1024.
+      The dashboard briefly stacked its rail between 1280 and 1360; that is gone, because it made the
+      same build look like two different products six pixels apart and it no longer was needed. Between
+      1280 and 1335 the live table's columns bottom out at 640px, so it scrolls inside its named region
+      by up to 64px there instead of the layout flipping shape.
 - [x] **P1 — Payments below 1440.** Closed by the narrow-width pass: gutters 12 → 7px below 1440 and
       → 5px below 1100, headers may wrap, and the 36-character transaction reference may wrap
       (`.cell-ref`) instead of forcing a fixed width. 994 → fits 918 at 1280 and 854 at 1024.

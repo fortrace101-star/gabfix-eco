@@ -271,8 +271,12 @@ Only work with a passing check is listed here.
   but never loaded. No application code changed.
 - **Admin P0 table + keyboard fixes (2026-11-26):** The two 1440 table overflows from the checklist are
   closed. Overview's live table (777px inside a 734px card, 574 at 1280) now folds the visit time into
-  the booking sub-line, and between 1280 and 1360 `.overview-layout` stacks with the action rail as a
-  three-up row, so it reads 734/734 at 1440, 918/918 at 1280 and 854/854 at 1024. Payments' transactions
+  the booking sub-line, so it reads 734/734 at 1440, 918/918 at 1280 and 854/854 at 1024. The dashboard
+  first stacked its rail between 1280 and 1360 to buy that table room; that band was removed on
+  2026-11-26 because it made localhost (1360 CSS px) and production (1366) render visibly different
+  dashboards from the same commit. The rail now sits beside the charts from 1280 up (704 + 320 at 1360,
+  live table 654/654; 660/660 at 1366) and only the 1280–1335 range scrolls that one table, by at most
+  64px, inside its named region. Payments' transactions
   table (1108/1078) folds the booking reference under the transaction id, giving 1078/1078 at 1440 and
   994 at 1280/1024 (left as a P1). Accessibility: all 17 `.table-scroll` regions now carry
   `role="region"`, the same name as their table and `tabIndex={0}` with a 2px focus ring, and `App.tsx`

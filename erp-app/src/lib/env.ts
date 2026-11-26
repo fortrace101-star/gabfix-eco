@@ -18,8 +18,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 function resolveDevUrl(url: string) {
-  const pageHost = typeof window !== 'undefined' ? window.location.hostname : '';
-  const host = Platform.OS === 'web' ? pageHost : Constants.expoConfig?.hostUri?.split(':')[0];
+  // `window` exists on React Native (it aliases the global object) but
+  // `window.location` does not, so only touch it on web. A release build has no
+  // `hostUri` either, which correctly leaves a hosted Supabase URL unchanged.
+  const host =
+    Platform.OS === 'web'
+      ? typeof window !== 'undefined'
+        ? window.location?.hostname
+        : undefined
+      : Constants.expoConfig?.hostUri?.split(':')[0];
   if (!host || LOOPBACK.has(host)) return url;
   return url.replace(/\/\/(localhost|127\.0\.0\.1)(?=[:/]|$)/, `//${host}`);
 }

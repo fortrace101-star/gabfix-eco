@@ -23,6 +23,12 @@ const TABLES = [
 
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 
+// Supabase reuses an existing channel with the same topic, so a remount that happens
+// before the old channel finished leaving (React 19 runs effects twice in dev) would
+// silently join the dead one: status `SUBSCRIBED`, no events ever. Unique topics keep
+// every subscription its own socket binding.
+let topicSeq = 0;
+
 export function subscribeToOperations(
   onChange: () => void,
   onStatus?: (status: LiveStatus) => void,
@@ -37,7 +43,8 @@ export function subscribeToOperations(
   };
 
   onStatus?.('connecting');
-  const channel = supabase.channel('console-operations');
+  topicSeq += 1;
+  const channel = supabase.channel(`console-operations-${topicSeq}`);
   for (const table of TABLES) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, ping);
   }

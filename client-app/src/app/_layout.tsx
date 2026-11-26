@@ -23,6 +23,7 @@ import { SessionExpiredModal } from '@/components/ui/session-expired-modal';
 import { ToastHost } from '@/components/ui/toast';
 import { isUpdateRequired } from '@/config/release';
 import { runMockBookingChecks } from '@/lib/assignment';
+import { syncPushToken } from '@/lib/push';
 import { cleanupDraftMedia } from '@/lib/media';
 import { hydrateAddresses } from '@/store/addresses';
 import { getBookingDraft, hydrateBookingDraft } from '@/store/booking';
@@ -39,7 +40,7 @@ import { hydrateQuotes } from '@/store/quotes';
 import { hydrateReviews } from '@/store/reviews';
 import { hydrateSecurity } from '@/store/security';
 import { hydrateTickets } from '@/store/tickets';
-import { restoreSession } from '@/store/session';
+import { restoreSession, useSession } from '@/store/session';
 import { auth } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -56,6 +57,8 @@ export default function RootLayout() {
   });
 
   const [sessionRestored, setSessionRestored] = useState(false);
+  const session = useSession();
+  const signedInUserId = session?.user.id ?? null;
 
   useEffect(() => {
     // Restore before the first screen renders: the splash route needs the session, the order
@@ -87,6 +90,12 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError, sessionRestored]);
+
+  // Push is addressed by device token, so every signed-in launch registers this handset.
+  useEffect(() => {
+    if (!signedInUserId) return;
+    void syncPushToken();
+  }, [signedInUserId]);
 
   // S1 12.3/12.4: mock assignment and completion. Runs once after hydration, whenever the
   // app comes back to the foreground, and every 30 s while it is open.

@@ -15,7 +15,6 @@ import { cx, formatDateTime, ugx } from '../lib/format';
 import {
   addInspectionAddendum,
   loadQuoteQueue,
-  recordQuoteResponse,
   requestInspection,
   scheduleInspection,
   sendQuote,
@@ -439,31 +438,6 @@ export function QuotesPage({
         footer={
           <>
             <Button onClick={() => setSelectedId(null)}>Close</Button>
-            {canWrite && selected && selected.status === 'quoted' ? (
-              <>
-                <Button
-                  variant="danger"
-                  disabled={saving}
-                  onClick={() => {
-                    if (!selected) return;
-                    void run(async () => recordQuoteResponse(selected.id, 'declined'), 'Quote marked declined.');
-                  }}
-                >
-                  Mark declined
-                </Button>
-                <Button
-                  variant="primary"
-                  icon="check"
-                  disabled={saving}
-                  onClick={() => {
-                    if (!selected) return;
-                    void run(async () => recordQuoteResponse(selected.id, 'accepted'), 'Quote marked accepted.');
-                  }}
-                >
-                  Mark accepted
-                </Button>
-              </>
-            ) : null}
             {canWrite && selected && !hasSentQuote ? (
               <Button variant="primary" icon="check" disabled={saving} onClick={submitQuote}>
                 {saving ? 'Saving…' : 'Send quote'}

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
 import { mock } from '@/config/mock';
+import { fetchMyBookings } from '@/lib/api/bookings';
 import { cancelAssignmentReminder } from '@/lib/local-notifications';
 import { isRecurringFrequency, nextOccurrenceISO, toISODate } from '@/lib/plans';
 import type {
@@ -82,6 +83,12 @@ export type SavedBooking = {
   lateFee?: number;
   /** P27b: the balance was settled in-app (not cash at the door). */
   balancePayment?: {
+    amount: number;
+    method: string;
+    atISO: string;
+  };
+  /** A deposit paid in-app before the visit (30% of a confirmed quote). */
+  depositPayment?: {
     amount: number;
     method: string;
     atISO: string;
@@ -260,6 +267,44 @@ export function completeBooking(id: string, now: number = Date.now()): void {
 /** The customer chose "Skip for now", so the rating prompt is not shown again. */
 export function skipBookingRating(id: string): void {
   updateBooking(id, { ratingSkippedAtISO: new Date().toISOString() });
+}
+
+/**
+ * Pulls dispatch's assignment for every booking saved on this device, so the
+ * customer sees the cleaner even when the assignment happened on another device.
+ */
+export async function syncBookingAssignments(): Promise<void> {
+  try {
+    const server = await fetchMyBookings();
+    if (server.length === 0) return;
+    let changed = false;
+    const next = state.bookings.map((booking) => {
+      const match = server.find((item) => item.reference === booking.id);
+      const lead =
+        match?.assignments.find((assignment) => assignment.role === 'lead') ?? match?.assignments[0];
+      if (!lead) return booking;
+      if (booking.cleanerId === lead.technicianId && booking.cleanerName === lead.name) return booking;
+      changed = true;
+      return { ...booking, cleanerId: lead.technicianId, cleanerName: lead.name };
+    });
+    if (changed) setBookings(next);
+  } catch {
+    // Offline or no API: keep whatever assignment is already saved.
+  }
+}
+
+/** A part-payment (deposit) against a confirmed booking. */
+export function payBookingDeposit(id: string, amount: number, method: string): void {
+  const booking = state.bookings.find((item) => item.id === id);
+  if (!booking || booking.balance <= 0) return;
+  const applied = Math.min(Math.max(amount, 0), booking.balance);
+  if (applied <= 0) return;
+  updateBooking(id, {
+    paid: booking.paid + applied,
+    balance: booking.balance - applied,
+    paymentPlan: booking.paymentPlan ?? 'deposit',
+    depositPayment: { amount: applied, method, atISO: new Date().toISOString() },
+  });
 }
 
 /** P27b: pays the remaining balance of one booking from the wallet screen. */

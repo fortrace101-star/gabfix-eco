@@ -21,6 +21,63 @@ export type BookingResult = {
   uploads?: UploadTarget[];
 };
 
+export type ServerBookingAssignment = {
+  technicianId: string;
+  name: string;
+  role: string;
+  status: string;
+};
+
+export type ServerBooking = {
+  id: string;
+  reference: string;
+  status: string;
+  assignments: ServerBookingAssignment[];
+};
+
+/** The customer's bookings as the desk sees them, including dispatch assignments. */
+export async function fetchMyBookings(): Promise<ServerBooking[]> {
+  if (!hasApiBaseUrl) return [];
+  const { bookings } = await apiRequest<{ bookings: ServerBooking[] }>('/bookings');
+  return bookings ?? [];
+}
+
+export type RecordedBookingPayment = {
+  id: string;
+  amount: number;
+  method: string;
+  provider: string;
+  paidAt: string;
+  kind: 'deposit' | 'balance';
+  paid: number;
+  balance: number;
+};
+
+/**
+ * Registers a deposit or balance payment so the desk ledger shows it. Returns null
+ * when the device is offline or the API is not configured; the caller decides
+ * whether to treat the payment as unsettled.
+ */
+export async function recordBookingPayment(
+  reference: string,
+  input: { amount: number; method: string; kind: 'deposit' | 'balance' },
+): Promise<RecordedBookingPayment | null> {
+  if (!hasApiBaseUrl) return null;
+  try {
+    const { payment } = await apiRequest<{ payment: RecordedBookingPayment }>(
+      `/bookings/${encodeURIComponent(reference)}/payments`,
+      {
+        method: 'POST',
+        idempotencyKey: `payment-${reference}-${input.kind}-${input.amount}-${Date.now()}`,
+        body: input,
+      },
+    );
+    return payment;
+  } catch {
+    return null;
+  }
+}
+
 const localBookingId = (): string => {
   const serial = String(Date.now()).slice(-5);
   return `GBX-${serial}`;

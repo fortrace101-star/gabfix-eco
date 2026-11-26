@@ -4,6 +4,8 @@ import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { registerDeviceToken } from '@/lib/api/push';
+
 export type PushPermission = 'granted' | 'undetermined' | 'denied' | 'unsupported';
 
 export async function getPushPermission(): Promise<PushPermission> {
@@ -76,6 +78,26 @@ export async function snoozePushPrePrompt(): Promise<void> {
   } catch {
     // Best-effort: the card simply shows again on the next booking.
   }
+}
+
+let syncedToken: string | null = null;
+
+/**
+ * Registers the device once per launch and once per token change. Permission is
+ * asked elsewhere (the booking flow); this only sends a token the OS already
+ * granted, and failures retry on the next launch or foreground.
+ */
+export async function syncPushToken(): Promise<string | null> {
+  if ((await getPushPermission()) !== 'granted') return null;
+  const token = await registerPushToken();
+  if (!token || token === syncedToken) return token;
+  try {
+    await registerDeviceToken(token);
+    syncedToken = token;
+  } catch {
+    // The next launch retries; push is never allowed to block the app.
+  }
+  return token;
 }
 
 export async function registerPushToken(): Promise<string | null> {

@@ -18,10 +18,12 @@ import { TopBar } from '@/components/ui/top-bar';
 import { demoNewCard } from '@/config/payments';
 import { support } from '@/config/support';
 import { supportsNativeDriver } from '@/lib/animation';
+import { recordBookingPayment } from '@/lib/api/bookings';
 import {
   addBookingTip,
   markPaymentFailed,
   payBookingBalance,
+  payBookingDeposit,
   settleLateFees,
 } from '@/store/bookings';
 import { addCard, addMobileMoney } from '@/store/payment-methods';
@@ -67,9 +69,11 @@ export default function PaymentScreen() {
   const isCard = method === 'visa_card';
   const isTip = params.kind === 'tip';
   const isBalance = params.kind === 'balance';
+  const isDeposit = params.kind === 'deposit';
   const isAccount = params.kind === 'account';
-  // Only a new booking is held after a failed authorisation; a balance payment changes nothing.
-  const holdsBooking = !isTip && !isBalance && !isAccount;
+  // Only a new booking is held after a failed authorisation; an existing booking's
+  // deposit or balance payment changes nothing.
+  const holdsBooking = !isTip && !isBalance && !isDeposit && !isAccount;
   const saveNewCard = !isTip && isCard && params.saveCard === '1';
   const saveNewMomo =
     !isTip &&
@@ -120,43 +124,77 @@ export default function PaymentScreen() {
 
   useEffect(() => {
     if (status !== 'approved') return;
-    Animated.spring(tick, { toValue: 1, useNativeDriver: supportsNativeDriver }).start();
-    if (isTip) {
-      addBookingTip(bookingId, amount, method);
-    } else if (isBalance) {
-      payBookingBalance(bookingId, method);
-    } else if (isAccount) {
-      settleLateFees(accountIdsParam.split(',').filter(Boolean), method);
-    }
-    if (saveNewCard) {
-      addCard(demoNewCard.last4, demoNewCard.expiry);
-    } else if (saveNewMomo) {
-      addMobileMoney(method === 'mtn_momo' ? 'MTN' : 'Airtel', phone);
-    }
-    const next = setTimeout(() => {
-      if (isTip) {
-        router.replace('/(tabs)/home');
-        return;
-      }
-      if (isBalance || isAccount) {
-        router.replace({
-          pathname: '/profile/payments',
-          params: {
-            banner: 'balance-paid',
-            ...(isBalance ? { receiptId: bookingId } : {}),
-          },
-        } as never);
-        return;
-      }
-      router.replace({
-        pathname: '/book/[slug]/confirmed',
-        params: { slug, bookingId, paid: String(amount) },
-      });
-    }, 1600);
-    return () => clearTimeout(next);
-  }, [accountIdsParam, amount, bookingId, isAccount, isBalance, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
+    let cancelled = false;
+    let next: ReturnType<typeof setTimeout> | undefined;
 
-  const isBalancePayment = isBalance || isAccount;
+    const settle = async () => {
+      // Every in-app booking payment (checkout, deposit or balance) belongs in the
+      // desk ledger, so only treat it as settled once the API recorded the row.
+      // Without this the money lived only in this device's storage and never
+      // reached the admin app.
+      const isCheckoutPayment = holdsBooking && amount > 0;
+      if (isDeposit || isBalance || isCheckoutPayment) {
+        const recorded = await recordBookingPayment(bookingId, {
+          amount,
+          method,
+          kind: isBalance ? 'balance' : 'deposit',
+        });
+        if (cancelled) return;
+        if (!recorded) {
+          setStatus('failed');
+          return;
+        }
+      }
+
+      Animated.spring(tick, { toValue: 1, useNativeDriver: supportsNativeDriver }).start();
+      if (isTip) {
+        addBookingTip(bookingId, amount, method);
+      } else if (isDeposit) {
+        payBookingDeposit(bookingId, amount, method);
+      } else if (isBalance) {
+        payBookingBalance(bookingId, method);
+      } else if (isAccount) {
+        settleLateFees(accountIdsParam.split(',').filter(Boolean), method);
+      }
+      if (saveNewCard) {
+        addCard(demoNewCard.last4, demoNewCard.expiry);
+      } else if (saveNewMomo) {
+        addMobileMoney(method === 'mtn_momo' ? 'MTN' : 'Airtel', phone);
+      }
+      next = setTimeout(() => {
+        if (isTip) {
+          router.replace('/(tabs)/home');
+          return;
+        }
+        if (isDeposit) {
+          router.replace({ pathname: '/booking/[id]', params: { id: bookingId } } as never);
+          return;
+        }
+        if (isBalance || isAccount) {
+          router.replace({
+            pathname: '/profile/payments',
+            params: {
+              banner: 'balance-paid',
+              ...(isBalance ? { receiptId: bookingId } : {}),
+            },
+          } as never);
+          return;
+        }
+        router.replace({
+          pathname: '/book/[slug]/confirmed',
+          params: { slug, bookingId, paid: String(amount) },
+        });
+      }, 1600);
+    };
+
+    void settle();
+    return () => {
+      cancelled = true;
+      if (next) clearTimeout(next);
+    };
+  }, [accountIdsParam, amount, bookingId, isAccount, isBalance, isDeposit, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
+
+  const isBalancePayment = isBalance || isAccount || isDeposit;
 
   const stop = () => {
     if (status === 'approved') return;
@@ -176,6 +214,10 @@ export default function PaymentScreen() {
 
   // A failed balance payment returns to the drawer so another method can be chosen.
   const anotherMethod = () => {
+    if (isDeposit) {
+      router.replace({ pathname: '/booking/[id]', params: { id: bookingId } } as never);
+      return;
+    }
     if (!isBalancePayment) {
       router.back();
       return;
@@ -210,7 +252,7 @@ export default function PaymentScreen() {
   return (
     <View style={styles.screen}>
       <TopBar
-        title={isTip ? 'Tip' : isBalancePayment ? 'Pay balance' : 'Payment'}
+        title={isTip ? 'Tip' : isDeposit ? 'Pay deposit' : isBalancePayment ? 'Pay balance' : 'Payment'}
         onBack={stop}
         right={
           <Pressable
@@ -244,8 +286,10 @@ export default function PaymentScreen() {
             <Text style={styles.body} maxFontSizeMultiplier={1.3}>
               {isTip
                 ? `${ugx(amount)} tip sent to your cleaner. Taking you home…`
-                : isBalancePayment
-                  ? `${ugx(amount)} paid. Taking you to your receipt…`
+                : isDeposit
+                  ? `${ugx(amount)} deposit received. Taking you back to your booking…`
+                  : isBalancePayment
+                    ? `${ugx(amount)} paid. Taking you to your receipt…`
                   : `${ugx(amount)} paid${
                       saveNewCard ? ` · Visa ending ${demoNewCard.last4} saved` : ''
                     }. Taking you to your confirmation…`}
@@ -263,7 +307,7 @@ export default function PaymentScreen() {
               {isTip
                 ? 'Your tip was not sent. No money left your account and your review is still saved.'
                 : isBalancePayment
-                  ? 'No money left your account. Your balance is unchanged.'
+                  ? 'No money left your account. The payment was not recorded, so your balance is unchanged. Try again.'
                   : `No money left your account. Booking ${bookingId} is held for 30 minutes, then cancelled automatically.`}
             </Text>
 

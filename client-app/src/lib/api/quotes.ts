@@ -17,19 +17,32 @@ export type ServerQuoteStatus =
   | 'declined'
   | 'expired';
 
+export type QuoteCrewMember = {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+};
+
 export type ServerQuoteRequest = {
   quoteId: string;
   bookingId: string;
   reference: string;
   serviceName: string;
+  serviceSlug: string | null;
   status: ServerQuoteStatus;
   amount: number | null;
+  bookingTotal: number | null;
+  /** Cleaners dispatch has assigned to the booking (empty until assignment). */
+  crew: QuoteCrewMember[];
   description: string;
   inspectionStatus: string | null;
   inspectionAtISO: string | null;
   scheduledStartISO: string | null;
   expiresAtISO: string | null;
   createdAtISO: string;
+  area: string | null;
+  street: string | null;
 };
 
 type RawQuote = {
@@ -42,8 +55,13 @@ type RawQuote = {
   expires_at: string | null;
   created_at: string;
   bookingReference: string | null;
+  bookingStatus?: string | null;
   scheduledStart: string | null;
+  bookingTotal?: number | string | null;
+  bookingAddress?: { line1?: string | null; area?: string | null } | null;
   serviceName: string | null;
+  serviceSlug?: string | null;
+  crew?: QuoteCrewMember[] | null;
   inspections: { status: string; scheduled_at: string | null }[] | null;
 };
 
@@ -73,14 +91,19 @@ export async function fetchMyQuoteRequests(): Promise<ServerQuoteRequest[]> {
       bookingId: quote.booking_id,
       reference: quote.bookingReference ?? '—',
       serviceName: quote.serviceName ?? 'Cleaning',
+      serviceSlug: quote.serviceSlug ?? null,
       status: quote.status,
       amount: amountOf(quote.quoted_amount),
+      bookingTotal: amountOf(quote.bookingTotal ?? null),
+      crew: quote.crew ?? [],
       description: quote.description ?? '',
       inspectionStatus: inspection?.status ?? null,
       inspectionAtISO: inspection?.scheduled_at ?? null,
       scheduledStartISO: quote.scheduledStart,
       expiresAtISO: quote.expires_at,
       createdAtISO: quote.created_at,
+      area: quote.bookingAddress?.area ?? null,
+      street: quote.bookingAddress?.line1 ?? null,
     };
   });
 }
@@ -118,4 +141,35 @@ export async function submitQuoteRequest(
   });
 
   return { bookingId: response.bookingId, reference: response.booking.reference };
+}
+
+export type QuoteResponseBooking = {
+  id: string;
+  reference: string;
+  status: string;
+  total_price: number | string | null;
+  scheduled_start: string | null;
+  addresses: { line1?: string | null; area?: string | null } | null;
+  booking_items: Array<{ services: { slug?: string; name?: string } | null }> | null;
+};
+
+export type RespondToQuoteResult = {
+  quote: RawQuote & {
+    bookingReference: string | null;
+    bookingStatus: string | null;
+    scheduledStart: string | null;
+    serviceName: string | null;
+  };
+  booking: QuoteResponseBooking;
+};
+
+/** The customer accepts or declines a priced quote. Accepting confirms the booking. */
+export async function respondToQuote(
+  quoteId: string,
+  action: 'accept' | 'decline',
+): Promise<RespondToQuoteResult> {
+  return apiRequest<RespondToQuoteResult>(`/quotes/${quoteId}/respond`, {
+    method: 'POST',
+    body: { action },
+  });
 }

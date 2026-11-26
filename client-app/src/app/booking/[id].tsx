@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { ArrowLeft, CalendarDays, CircleHelp, Clock3, FileText, MapPin, Navigation, Phone, Star, Users, Wallet, XCircle } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CancelSheet } from '@/components/booking/cancel-sheet';
@@ -10,9 +10,14 @@ import { ScopeSummary } from '@/components/booking/scope-summary';
 import { slotLabel } from '@/components/booking/slot-chips';
 import { UploadStatus } from '@/components/booking/upload-status';
 import { Avatar } from '@/components/ui/avatar';
+import {
+  PaymentMethodSheet,
+  type BalancePaymentSelection,
+} from '@/components/wallet/payment-method-sheet';
 import { Button } from '@/components/ui/button';
 import { assigneeLabel, cleanerById } from '@/config/cleaners';
 import { mock } from '@/config/mock';
+import { minimumDeposit } from '@/config/payments';
 import { paymentMethodLabel } from '@/lib/booking-policy';
 import { retryBookingUploads } from '@/lib/media-upload';
 import { buildRebookDraft } from '@/lib/rebook';
@@ -22,6 +27,7 @@ import {
   completeBooking,
   getBookingById,
   skipBookingRating,
+  syncBookingAssignments,
   useBookings,
 } from '@/store/bookings';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
@@ -94,8 +100,6 @@ function SummaryRow({ label, value, strong }: { label: string; value: string; st
   );
 }
 
-const soon = (title: string, message: string) => () => Alert.alert(title, message);
-
 /** P15b Booking detail (local snapshot saved on this device). */
 export default function BookingDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -109,6 +113,13 @@ export default function BookingDetailScreen() {
   const uploads = useMediaUploads(booking?.id);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [payKind, setPayKind] = useState<'deposit' | 'balance' | null>(null);
+
+  // Dispatch assigns the crew on another device, so pull their choice when this
+  // screen opens instead of relying on the Bookings tab having synced already.
+  useEffect(() => {
+    if (id) void syncBookingAssignments();
+  }, [id]);
 
   if (!booking) {
     return (
@@ -180,6 +191,30 @@ export default function BookingDetailScreen() {
           : booking.paymentMethod === 'cash'
             ? 'Cash'
             : booking.paymentMethod ?? '—';
+
+  const depositAmount = Math.min(minimumDeposit(booking.total), booking.balance);
+  const payAmount = payKind === 'deposit' ? depositAmount : booking.balance;
+
+  const onPayContinue = (selection: BalancePaymentSelection) => {
+    if (!payKind) return;
+    // A full amount clears the booking; anything smaller is recorded as a part-payment.
+    const kind = selection.amount >= booking.balance ? 'balance' : 'deposit';
+    router.push({
+      pathname: '/payment/[id]',
+      params: {
+        id: booking.id,
+        bookingId: booking.id,
+        kind,
+        amount: String(selection.amount),
+        method: selection.method,
+        phone: selection.phone ?? '',
+        last4: selection.last4 ?? 'new',
+        saveNumber: selection.saveNumber ? '1' : '0',
+        saveCard: selection.saveCard ? '1' : '0',
+      },
+    } as never);
+    setPayKind(null);
+  };
 
   const bookAgain = () => {
     startRebookDraft(buildRebookDraft(booking));
@@ -441,19 +476,27 @@ export default function BookingDetailScreen() {
             Manage booking
           </Text>
           <Text style={styles.bodyMuted} maxFontSizeMultiplier={1.3}>
-            Reschedule and cancel here. Extras changes and balance payment will connect once their
-            backend is available.
+            Reschedule and cancel here. Extras changes will connect once their backend is available.
           </Text>
           <View style={styles.actions}>
             {booking.balance > 0 && booking.status === 'upcoming' ? (
-              <Button
-                label="Pay balance"
-                icon={Wallet}
-                onPress={soon(
-                  'Pay balance',
-                  'Balance payment is not available in this demo build yet. It will be enabled when payment authorisation is connected.',
-                )}
-              />
+              <>
+                {booking.paid === 0 && depositAmount > 0 && depositAmount < booking.balance ? (
+                  <Button
+                    label={`Pay ${ugx(depositAmount)} deposit`}
+                    icon={Wallet}
+                    onPress={() => setPayKind('deposit')}
+                  />
+                ) : null}
+                <Button
+                  label={booking.paid === 0 ? 'Pay full balance' : 'Pay balance'}
+                  variant={
+                    booking.paid === 0 && depositAmount < booking.balance ? 'secondary' : 'primary'
+                  }
+                  icon={Wallet}
+                  onPress={() => setPayKind('balance')}
+                />
+              </>
             ) : null}
             {booking.status === 'upcoming' ? (
               <Button
@@ -533,6 +576,16 @@ export default function BookingDetailScreen() {
           setCancelOpen(false);
           bookAgain();
         }}
+      />
+      <PaymentMethodSheet
+        visible={payKind !== null}
+        title={payKind === 'deposit' ? 'Pay deposit' : 'Pay balance'}
+        subtitle={`${booking.serviceName} · ${booking.id}`}
+        amount={payAmount}
+        editableAmount
+        maxAmount={booking.balance}
+        onClose={() => setPayKind(null)}
+        onContinue={onPayContinue}
       />
     </SafeAreaView>
   );

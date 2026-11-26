@@ -69,7 +69,12 @@ export function walletTransactions(bookings: SavedBooking[]): WalletTransaction[
   const transactions: WalletTransaction[] = [];
 
   bookings.forEach((booking) => {
-    const initial = Math.max((booking.paid ?? 0) - (booking.balancePayment?.amount ?? 0), 0);
+    const initial = Math.max(
+      (booking.paid ?? 0) -
+        (booking.balancePayment?.amount ?? 0) -
+        (booking.depositPayment?.amount ?? 0),
+      0,
+    );
     if (initial > 0) {
       const kind = booking.paymentMethod === 'cash' ? 'cash' : kindForPlan(booking.paymentPlan);
       transactions.push({
@@ -83,6 +88,20 @@ export function walletTransactions(bookings: SavedBooking[]): WalletTransaction[
         amount: initial,
         direction: 'out',
         cashConfirmed: kind === 'cash',
+      });
+    }
+
+    if (booking.depositPayment && booking.depositPayment.amount > 0) {
+      transactions.push({
+        id: `${booking.id}-deposit`,
+        bookingId: booking.id,
+        serviceName: booking.serviceName,
+        kind: 'deposit',
+        title: `Deposit · ${booking.serviceName}`,
+        atISO: booking.depositPayment.atISO,
+        method: booking.depositPayment.method,
+        amount: booking.depositPayment.amount,
+        direction: 'out',
       });
     }
 

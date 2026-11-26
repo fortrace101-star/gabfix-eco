@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { ServerQuoteRequest } from '@/lib/api/quotes';
+
 import { QuoteRequestCard } from '@/components/booking/quote-request-card';
 import { ServerQuoteCard } from '@/components/booking/server-quote-card';
 import { SegmentedControl } from '@/components/booking/segmented-control';
@@ -37,10 +39,12 @@ import {
   type SavedBooking,
   expireUnpaidBookings,
   hydrateBookings,
+  syncBookingAssignments,
   useBookings,
   useBookingsHydrated,
 } from '@/store/bookings';
 import {
+  type QuoteRequest,
   hydrateQuotes,
   syncQuoteRequests,
   useQuoteRequests,
@@ -264,15 +268,21 @@ export default function BookingsScreen() {
     expireUnpaidBookings();
   }, []);
 
-  // Quote requests live on the server; read the desk's current state on open.
+  // Quote requests live on the server, and dispatch's assignments arrive there too.
   useEffect(() => {
     void syncQuoteRequests();
+    void syncBookingAssignments();
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([hydrateBookings(), hydrateQuotes(), syncQuoteRequests()]);
+      await Promise.all([
+        hydrateBookings(),
+        hydrateQuotes(),
+        syncQuoteRequests(),
+        syncBookingAssignments(),
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -294,6 +304,28 @@ export default function BookingsScreen() {
         : bookings.filter((booking) => booking.status === tab),
     [bookings, tab],
   );
+
+  // One Requests section: the desk's quote requests and any legacy device copy, newest
+  // first, so a quote request for a service reads exactly like a custom inquiry.
+  const requestItems = useMemo(() => {
+    const server = serverRequests
+      .filter((quote) => quote.status !== 'accepted')
+      .map((quote) => ({
+        key: `server-${quote.quoteId}`,
+        createdAtISO: quote.createdAtISO,
+        quote,
+        request: null as QuoteRequest | null,
+      }));
+    const local = requests.map((request) => ({
+      key: `local-${request.id}`,
+      createdAtISO: request.createdAtISO,
+      quote: null as ServerQuoteRequest | null,
+      request,
+    }));
+    return [...server, ...local].sort((a, b) =>
+      a.createdAtISO < b.createdAtISO ? 1 : a.createdAtISO > b.createdAtISO ? -1 : 0,
+    );
+  }, [requests, serverRequests]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -323,30 +355,23 @@ export default function BookingsScreen() {
       </View>
       {tab === 'requests' ? (
         <FlatList
-          data={requestsHydrated ? requests : []}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <QuoteRequestCard request={item} />}
-          ListHeaderComponent={
-            serverRequests.length > 0 ? (
-              <View style={styles.serverList}>
-                {serverRequests.map((quote) => (
-                  <ServerQuoteCard key={quote.quoteId} quote={quote} />
-                ))}
-              </View>
-            ) : undefined
+          data={requestsHydrated ? requestItems : []}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item }) =>
+            item.quote ? (
+              <ServerQuoteCard quote={item.quote} />
+            ) : item.request ? (
+              <QuoteRequestCard request={item.request} />
+            ) : null
           }
           contentContainerStyle={[
             styles.listContent,
-            requests.length === 0 && serverRequests.length === 0 && styles.listEmpty,
+            requestItems.length === 0 && styles.listEmpty,
           ]}
           refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            requestsHydrated
-              ? serverRequests.length === 0
-                ? <RequestsEmpty />
-                : undefined
-              : <BookingsSkeleton />
+            requestsHydrated ? <RequestsEmpty /> : <BookingsSkeleton />
           }
         />
       ) : (
@@ -380,7 +405,6 @@ const styles = StyleSheet.create({
   tabsWrap: { paddingHorizontal: space[4], marginBottom: space[3] },
   listContent: { paddingHorizontal: space[4], paddingBottom: 140, gap: space[3] },
   listEmpty: { flexGrow: 1, justifyContent: 'center' },
-  serverList: { gap: space[3] },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,

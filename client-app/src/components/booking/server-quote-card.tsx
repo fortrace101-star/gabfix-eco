@@ -1,9 +1,12 @@
-import { CalendarDays, Clock3, Sparkles } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { CalendarDays, Check, Clock3, Sparkles, X } from 'lucide-react-native';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
-import type { ServerQuoteRequest } from '@/lib/api/quotes';
+import { Button } from '@/components/ui/button';
+import { respondToQuote, type ServerQuoteRequest } from '@/lib/api/quotes';
 import { shortDate } from '@/lib/plans';
-import type { QuoteStatus } from '@/store/quotes';
+import { addBooking, getBookings } from '@/store/bookings';
+import { syncQuoteRequests } from '@/store/quotes';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 import { ugx } from '@/utils/format';
 
@@ -18,32 +21,15 @@ const LABELS: Record<ServerQuoteRequest['status'], string> = {
   expired: 'Expired',
 };
 
-const localStatus = (status: ServerQuoteRequest['status']): QuoteStatus | null => {
-  switch (status) {
-    case 'requested':
-      return 'pending';
-    case 'inspection_required':
-      return 'inspection_needed';
-    case 'inspection_scheduled':
-      return 'inspection_scheduled';
-    case 'inspected':
-      return 'inspected';
-    case 'quoted':
-      return 'quoted';
-    case 'accepted':
-      return 'accepted';
-    default:
-      return null;
-  }
-};
-
 const toneFor = (status: ServerQuoteRequest['status']) => {
-  const local = localStatus(status);
-  if (local === 'pending' || local === 'inspection_needed') {
+  if (status === 'requested' || status === 'inspection_required') {
     return { bg: colors.warningBg, fg: colors.yellow800 };
   }
-  if (local === null) return { bg: colors.disabledBg, fg: colors.textMuted };
-  if (local === 'inspection_scheduled') return { bg: colors.infoBg, fg: colors.info };
+  if (status === 'declined' || status === 'expired') {
+    return { bg: colors.disabledBg, fg: colors.textMuted };
+  }
+  if (status === 'inspection_scheduled') return { bg: colors.infoBg, fg: colors.info };
+  if (status === 'quoted') return { bg: colors.successBg, fg: colors.success };
   return { bg: colors.successBg, fg: colors.success };
 };
 
@@ -54,11 +40,91 @@ const dayLabel = (iso: string): string =>
     month: 'short',
   });
 
+const toDateISO = (iso: string | null): string | undefined => {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const toTime = (iso: string | null): string | undefined => {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
 /** A quote request the desk can already see, with whatever state it has reached. */
 export function ServerQuoteCard({ quote }: { quote: ServerQuoteRequest }) {
+  const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
   const tone = toneFor(quote.status);
   const needsInspection = quote.status === 'inspection_required';
   const inspectionScheduled = quote.inspectionAtISO !== null;
+
+  const onRespond = async (action: 'accept' | 'decline') => {
+    if (busy) return;
+    setBusy(action);
+    try {
+      const result = await respondToQuote(quote.quoteId, action);
+      if (action === 'accept') {
+        const booking = result.booking;
+        const total =
+          typeof booking.total_price === 'number'
+            ? booking.total_price
+            : Number(booking.total_price ?? quote.amount ?? 0);
+        const firstItem = booking.booking_items?.[0]?.services ?? null;
+        const address = booking.addresses;
+        const reference = booking.reference || quote.reference;
+        const crew = result.quote.crew ?? [];
+        const lead = crew.find((member) => member.role === 'lead') ?? crew[0];
+        const alreadyLocal = getBookings().some(
+          (item) => item.id === reference || item.id === booking.id,
+        );
+        if (!alreadyLocal) {
+          addBooking({
+            id: reference,
+            serviceSlug: firstItem?.slug ?? 'custom',
+            serviceName: firstItem?.name ?? quote.serviceName,
+            status: 'upcoming',
+            createdAtISO: new Date().toISOString(),
+            dateISO: toDateISO(booking.scheduled_start ?? quote.scheduledStartISO),
+            startTime: toTime(booking.scheduled_start ?? quote.scheduledStartISO),
+            area: address?.area ?? undefined,
+            street: address?.line1 ?? undefined,
+            cleaners: 1,
+            hours: 0,
+            total,
+            paid: 0,
+            balance: total,
+            cleanerId: lead?.id,
+            cleanerName: lead?.name,
+            assignedAtISO: lead ? new Date().toISOString() : undefined,
+          });
+        }
+      }
+      await syncQuoteRequests();
+      if (action === 'accept') {
+        Alert.alert('Quote accepted', 'Your booking is confirmed. You can find it in Upcoming.');
+      }
+    } catch (error) {
+      Alert.alert(
+        'Could not update the quote',
+        error instanceof Error ? error.message : 'Try again in a moment.',
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const confirmDecline = () => {
+    Alert.alert('Decline this quote?', 'The booking will stay closed unless you request a new one.', [
+      { text: 'Keep quote', style: 'cancel' },
+      { text: 'Decline', style: 'destructive', onPress: () => void onRespond('decline') },
+    ]);
+  };
 
   return (
     <View style={styles.card}>
@@ -127,6 +193,30 @@ export function ServerQuoteCard({ quote }: { quote: ServerQuoteRequest }) {
           </Text>
         </View>
       ) : null}
+
+      {quote.status === 'quoted' ? (
+        <View style={styles.actions}>
+          <Button
+            label="Accept quote"
+            onPress={() => void onRespond('accept')}
+            loading={busy === 'accept'}
+            disabled={busy !== null}
+            icon={Check}
+            style={styles.actionBtn}
+            small
+          />
+          <Button
+            label="Decline"
+            variant="secondary"
+            onPress={confirmDecline}
+            loading={busy === 'decline'}
+            disabled={busy !== null}
+            icon={X}
+            style={styles.actionBtn}
+            small
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -145,8 +235,10 @@ const styles = StyleSheet.create({
   id: { ...text.caption },
   chip: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   chipText: { fontSize: 12, fontFamily: font.bodySemi },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   amount: { ...text.h3 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaText: { ...text.caption, flex: 1 },
+  actions: { flexDirection: 'row', gap: space[2], marginTop: space[1] },
+  actionBtn: { flex: 1 },
 });

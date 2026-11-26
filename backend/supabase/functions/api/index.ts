@@ -522,6 +522,24 @@ app.post('/auth/register', async (c) => {
     return fail(c, 400, 'weak_password', 'Use a password with at least 6 characters.');
   }
 
+  // One active account per number. Signing up again with a second email used to create a
+  // second profile, which then hid the bookings made under the first login.
+  const { data: phoneOwner } = await admin
+    .from('profiles')
+    .select('id, status')
+    .eq('phone', phone)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle();
+  if (phoneOwner) {
+    return fail(
+      c,
+      409,
+      'account_exists',
+      'An account already uses that number. Sign in with it instead, or contact support to recover access.',
+    );
+  }
+
   // Phone-first accounts still need an Auth email; login resolves it by phone.
   const email = suppliedEmail.includes('@') ? suppliedEmail : `${phone}@phone.gabfix.ug`;
   const { error } = await admin.auth.admin.createUser({
@@ -985,7 +1003,7 @@ app.get('/bookings', async (c) => {
   const { db } = await session(c);
   const { data, error } = await db
     .from('bookings')
-    .select('id, reference, status, source, scheduled_start, scheduled_end, billed_hours, total_price, technicians_needed, notes, created_at, address_id, booking_items(id, service_id, quantity, price), addresses(label, line1, line2, area)')
+    .select('id, reference, status, source, scheduled_start, scheduled_end, billed_hours, total_price, technicians_needed, notes, created_at, address_id, booking_items(id, service_id, quantity, price), addresses(label, line1, line2, area), job_assignments(technician_id, crew_role, status, technician_profiles(display_name, profiles(full_name)))')
     .order('scheduled_start', { ascending: false });
   if (error) throw new HTTPException(500, { message: error.message, cause: 'bookings_read' });
 
@@ -1004,6 +1022,20 @@ app.get('/bookings', async (c) => {
       createdAt: row.created_at,
       address: row.addresses,
       items: row.booking_items,
+      assignments: (row.job_assignments ?? [])
+        .filter((assignment) => assignment.status !== 'removed')
+        .map((assignment) => {
+          const technician = assignment.technician_profiles as {
+            display_name?: string | null;
+            profiles?: { full_name?: string | null } | null;
+          } | null;
+          return {
+            technicianId: assignment.technician_id,
+            name: technician?.display_name ?? technician?.profiles?.full_name ?? 'Gabfix cleaner',
+            role: assignment.crew_role,
+            status: assignment.status,
+          };
+        }),
     })),
   });
 });
@@ -1388,6 +1420,129 @@ app.post('/bookings', async (c) => {
   return c.json(response, 201);
 });
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The app refers to bookings by the reference it shows; the desk uses the UUID. */
+async function bookingByReferenceOrId(bookingId: string) {
+  const query = admin
+    .from('bookings')
+    .select('id, reference, customer_id, total_price, status')
+    .limit(1);
+  const { data } = UUID_PATTERN.test(bookingId)
+    ? await query.eq('id', bookingId).maybeSingle()
+    : await query.eq('reference', bookingId.toUpperCase()).maybeSingle();
+  return data;
+}
+
+const PAYMENT_METHODS = ['mtn_momo', 'airtel_money', 'visa_card', 'cash'];
+
+/**
+ * Records a deposit or balance payment against a booking. The client cannot insert
+ * into `payments` (RLS only lets the assigned technician or a desk user), so the
+ * endpoint re-checks ownership and writes with the service role. Without this the
+ * money only lived in the phone's local storage and never reached the desk ledger.
+ */
+app.post('/bookings/:id/payments', async (c) => {
+  const { profile } = await session(c);
+  const body = (await c.req.json().catch(() => null)) as
+    | { amount?: unknown; method?: unknown; kind?: unknown }
+    | null;
+
+  const amount = Math.round(Number(body?.amount));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return fail(c, 400, 'amount_required', 'Enter an amount greater than zero.');
+  }
+  const requestedMethod = typeof body?.method === 'string' ? body.method : '';
+  if (!PAYMENT_METHODS.includes(requestedMethod)) {
+    return fail(c, 400, 'invalid_method', 'Choose a supported payment method.');
+  }
+  const kind = body?.kind === 'balance' ? 'balance' : 'deposit';
+
+  const booking = await bookingByReferenceOrId(c.req.param('id'));
+  const isDesk = ['admin', 'manager', 'customer_relations'].includes(profile.role);
+  if (!booking || (booking.customer_id !== profile.id && !isDesk)) {
+    return fail(c, 404, 'not_found', 'That booking was not found.');
+  }
+
+  const { data: paymentRows, error: paymentsError } = await admin
+    .from('payments')
+    .select('id, booking_id, amount, method, status, provider, provider_reference, paid_at')
+    .eq('booking_id', booking.id);
+  if (paymentsError) {
+    throw new HTTPException(500, { message: paymentsError.message, cause: 'payments_read' });
+  }
+
+  const paid = (paymentRows ?? [])
+    .filter((row) => row.status === 'paid')
+    .reduce((sum, row) => sum + money(row.amount), 0);
+  const total = money(booking.total_price);
+  const balance = Math.max(total - paid, 0);
+
+  if (balance <= 0) return fail(c, 409, 'already_paid', 'This booking is already settled.');
+  if (amount > balance) {
+    return fail(c, 400, 'amount_too_high', `The outstanding balance is UGX ${balance}.`);
+  }
+
+  const idempotencyKey = c.req.header('Idempotency-Key')?.trim() || null;
+  if (idempotencyKey) {
+    const prior = (paymentRows ?? []).find((row) => row.provider_reference === idempotencyKey);
+    if (prior) {
+      return c.json({
+        payment: {
+          id: prior.id,
+          amount: money(prior.amount),
+          method: prior.method,
+          provider: prior.provider,
+          paidAt: prior.paid_at,
+        },
+        kind,
+        paid,
+        balance,
+      });
+    }
+  }
+
+  const { data: payment, error: insertError } = await admin
+    .from('payments')
+    .insert({
+      booking_id: booking.id,
+      amount,
+      // The ledger enum is app/cash; the provider column keeps the exact method so the
+      // desk can tell MTN, Airtel and Visa apart. The retry key lives in its own column.
+      method: requestedMethod === 'cash' ? 'cash' : 'app',
+      status: 'paid',
+      provider: requestedMethod,
+      provider_reference: idempotencyKey,
+      recorded_by: profile.id,
+      paid_at: new Date().toISOString(),
+    })
+    .select('id, amount, method, provider, paid_at')
+    .single();
+
+  if (insertError || !payment) {
+    throw new HTTPException(500, {
+      message: insertError?.message ?? 'Payment failed',
+      cause: 'payment_insert',
+    });
+  }
+
+  return c.json(
+    {
+      payment: {
+        id: payment.id,
+        amount: money(payment.amount),
+        method: payment.method,
+        provider: payment.provider,
+        paidAt: payment.paid_at,
+      },
+      kind,
+      paid: paid + amount,
+      balance: balance - amount,
+    },
+    201,
+  );
+});
+
 // W3 media contract: issue targets, complete, refresh and delete booking media.
 app.post('/bookings/:id/media/targets', async (c) => {
   const bookingId = c.req.param('id');
@@ -1500,6 +1655,91 @@ app.delete('/bookings/:id/media/:mediaId', async (c) => {
   return c.json({ ok: true });
 });
 
+const quoteDetail = async (quoteId: string) => {
+  const { data, error } = await admin
+    .from('quotes')
+    .select('id, booking_id, description, quoted_amount, status, inspection_required, quoted_at, responded_at, expires_at, created_at, inspections(id, status, scheduled_at, inspector_id)')
+    .eq('id', quoteId)
+    .maybeSingle();
+  if (error) throw new HTTPException(500, { message: error.message, cause: 'quote_read' });
+  return data;
+};
+
+const enrichQuotes = async (
+  rows: Array<Record<string, unknown> & { booking_id: string }>,
+) => {
+  const bookingIds = [...new Set(rows.map((row) => row.booking_id))];
+  const bookingById = new Map<
+    string,
+    { reference: string; status: string; scheduled_start: string; total_price: number | string | null; address: { line1?: string | null; area?: string | null } | null }
+  >();
+  const serviceByBooking = new Map<string, { name: string; slug: string | null }>();
+  const crewByBooking = new Map<string, { id: string; name: string; role: string; status: string }[]>();
+  if (bookingIds.length > 0) {
+    const { data: bookingRows } = await admin
+      .from('bookings')
+      .select('id, reference, status, scheduled_start, total_price, addresses(line1, area)')
+      .in('id', bookingIds);
+    for (const booking of bookingRows ?? []) {
+      bookingById.set(booking.id, {
+        reference: booking.reference,
+        status: booking.status,
+        scheduled_start: booking.scheduled_start,
+        total_price: booking.total_price,
+        address: (booking.addresses as { line1?: string | null; area?: string | null } | null) ?? null,
+      });
+    }
+
+    const { data: itemRows } = await admin
+      .from('booking_items')
+      .select('booking_id, quantity, services(name, slug)')
+      .in('booking_id', bookingIds);
+    for (const item of itemRows ?? []) {
+      const service = item.services as { name?: string; slug?: string } | null;
+      if (service?.name && !serviceByBooking.has(item.booking_id)) {
+        serviceByBooking.set(item.booking_id, { name: service.name, slug: service.slug ?? null });
+      }
+    }
+
+    // The client shows who was assigned once dispatch books a cleaner.
+    const { data: assignmentRows } = await admin
+      .from('job_assignments')
+      .select('booking_id, technician_id, crew_role, status, technician_profiles(display_name, profiles(full_name))')
+      .in('booking_id', bookingIds)
+      .neq('status', 'removed');
+    for (const assignment of assignmentRows ?? []) {
+      const technician = assignment.technician_profiles as {
+        display_name?: string | null;
+        profiles?: { full_name?: string | null } | null;
+      } | null;
+      const crew = crewByBooking.get(assignment.booking_id) ?? [];
+      crew.push({
+        id: assignment.technician_id,
+        name: technician?.display_name ?? technician?.profiles?.full_name ?? 'Gabfix cleaner',
+        role: assignment.crew_role,
+        status: assignment.status,
+      });
+      crewByBooking.set(assignment.booking_id, crew);
+    }
+  }
+
+  return rows.map((row) => {
+    const booking = bookingById.get(row.booking_id);
+    const service = serviceByBooking.get(row.booking_id);
+    return {
+      ...row,
+      bookingReference: booking?.reference ?? null,
+      bookingStatus: booking?.status ?? null,
+      scheduledStart: booking?.scheduled_start ?? null,
+      bookingTotal: booking?.total_price ?? null,
+      bookingAddress: booking?.address ?? null,
+      serviceName: service?.name ?? null,
+      serviceSlug: service?.slug ?? null,
+      crew: crewByBooking.get(row.booking_id) ?? [],
+    };
+  });
+};
+
 app.get('/quotes', async (c) => {
   const { db } = await session(c);
   const { data, error } = await db
@@ -1511,38 +1751,95 @@ app.get('/quotes', async (c) => {
   // The client renders its Requests tab from this list, so attach the booking it
   // belongs to (reference and scheduled slot) and the service being priced. Only the
   // quotes the caller could already read are enriched.
-  const rows = data ?? [];
-  const bookingIds = [...new Set(rows.map((row) => row.booking_id))];
-  const bookingById = new Map<
-    string,
-    { reference: string; status: string; scheduled_start: string }
-  >();
-  const serviceByBooking = new Map<string, string>();
-  if (bookingIds.length > 0) {
-    const { data: bookingRows } = await admin
-      .from('bookings')
-      .select('id, reference, status, scheduled_start')
-      .in('id', bookingIds);
-    for (const booking of bookingRows ?? []) bookingById.set(booking.id, booking);
+  return c.json({ quotes: await enrichQuotes((data ?? []) as Array<Record<string, unknown> & { booking_id: string }>) });
+});
 
-    const { data: itemRows } = await admin
-      .from('booking_items')
-      .select('booking_id, quantity, services(name)')
-      .in('booking_id', bookingIds);
-    for (const item of itemRows ?? []) {
-      const name = (item.services as { name?: string } | null)?.name;
-      if (name && !serviceByBooking.has(item.booking_id)) serviceByBooking.set(item.booking_id, name);
+/**
+ * The customer decides on a priced quote. Accepting also confirms the booking so
+ * it enters the normal workflow (the same place a fixed-price booking lands after
+ * confirmation). The desk can see the outcome but does not decide for the customer.
+ */
+app.post('/quotes/:id/respond', async (c) => {
+  const { profile } = await session(c);
+  if (profile.role !== 'customer') {
+    return fail(c, 403, 'customer_only', 'Only the customer can respond to a quote.');
+  }
+
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+  const action = body?.action;
+  if (action !== 'accept' && action !== 'decline') {
+    return fail(c, 400, 'invalid_action', 'Choose accept or decline.');
+  }
+
+  const quote = await quoteDetail(c.req.param('id'));
+  if (!quote) return fail(c, 404, 'not_found', 'That quote was not found.');
+
+  const { data: booking, error: bookingError } = await admin
+    .from('bookings')
+    .select('id, reference, status, customer_id, total_price, scheduled_start, addresses(line1, area), booking_items(quantity, services(slug, name))')
+    .eq('id', quote.booking_id)
+    .maybeSingle();
+  if (bookingError) throw new HTTPException(500, { message: bookingError.message, cause: 'booking_read' });
+  if (!booking || booking.customer_id !== profile.id) {
+    return fail(c, 404, 'not_found', 'That quote was not found.');
+  }
+
+  const nextQuoteStatus = action === 'accept' ? 'accepted' : 'declined';
+  if (quote.status === nextQuoteStatus) {
+    return c.json({ quote: (await enrichQuotes([quote as unknown as Record<string, unknown> & { booking_id: string }]))[0], booking });
+  }
+  if (quote.status !== 'quoted') {
+    return fail(c, 409, 'quote_not_ready', 'This quote cannot be answered right now.');
+  }
+
+  const now = new Date().toISOString();
+  const { error: quoteError } = await admin
+    .from('quotes')
+    .update({ status: nextQuoteStatus, responded_at: now })
+    .eq('id', quote.id)
+    .eq('status', 'quoted');
+  if (quoteError) throw new HTTPException(500, { message: quoteError.message, cause: 'quote_update' });
+
+  let nextBooking = booking;
+  if (action === 'accept') {
+    const quotedAmount = quote.quoted_amount === null ? null : Number(quote.quoted_amount);
+    const bookingPatch: Record<string, unknown> = { confirmed_at: now };
+    if (quotedAmount !== null && Number.isFinite(quotedAmount)) bookingPatch.total_price = quotedAmount;
+    const { data: updatedBooking, error: updateError } = await admin
+      .from('bookings')
+      .update(bookingPatch)
+      .eq('id', booking.id)
+      .select('id, reference, status, customer_id, total_price, scheduled_start, addresses(line1, area), booking_items(quantity, services(slug, name))')
+      .single();
+    if (updateError) throw new HTTPException(500, { message: updateError.message, cause: 'booking_update' });
+    nextBooking = updatedBooking;
+
+    if (booking.status === 'requested' || booking.status === 'awaiting_confirmation') {
+      const { data: moved, error: moveError } = await admin
+        .from('bookings')
+        .update({ status: 'confirmed' })
+        .eq('id', booking.id)
+        .in('status', ['requested', 'awaiting_confirmation'])
+        .select('id, reference, status, customer_id, total_price, scheduled_start, addresses(line1, area), booking_items(quantity, services(slug, name))')
+        .maybeSingle();
+      if (moveError) throw new HTTPException(500, { message: moveError.message, cause: 'booking_confirm' });
+      if (moved) {
+        nextBooking = moved;
+        await admin.from('booking_status_history').insert({
+          booking_id: booking.id,
+          from_status: booking.status,
+          to_status: 'confirmed',
+          changed_by: profile.id,
+          note: 'Customer accepted the quote.',
+        });
+      }
     }
   }
 
+  const updatedQuote = await quoteDetail(quote.id);
   return c.json({
-    quotes: rows.map((row) => ({
-      ...row,
-      bookingReference: bookingById.get(row.booking_id)?.reference ?? null,
-      bookingStatus: bookingById.get(row.booking_id)?.status ?? null,
-      scheduledStart: bookingById.get(row.booking_id)?.scheduled_start ?? null,
-      serviceName: serviceByBooking.get(row.booking_id) ?? null,
-    })),
+    quote: (await enrichQuotes([updatedQuote as unknown as Record<string, unknown> & { booking_id: string }]))[0],
+    booking: nextBooking,
   });
 });
 
@@ -1620,6 +1917,40 @@ app.patch('/notifications/:id/read', async (c) => {
     .eq('id', c.req.param('id'));
   if (error) throw new HTTPException(500, { message: error.message, cause: 'notification_update' });
   return c.json({ ok: true });
+});
+
+/**
+ * Push delivery addresses `device_tokens`, so each installed app registers here.
+ * The same handset can change accounts after sign-out, so a token is reassigned
+ * to the caller instead of blocking on the unique constraint.
+ */
+app.post('/device-tokens', async (c) => {
+  const { db, profile } = await session(c);
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+  const token = typeof body?.token === 'string' ? body.token.trim() : '';
+  const platform = body?.platform;
+  if (!token) return fail(c, 400, 'token_required', 'A push token is required.');
+  if (platform !== 'ios' && platform !== 'android') {
+    return fail(c, 400, 'platform_invalid', 'Platform must be ios or android.');
+  }
+
+  await admin.from('device_tokens').delete().eq('expo_push_token', token).neq('user_id', profile.id);
+
+  const { data, error } = await db
+    .from('device_tokens')
+    .upsert(
+      {
+        user_id: profile.id,
+        expo_push_token: token,
+        platform,
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: 'expo_push_token' },
+    )
+    .select('id, platform, last_seen_at')
+    .single();
+  if (error) throw new HTTPException(500, { message: error.message, cause: 'device_token_write' });
+  return c.json({ token: data }, 201);
 });
 
 app.notFound((c) => fail(c, 404, 'not_found', 'That endpoint does not exist.'));

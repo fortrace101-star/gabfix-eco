@@ -1,11 +1,12 @@
 import { Check, ChevronLeft, CreditCard, Smartphone } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MomoNumberPicker } from '@/components/payment/momo-number-picker';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { savedCardLabel } from '@/config/payments';
 import { toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 import type { PaymentMethod } from '@/lib/pricing';
@@ -27,6 +28,8 @@ const methods: {
 ];
 
 export type BalancePaymentSelection = {
+  /** The amount the customer chose to pay. */
+  amount: number;
   method: PayMethod;
   phone?: string;
   savedMomoId?: string | 'new';
@@ -41,6 +44,9 @@ type Props = {
   title: string;
   subtitle?: string;
   amount: number;
+  /** Let the customer type any amount up to `maxAmount` instead of paying `amount`. */
+  editableAmount?: boolean;
+  maxAmount?: number;
   onClose: () => void;
   onContinue: (selection: BalancePaymentSelection) => void;
 };
@@ -49,10 +55,21 @@ const isMomo = (method: PayMethod): method is MomoNetwork =>
   method === 'mtn_momo' || method === 'airtel_money';
 
 /** 11.3 Two-step balance payment drawer: method, then alternatives. Cash is never offered. */
-export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, onContinue }: Props) {
+export function PaymentMethodSheet({
+  visible,
+  title,
+  subtitle,
+  amount,
+  editableAmount = false,
+  maxAmount,
+  onClose,
+  onContinue,
+}: Props) {
   const savedCards = useSavedCards();
   const savedMobileMoney = useSavedMobileMoney();
   const [step, setStep] = useState<1 | 2>(1);
+  const [amountText, setAmountText] = useState(String(amount));
+  const [amountTouched, setAmountTouched] = useState(false);
   const [method, setMethod] = useState<PayMethod>('mtn_momo');
   const [payerPhones, setPayerPhones] = useState<Partial<Record<MomoNetwork, string>>>({});
   const [savedMomoIds, setSavedMomoIds] = useState<Partial<Record<MomoNetwork, string | 'new'>>>({});
@@ -61,8 +78,22 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
   const [cardChoice, setCardChoice] = useState<string>('new');
   const [saveCard, setSaveCard] = useState(false);
 
+  // Reset to the amount this sheet was opened with (deposit or full balance).
+  useEffect(() => {
+    if (!visible) return;
+    setAmountText(String(amount));
+    setAmountTouched(false);
+  }, [amount, visible]);
+
+  const ceiling = Math.max(1, Math.round(maxAmount ?? amount));
+  const chosenAmount = Math.round(Number(amountText));
+  const amountValid = amountText.trim() !== '' && Number.isFinite(chosenAmount) && chosenAmount >= 1 && chosenAmount <= ceiling;
+  const payAmount = amountValid ? chosenAmount : amount;
+
   const close = () => {
     setStep(1);
+    setAmountText(String(amount));
+    setAmountTouched(false);
     setMethod('mtn_momo');
     setPayerPhones({});
     setSavedMomoIds({});
@@ -112,6 +143,7 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
           ? (savedMomoByNetwork(network).find((item) => item.id === selection)?.phone ?? '')
           : toStoredMomo(payerPhones[network] ?? '');
       onContinue({
+        amount: payAmount,
         method,
         phone,
         savedMomoId: selection,
@@ -119,6 +151,7 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
       });
     } else {
       onContinue({
+        amount: payAmount,
         method: 'visa_card',
         cardId: selectedCard?.id,
         last4: selectedCard?.last4,
@@ -133,7 +166,7 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
       visible={visible}
       onDismiss={close}
       title={step === 1 ? title : method === 'visa_card' ? 'Choose card' : 'Choose number'}
-      subtitle={step === 1 ? subtitle : `${ugx(amount)} due`}
+      subtitle={step === 1 ? subtitle : `${ugx(payAmount)} due`}
       contentContainerStyle={styles.content}
       headerLeft={
         step === 2 ? (
@@ -150,23 +183,41 @@ export function PaymentMethodSheet({ visible, title, subtitle, amount, onClose, 
       footer={
         step === 1 ? (
           <>
-            <Button label="Continue" onPress={() => setStep(2)} />
+            <Button label="Continue" onPress={() => setStep(2)} disabled={editableAmount && !amountValid} />
             <Text style={styles.note} maxFontSizeMultiplier={1.2}>
               This local demo confirms the payment immediately. No money moves.
             </Text>
           </>
         ) : (
           <View style={styles.payFooter}>
-            <Button label={`Pay ${ugx(amount)}`} onPress={submit} disabled={!ready} />
+            <Button label={`Pay ${ugx(payAmount)}`} onPress={submit} disabled={!ready || !amountValid} />
           </View>
         )
       }>
       {step === 1 ? (
         <>
-          <View style={styles.amountRow}>
-            <Text style={styles.amountLabel} maxFontSizeMultiplier={1.2}>Amount</Text>
-            <Text style={styles.amount} maxFontSizeMultiplier={1.2}>{ugx(amount)}</Text>
-          </View>
+          {editableAmount ? (
+            <Input
+              label="Amount to pay"
+              prefix="UGX"
+              value={amountText}
+              onChangeText={(value) => setAmountText(value.replace(/[^0-9]/g, ''))}
+              onBlur={() => setAmountTouched(true)}
+              keyboardType="number-pad"
+              maxLength={9}
+              helper={`Balance due ${ugx(ceiling)}`}
+              error={
+                amountTouched && !amountValid
+                  ? `Enter an amount between UGX 1 and ${ugx(ceiling)}.`
+                  : undefined
+              }
+            />
+          ) : (
+            <View style={styles.amountRow}>
+              <Text style={styles.amountLabel} maxFontSizeMultiplier={1.2}>Amount</Text>
+              <Text style={styles.amount} maxFontSizeMultiplier={1.2}>{ugx(amount)}</Text>
+            </View>
+          )}
           <View accessibilityRole="radiogroup" style={styles.methods}>
             {methods.map((item) => {
               const Icon = item.icon;

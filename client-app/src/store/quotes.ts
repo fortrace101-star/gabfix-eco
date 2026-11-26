@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 import { fetchMyQuoteRequests, type ServerQuoteRequest } from '@/lib/api/quotes';
 import type { BookingFrequency } from '@/lib/pricing';
+import { addBooking, getBookings } from '@/store/bookings';
 
 /**
  * P25 quote requests. Requests made through the booking flow live on the server and are
@@ -104,6 +105,20 @@ export async function hydrateQuotes(): Promise<void> {
   listeners.forEach((listener) => listener());
 }
 
+const toDateISO = (iso: string | null): string | undefined => {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const toTime = (iso: string | null): string | undefined => {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
 /**
  * Pulls the desk's view of this customer's quote requests. Safe to call on every
  * focus: a failure keeps the last list and never blocks the tab.
@@ -114,6 +129,37 @@ export async function syncQuoteRequests(): Promise<void> {
   listeners.forEach((listener) => listener());
   try {
     const serverRequests = await fetchMyQuoteRequests();
+    // Accepted quotes graduate into the normal booking workflow; make sure the
+    // booking exists locally even if this device missed the acceptance tap.
+    for (const quote of serverRequests) {
+      if (quote.status !== 'accepted') continue;
+      const exists = getBookings().some(
+        (booking) => booking.id === quote.reference || booking.id === quote.bookingId,
+      );
+      if (exists) continue;
+      const total = quote.bookingTotal ?? quote.amount ?? 0;
+      const lead =
+        quote.crew.find((member) => member.role === 'lead') ?? quote.crew[0];
+      addBooking({
+        id: quote.reference,
+        serviceSlug: quote.serviceSlug ?? 'custom',
+        serviceName: quote.serviceName,
+        status: 'upcoming',
+        createdAtISO: quote.createdAtISO,
+        dateISO: toDateISO(quote.scheduledStartISO),
+        startTime: toTime(quote.scheduledStartISO),
+        area: quote.area ?? undefined,
+        street: quote.street ?? undefined,
+        cleaners: 1,
+        hours: 0,
+        total,
+        paid: 0,
+        balance: total,
+        cleanerId: lead?.id,
+        cleanerName: lead?.name,
+        assignedAtISO: lead ? new Date().toISOString() : undefined,
+      });
+    }
     state = { ...state, serverRequests, serverSynced: true, syncing: false };
   } catch {
     state = { ...state, syncing: false };

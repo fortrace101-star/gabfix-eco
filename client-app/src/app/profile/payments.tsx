@@ -331,7 +331,8 @@ export default function PaymentsScreen() {
   const onContinue = (selection: BalancePaymentSelection) => {
     if (!payAction) return;
     const base = {
-      amount: String(paySheetAmount),
+      // Whatever the customer typed in the drawer, not the balance it opened with.
+      amount: String(selection.amount),
       method: selection.method,
       phone: selection.phone ?? '',
       last4: selection.last4 ?? 'new',
@@ -340,12 +341,18 @@ export default function PaymentsScreen() {
     };
 
     if (payAction.kind === 'booking') {
+      // A full amount clears the booking; anything smaller is a part-payment and is
+      // recorded as a deposit row, exactly like the booking detail's Pay balance flow.
+      const kind = selection.amount >= payAction.booking.balance ? 'balance' : 'deposit';
       router.push({
         pathname: '/payment/[id]',
         params: {
           id: payAction.booking.id,
           bookingId: payAction.booking.id,
-          kind: 'balance',
+          kind,
+          // A part-payment is recorded as a deposit, but this is still the wallet's Pay
+          // balance flow, so the processing screen returns here afterwards.
+          from: 'payments',
           ...base,
         },
       } as never);
@@ -723,6 +730,10 @@ export default function PaymentsScreen() {
         title={paySheetTitle}
         subtitle={paySheetSubtitle}
         amount={paySheetAmount}
+        // One booking's balance can be paid in any amount; the late-fee account balance
+        // is cleared as a whole. Same editable field as the booking detail drawer.
+        editableAmount={payAction?.kind === 'booking'}
+        maxAmount={paySheetAmount}
         onClose={() => setPayAction(null)}
         onContinue={onContinue}
       />

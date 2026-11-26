@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   CalendarDays,
   CalendarX2,
@@ -39,7 +39,7 @@ import {
   type SavedBooking,
   expireUnpaidBookings,
   hydrateBookings,
-  syncBookingAssignments,
+  syncBookingsFromServer,
   useBookings,
   useBookingsHydrated,
 } from '@/store/bookings';
@@ -268,11 +268,18 @@ export default function BookingsScreen() {
     expireUnpaidBookings();
   }, []);
 
-  // Quote requests live on the server, and dispatch's assignments arrive there too.
+  // Quote requests live on the server.
   useEffect(() => {
     void syncQuoteRequests();
-    void syncBookingAssignments();
   }, []);
+
+  // Dispatch's assignments, and the cleaner's "Complete job" in the ERP, land on the
+  // server, so re-pull every time this tab comes back into view.
+  useFocusEffect(
+    useCallback(() => {
+      void syncBookingsFromServer();
+    }, []),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -281,7 +288,7 @@ export default function BookingsScreen() {
         hydrateBookings(),
         hydrateQuotes(),
         syncQuoteRequests(),
-        syncBookingAssignments(),
+        syncBookingsFromServer(),
       ]);
     } finally {
       setRefreshing(false);

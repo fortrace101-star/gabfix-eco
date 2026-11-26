@@ -32,10 +32,18 @@ export type ServerBooking = {
   id: string;
   reference: string;
   status: string;
+  /** Settled payments recorded by the desk, the cleaner or this app. */
+  paidTotal?: number;
+  /** The part of `paidTotal` the cleaner collected in cash. */
+  cashPaid?: number;
+  cashPaidAt?: string | null;
   assignments: ServerBookingAssignment[];
 };
 
-/** The customer's bookings as the desk sees them, including dispatch assignments. */
+/**
+ * The customer's bookings as the desk sees them: dispatch assignments and the money
+ * already collected, so cash the cleaner records shows up on this device too.
+ */
 export async function fetchMyBookings(): Promise<ServerBooking[]> {
   if (!hasApiBaseUrl) return [];
   const { bookings } = await apiRequest<{ bookings: ServerBooking[] }>('/bookings');

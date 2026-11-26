@@ -11,7 +11,7 @@ milestone on the setup checklist closes.
 
 | | |
 |---|---|
-| **Last updated** | 2026-11-26 (in-app checkout/deposit/balance payments now write a `payments` row so the desk ledger sees them, verified by clicking the balance flow in the Expo web build, with the exact method kept in `provider` and sign-up refusing a number that already has an active account; quote expiry every 15 min and Expo push on quote send; accepted quotes show the assigned cleaner in the client and on the ERP dashboard; booking detail now re-pulls dispatch’s assignment; client part-payments accept a typed amount up to the balance due; ERP `env.ts` no longer reads `window.location` on native, which was crashing the release APK) |
+| **Last updated** | 2026-11-26 (cash the cleaner records in the ERP now reaches the customer’s own dashboard and wallet as a confirmed cash payment, and service images can finally be uploaded from the admin catalogue; a job completed by the cleaner in the ERP now moves to Completed in the customer app; admin Bookings rows are clickable and open one dialog with the full booking and the cleaner assignment; the wallet's Pay balance drawer takes a typed amount up to the balance due, like the booking detail; in-app checkout/deposit/balance payments now write a `payments` row so the desk ledger sees them, verified by clicking the balance flow in the Expo web build, with the exact method kept in `provider` and sign-up refusing a number that already has an active account; quote expiry every 15 min and Expo push on quote send; accepted quotes show the assigned cleaner in the client and on the ERP dashboard; booking detail now re-pulls dispatch’s assignment; client part-payments accept a typed amount up to the balance due; ERP `env.ts` no longer reads `window.location` on native, which was crashing the release APK) |
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |
@@ -202,6 +202,27 @@ Only work with a passing check is listed here.
   the running dev build with headless Chrome (owner sign-in): 9 rows, `GBX-988A7A` showing Total
   900,000 / Balance 630,000 / Paid in total 270,000, the dialog and receipt action rendering, Payments
   KPIs at UGX 1.2m deposits / 1.1m outstanding, and a 0–3m chart axis peaking at 1.7m.
+- **Cash collected by the cleaner reaches the customer's dashboard (2026-11-26):** `GET /bookings` now
+  totals the caller's settled `payments` with the service role (customers cannot read `payments` under
+  RLS) and returns `paidTotal`, `cashPaid` and `cashPaidAt` per booking. The customer store mirrors
+  them during `syncBookingsFromServer`: paid only ever rises, the balance is re-derived from the local
+  total, and a `cashPayment` record stores the cash amount and the cleaner's timestamp. The wallet
+  builds a `Cash · <service>` row from that record labelled “Cash · confirmed by cleaner”, the Home
+  tab now syncs on focus (so the balance-due card and wallet are current on the dashboard), and the
+  old `cashConfirmed: kind === 'cash'` shortcut no longer claims confirmation for pre-ledger cash.
+  Verified in the Expo web build with a signed-in customer: seeding `GBX-DONE` at 0 paid/45,000 due
+  and `GBX-DUE1` at 20,000 paid/70,000 due, opening Home, then the Payments page produced paid
+  45,000 / 0 due with a 45,000 confirmed cash row, and paid 90,000 / 0 due with a 70,000 confirmed cash
+  row plus the 20,000 digital residual; the 45,000 and 70,000 match the cash rows in the local
+  `payments` table. Jest: 10 wallet tests and 6 sync tests pass, `tsc --noEmit` clean, backend contract
+  suite 12/12 after the API change.
+- **Service image upload on the admin catalogue (2026-11-26):** the service editor rendered its
+  “Upload image” button but no file input — the only `<input type="file">` belonged to the category
+  editor, so clicking the button did nothing. The service editor now has its own hidden input with
+  the same accept list and re-upload/reset behaviour. Verified in headless Chrome against the dev
+  build: the editor shows one file input, choosing a PNG uploaded to `service-icons`
+  (`service/ac-blowing-<timestamp>.png`) and the preview rendered from the public bucket URL with the
+  Remove action; the probe objects were deleted again. `npm run build` passes.
 
 ---
 
@@ -312,6 +333,14 @@ registration, `client-app/src/app/booking/[id].tsx` (assigned cleaner + deposit/
 `client-app/src/app/(tabs)/bookings.tsx`, `backend/supabase/functions/api/index.ts`
 (`POST /device-tokens`, crew enrichment on `GET /bookings` and `GET /quotes`) and
 `erp-app/src/lib/env.ts` (release startup crash). `portal_fix.md` remains untracked.
+
+Added later on 2026-11-26 and still uncommitted: `backend/supabase/functions/api/index.ts`
+(`GET /bookings` paid/cash totals), `client-app/src/lib/api/bookings.ts`,
+`client-app/src/store/bookings.ts` (`cashPayment` mirroring), `client-app/src/lib/wallet.ts`
+(confirmed cash row), `client-app/src/app/(tabs)/home.tsx` (focus sync), the renamed sync in
+`client-app/src/app/(tabs)/bookings.tsx` and `client-app/src/app/booking/[id].tsx`,
+`client-app/src/store/__tests__/sync-from-server.test.ts`, `client-app/src/lib/__tests__/wallet.test.ts`,
+and `admin-web/src/pages/Catalogue.tsx` (service image file input).
 
 ---
 

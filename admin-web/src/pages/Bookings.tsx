@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AssignCleanerDialog } from '../components/AssignCleanerDialog';
+import { BookingDetailsDialog } from '../components/BookingDetailsDialog';
 import { BookingPaymentsDialog } from '../components/BookingPaymentsDialog';
 import { Icon } from '../components/Icon';
 import {
@@ -41,7 +41,7 @@ export function BookingsPage({
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<(typeof statuses)[number]>('All statuses');
   const [dateFilter, setDateFilter] = useState('All dates');
-  const [assigning, setAssigning] = useState<Booking | null>(null);
+  const [detailsFor, setDetailsFor] = useState<Booking | null>(null);
   const [paymentsFor, setPaymentsFor] = useState<Booking | null>(null);
 
   const filtered = useMemo(() => {
@@ -193,7 +193,6 @@ export function BookingsPage({
                       <span className="amount-head-balance">Balance</span>
                     </span>
                   </th>
-                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
@@ -203,7 +202,18 @@ export function BookingsPage({
                     (member) => member.role === 'Support' && member.id !== booking.cleanerId,
                   );
                   return (
-                    <tr key={booking.id}>
+                    <tr
+                      key={booking.id}
+                      className="row-click"
+                      tabIndex={0}
+                      title={`Open ${booking.id}`}
+                      onClick={() => setDetailsFor(booking)}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        setDetailsFor(booking);
+                      }}
+                    >
                       <td>
                         <div className="cell-person">
                           <Avatar name={booking.customer} tone="#E8F6EE" size="sm" />
@@ -279,25 +289,6 @@ export function BookingsPage({
                           </strong>
                         </div>
                       </td>
-                      <td className="align-right">
-                        <div className="row-actions">
-                          <Button
-                            className="btn-small"
-                            variant="ghost"
-                            icon="payments"
-                            onClick={() => setPaymentsFor(booking)}
-                          >
-                            Payments
-                          </Button>
-                          <Button
-                            className="btn-small"
-                            icon={cleaner ? 'refresh' : 'cleaners'}
-                            onClick={() => setAssigning(booking)}
-                          >
-                            {cleaner ? 'Reassign' : 'Assign'}
-                          </Button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -332,13 +323,17 @@ export function BookingsPage({
         />
       ) : null}
 
-      {assigning ? (
-        <AssignCleanerDialog
-          key={assigning.id}
-          booking={assigning}
+      {detailsFor ? (
+        <BookingDetailsDialog
+          key={`details-${detailsFor.id}`}
+          booking={detailsFor}
           cleaners={cleaners}
-          onClose={() => setAssigning(null)}
+          onClose={() => setDetailsFor(null)}
           onAssign={onAssign}
+          onOpenPayments={(booking) => {
+            setDetailsFor(null);
+            setPaymentsFor(booking);
+          }}
         />
       ) : null}
     </div>

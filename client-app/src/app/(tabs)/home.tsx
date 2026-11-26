@@ -51,6 +51,7 @@ import { startRebookDraft, useBookingDraft } from '@/store/booking';
 import {
   type SavedBooking,
   hydrateBookings,
+  syncBookingsFromServer,
   useBookings,
 } from '@/store/bookings';
 import {
@@ -169,10 +170,19 @@ export default function HomeTab() {
     refreshServices();
     try {
       await hydrateBookings();
+      await syncBookingsFromServer();
     } finally {
       setRefreshing(false);
     }
   }, [refreshServices]);
+
+  // The dashboard's balance-due card follows the cleaner's cash and the desk's ledger,
+  // so pull the server's money every time Home comes into view.
+  useFocusEffect(
+    useCallback(() => {
+      void syncBookingsFromServer();
+    }, []),
+  );
 
   const nextBooking = useMemo(() => {
     const upcoming = bookings.filter(

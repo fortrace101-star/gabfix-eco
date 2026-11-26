@@ -72,11 +72,17 @@ export function walletTransactions(bookings: SavedBooking[]): WalletTransaction[
     const initial = Math.max(
       (booking.paid ?? 0) -
         (booking.balancePayment?.amount ?? 0) -
-        (booking.depositPayment?.amount ?? 0),
+        (booking.depositPayment?.amount ?? 0) -
+        (booking.cashPayment?.amount ?? 0),
       0,
     );
     if (initial > 0) {
-      const kind = booking.paymentMethod === 'cash' ? 'cash' : kindForPlan(booking.paymentPlan);
+      // Once the ledger reports the cash separately, whatever is left was collected
+      // digitally (or before the ledger existed), so it is not a cash row.
+      const kind =
+        booking.paymentMethod === 'cash' && !(booking.cashPayment?.amount ?? 0)
+          ? 'cash'
+          : kindForPlan(booking.paymentPlan);
       transactions.push({
         id: `${booking.id}-initial`,
         bookingId: booking.id,
@@ -87,7 +93,8 @@ export function walletTransactions(bookings: SavedBooking[]): WalletTransaction[
         method: booking.paymentMethod,
         amount: initial,
         direction: 'out',
-        cashConfirmed: kind === 'cash',
+        // Only the cash row built from the ledger can say the cleaner confirmed it.
+        cashConfirmed: false,
       });
     }
 
@@ -102,6 +109,22 @@ export function walletTransactions(bookings: SavedBooking[]): WalletTransaction[
         method: booking.depositPayment.method,
         amount: booking.depositPayment.amount,
         direction: 'out',
+      });
+    }
+
+    // Cash handed to the cleaner in person, as recorded in the ERP.
+    if (booking.cashPayment && booking.cashPayment.amount > 0) {
+      transactions.push({
+        id: `${booking.id}-cash`,
+        bookingId: booking.id,
+        serviceName: booking.serviceName,
+        kind: 'cash',
+        title: `Cash · ${booking.serviceName}`,
+        atISO: booking.cashPayment.atISO,
+        method: 'cash',
+        amount: booking.cashPayment.amount,
+        direction: 'out',
+        cashConfirmed: true,
       });
     }
 

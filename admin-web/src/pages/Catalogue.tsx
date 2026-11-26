@@ -1079,6 +1079,17 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
                   </span>
                 )}
                 <div className="image-field-actions">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                    hidden
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void uploadImage(file);
+                      event.target.value = '';
+                    }}
+                  />
                   <Button
                     icon="image"
                     disabled={uploading}

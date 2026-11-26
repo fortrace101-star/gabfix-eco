@@ -87,6 +87,11 @@ export type SavedBooking = {
     method: string;
     atISO: string;
   };
+  /** Cash the cleaner recorded in the ERP and the desk's ledger accepted. */
+  cashPayment?: {
+    amount: number;
+    atISO: string;
+  };
   /** A deposit paid in-app before the visit (30% of a confirmed quote). */
   depositPayment?: {
     amount: number;
@@ -270,26 +275,61 @@ export function skipBookingRating(id: string): void {
 }
 
 /**
- * Pulls dispatch's assignment for every booking saved on this device, so the
- * customer sees the cleaner even when the assignment happened on another device.
+ * Pulls dispatch's assignment and the job's server state for every booking saved
+ * on this device, so the customer sees both even when they changed elsewhere.
  */
-export async function syncBookingAssignments(): Promise<void> {
+export async function syncBookingsFromServer(): Promise<void> {
   try {
     const server = await fetchMyBookings();
     if (server.length === 0) return;
     let changed = false;
     const next = state.bookings.map((booking) => {
       const match = server.find((item) => item.reference === booking.id);
-      const lead =
-        match?.assignments.find((assignment) => assignment.role === 'lead') ?? match?.assignments[0];
-      if (!lead) return booking;
-      if (booking.cleanerId === lead.technicianId && booking.cleanerName === lead.name) return booking;
-      changed = true;
-      return { ...booking, cleanerId: lead.technicianId, cleanerName: lead.name };
+      if (!match) return booking;
+      const lead = match.assignments.find((assignment) => assignment.role === 'lead') ?? match.assignments[0];
+      let updated = booking;
+
+      if (lead && (booking.cleanerId !== lead.technicianId || booking.cleanerName !== lead.name)) {
+        updated = { ...updated, cleanerId: lead.technicianId, cleanerName: lead.name };
+      }
+
+      // The cleaner's "Record cash" writes a cash payment on the server; the customer's
+      // paid total and balance follow it so the wallet shows the cash as received.
+      const paidTotal = match.paidTotal ?? 0;
+      const cashPaid = match.cashPaid ?? 0;
+      if (paidTotal > updated.paid) {
+        updated = {
+          ...updated,
+          paid: paidTotal,
+          balance: Math.max(booking.total - paidTotal, 0),
+        };
+      }
+      if (cashPaid > 0 && cashPaid !== (booking.cashPayment?.amount ?? 0)) {
+        updated = {
+          ...updated,
+          cashPayment: {
+            amount: cashPaid,
+            atISO: match.cashPaidAt ?? new Date().toISOString(),
+          },
+        };
+      }
+
+      if (updated !== booking) changed = true;
+      return updated;
     });
     if (changed) setBookings(next);
+
+    // The cleaner presses "Complete job" in the ERP, which writes the booking's
+    // status on the server. Mirror it through the normal completion path so the
+    // visit leaves Upcoming for Completed and the rating prompt appears.
+    server
+      .filter((item) => item.status === 'completed')
+      .forEach((item) => {
+        const local = state.bookings.find((booking) => booking.id === item.reference);
+        if (local?.status === 'upcoming') completeBooking(local.id);
+      });
   } catch {
-    // Offline or no API: keep whatever assignment is already saved.
+    // Offline or no API: keep whatever assignment and status are already saved.
   }
 }
 

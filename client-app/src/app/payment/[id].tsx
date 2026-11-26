@@ -58,6 +58,7 @@ export default function PaymentScreen() {
     network?: string;
     bookingIds?: string;
     kind?: string;
+    from?: string;
   }>();
   const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-00000';
   const accountIdsParam = typeof params.bookingIds === 'string' ? params.bookingIds : '';
@@ -71,6 +72,8 @@ export default function PaymentScreen() {
   const isBalance = params.kind === 'balance';
   const isDeposit = params.kind === 'deposit';
   const isAccount = params.kind === 'account';
+  // A part-payment started from Payments still returns to Payments, not the booking.
+  const fromPayments = params.from === 'payments';
   // Only a new booking is held after a failed authorisation; an existing booking's
   // deposit or balance payment changes nothing.
   const holdsBooking = !isTip && !isBalance && !isDeposit && !isAccount;
@@ -166,16 +169,16 @@ export default function PaymentScreen() {
           router.replace('/(tabs)/home');
           return;
         }
-        if (isDeposit) {
+        if (isDeposit && !fromPayments) {
           router.replace({ pathname: '/booking/[id]', params: { id: bookingId } } as never);
           return;
         }
-        if (isBalance || isAccount) {
+        if (isBalance || isAccount || fromPayments) {
           router.replace({
             pathname: '/profile/payments',
             params: {
               banner: 'balance-paid',
-              ...(isBalance ? { receiptId: bookingId } : {}),
+              ...(isAccount ? {} : { receiptId: bookingId }),
             },
           } as never);
           return;
@@ -192,7 +195,7 @@ export default function PaymentScreen() {
       cancelled = true;
       if (next) clearTimeout(next);
     };
-  }, [accountIdsParam, amount, bookingId, isAccount, isBalance, isDeposit, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
+  }, [accountIdsParam, amount, bookingId, fromPayments, isAccount, isBalance, isDeposit, isTip, method, phone, saveNewCard, saveNewMomo, slug, status, tick]);
 
   const isBalancePayment = isBalance || isAccount || isDeposit;
 
@@ -214,6 +217,13 @@ export default function PaymentScreen() {
 
   // A failed balance payment returns to the drawer so another method can be chosen.
   const anotherMethod = () => {
+    if (isDeposit && fromPayments) {
+      router.replace({
+        pathname: '/profile/payments',
+        params: { reopen: '1', kind: 'balance', bookingId, amount: String(amount) },
+      } as never);
+      return;
+    }
     if (isDeposit) {
       router.replace({ pathname: '/booking/[id]', params: { id: bookingId } } as never);
       return;
@@ -252,7 +262,15 @@ export default function PaymentScreen() {
   return (
     <View style={styles.screen}>
       <TopBar
-        title={isTip ? 'Tip' : isDeposit ? 'Pay deposit' : isBalancePayment ? 'Pay balance' : 'Payment'}
+        title={
+          isTip
+            ? 'Tip'
+            : isDeposit && !fromPayments
+              ? 'Pay deposit'
+              : isBalancePayment
+                ? 'Pay balance'
+                : 'Payment'
+        }
         onBack={stop}
         right={
           <Pressable
@@ -286,7 +304,7 @@ export default function PaymentScreen() {
             <Text style={styles.body} maxFontSizeMultiplier={1.3}>
               {isTip
                 ? `${ugx(amount)} tip sent to your cleaner. Taking you home…`
-                : isDeposit
+                : isDeposit && !fromPayments
                   ? `${ugx(amount)} deposit received. Taking you back to your booking…`
                   : isBalancePayment
                     ? `${ugx(amount)} paid. Taking you to your receipt…`

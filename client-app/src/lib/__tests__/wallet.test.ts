@@ -2,8 +2,10 @@ import {
   activeFilterCount,
   defaultTransactionQuery,
   queryTransactions,
+  walletTransactions,
   type WalletTransaction,
 } from '@/lib/wallet';
+import type { SavedBooking } from '@/store/bookings';
 
 const tx = (overrides: Partial<WalletTransaction>): WalletTransaction => ({
   id: 'tx-1',
@@ -89,5 +91,47 @@ describe('activeFilterCount', () => {
     expect(activeFilterCount(defaultTransactionQuery)).toBe(0);
     expect(activeFilterCount({ ...defaultTransactionQuery, method: 'cash', period: '30d', direction: 'out', sort: 'amount' })).toBe(4);
     expect(activeFilterCount({ ...defaultTransactionQuery, kind: 'deposits', text: 'home' })).toBe(0);
+  });
+});
+
+describe('walletTransactions', () => {
+  const booking = (overrides: Partial<SavedBooking> = {}): SavedBooking => ({
+    id: 'GBX-CASH',
+    serviceSlug: 'home-cleaning',
+    serviceName: 'Home cleaning',
+    status: 'completed',
+    createdAtISO: '2026-11-26T08:00:00.000Z',
+    cleaners: 1,
+    hours: 2,
+    total: 120000,
+    paid: 120000,
+    balance: 0,
+    paymentMethod: 'cash',
+    ...overrides,
+  });
+
+  it('shows the cash the cleaner recorded as a confirmed cash row', () => {
+    const rows = walletTransactions([
+      booking({ cashPayment: { amount: 120000, atISO: '2026-11-26T16:30:00.000Z' } }),
+    ]);
+
+    const cash = rows.find((row) => row.id === 'GBX-CASH-cash');
+    expect(cash).toMatchObject({
+      kind: 'cash',
+      method: 'cash',
+      amount: 120000,
+      cashConfirmed: true,
+      atISO: '2026-11-26T16:30:00.000Z',
+    });
+    // The paid total is not counted twice as an extra initial payment.
+    expect(rows.find((row) => row.id === 'GBX-CASH-initial')).toBeUndefined();
+  });
+
+  it('does not claim a cash confirmation before the cleaner records it', () => {
+    const rows = walletTransactions([booking({ paid: 0, balance: 120000 })]) as WalletTransaction[];
+    expect(rows).toHaveLength(0);
+
+    const legacy = walletTransactions([booking({ paid: 30000, balance: 90000 })]);
+    expect(legacy.find((row) => row.kind === 'cash')?.cashConfirmed).toBe(false);
   });
 });

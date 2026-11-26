@@ -1007,8 +1007,33 @@ app.get('/bookings', async (c) => {
     .order('scheduled_start', { ascending: false });
   if (error) throw new HTTPException(500, { message: error.message, cause: 'bookings_read' });
 
+  const rows = data ?? [];
+  // `payments` is not readable by customers under RLS, and the customer's app needs
+  // the money the desk and the cleaner recorded (including cash collected on site),
+  // so the ledger is totalled with the service role over the caller's own bookings.
+  const { data: paymentRows, error: paymentError } = rows.length
+    ? await admin
+        .from('payments')
+        .select('booking_id, amount, method, status, paid_at')
+        .in('booking_id', rows.map((row) => row.id))
+        .eq('status', 'paid')
+    : { data: [], error: null };
+  if (paymentError) throw new HTTPException(500, { message: paymentError.message, cause: 'payments_read' });
+
+  const ledger = new Map<string, { paid: number; cash: number; lastCashAt: string | null }>();
+  for (const payment of paymentRows ?? []) {
+    const entry = ledger.get(payment.booking_id) ?? { paid: 0, cash: 0, lastCashAt: null };
+    entry.paid += money(payment.amount);
+    if (payment.method === 'cash') {
+      entry.cash += money(payment.amount);
+      const paidAt = payment.paid_at ?? null;
+      if (paidAt && (!entry.lastCashAt || paidAt > entry.lastCashAt)) entry.lastCashAt = paidAt;
+    }
+    ledger.set(payment.booking_id, entry);
+  }
+
   return c.json({
-    bookings: (data ?? []).map((row) => ({
+    bookings: rows.map((row) => ({
       id: row.id,
       reference: row.reference,
       status: row.status,
@@ -1017,6 +1042,10 @@ app.get('/bookings', async (c) => {
       scheduledEnd: row.scheduled_end,
       billedHours: row.billed_hours === null ? null : Number(row.billed_hours),
       total: money(row.total_price),
+      /** Every settled payment, digital or cash, as the desk keeps it. */
+      paidTotal: money(ledger.get(row.id)?.paid),
+      cashPaid: money(ledger.get(row.id)?.cash),
+      cashPaidAt: ledger.get(row.id)?.lastCashAt ?? null,
       techniciansNeeded: row.technicians_needed,
       notes: row.notes,
       createdAt: row.created_at,

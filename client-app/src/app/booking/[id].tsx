@@ -27,7 +27,7 @@ import {
   completeBooking,
   getBookingById,
   skipBookingRating,
-  syncBookingAssignments,
+  syncBookingsFromServer,
   useBookings,
 } from '@/store/bookings';
 import { retryFailedUploads, useMediaUploads } from '@/store/media-uploads';
@@ -118,7 +118,7 @@ export default function BookingDetailScreen() {
   // Dispatch assigns the crew on another device, so pull their choice when this
   // screen opens instead of relying on the Bookings tab having synced already.
   useEffect(() => {
-    if (id) void syncBookingAssignments();
+    if (id) void syncBookingsFromServer();
   }, [id]);
 
   if (!booking) {

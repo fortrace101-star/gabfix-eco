@@ -203,6 +203,7 @@ export function ReportsPage({
   return (
     <div className="page">
       <PageHeader
+        variant="hero"
         eyebrow="Reporting"
         title="Reports"
         subtitle="A clean CSV for finance, operations or the Monday review. No spreadsheet archaeology."

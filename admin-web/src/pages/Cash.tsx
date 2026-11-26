@@ -161,7 +161,7 @@ export function CashPage({
         </div>
 
         {filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Cash collections" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>

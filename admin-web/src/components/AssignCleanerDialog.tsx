@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Booking, Cleaner } from '../types';
 import { Icon } from './Icon';
-import { Avatar, Button, Modal, StatusChip } from './ui';
+import { Avatar, Button, Drawer, StatusChip } from './ui';
 
 export function AssignCleanerDialog({
   booking,
@@ -17,7 +17,7 @@ export function AssignCleanerDialog({
   const [selected, setSelected] = useState(booking.cleanerId ?? '');
 
   return (
-    <Modal
+    <Drawer
       open
       title="Assign a cleaner"
       description={`${booking.id} · ${booking.service} · ${booking.area} · ${booking.time}`}
@@ -40,16 +40,16 @@ export function AssignCleanerDialog({
       }
     >
       {booking.scope || booking.media?.length ? (
-        <div className="booking-scope-block" style={{ marginBottom: 16, display: 'grid', gap: 8 }}>
+        <div className="booking-scope-block">
           {booking.scope ? (
-            <div className="scope-facts" style={{ display: 'grid', gap: 4 }}>
-              <strong style={{ fontSize: 13 }}>Job scope</strong>
-              <span style={{ fontSize: 13 }}>{booking.scope.summary}</span>
+            <div className="scope-facts">
+              <strong className="detail-section-title">Job scope</strong>
+              <span className="detail-value">{booking.scope.summary}</span>
               {booking.scope.facts?.length ? (
-                <div style={{ display: 'grid', gap: 2, marginTop: 4 }}>
+                <div className="detail-facts">
                   {booking.scope.facts.map((fact) => (
-                    <span key={fact.label} style={{ fontSize: 12, color: 'var(--text-muted, #667085)' }}>
-                      <strong style={{ color: 'inherit' }}>{fact.label}:</strong> {fact.value}
+                    <span key={fact.label} className="cell-sub">
+                      <strong>{fact.label}:</strong> {fact.value}
                     </span>
                   ))}
                 </div>
@@ -57,33 +57,16 @@ export function AssignCleanerDialog({
             </div>
           ) : null}
           {booking.media?.length ? (
-            <div className="scope-media" style={{ display: 'grid', gap: 6 }}>
-              <strong style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="camera" size={14} /> Media ({booking.media.length})
+            <div className="scope-media">
+              <strong className="detail-section-title">
+                <Icon name="camera" size={16} /> Media ({booking.media.length})
               </strong>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div className="detail-media">
                 {booking.media.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 10,
-                      background: 'var(--surface-muted, #F2F4F1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: 2,
-                      fontSize: 10,
-                      color: 'var(--text-muted, #667085)',
-                      textAlign: 'center',
-                      padding: 4,
-                    }}
-                    title={item.label ?? item.kind}>
+                  <span key={item.id} className="detail-media-item" title={item.label ?? item.kind}>
                     <Icon name={item.kind === 'video' ? 'camera' : 'image'} size={16} />
-                    <span>{item.kind === 'video' && item.durationSec ? `${item.durationSec}s` : item.kind}</span>
-                  </div>
+                    {item.kind === 'video' && item.durationSec ? `${item.durationSec}s` : item.kind}
+                  </span>
                 ))}
               </div>
             </div>
@@ -113,6 +96,6 @@ export function AssignCleanerDialog({
           </button>
         ))}
       </div>
-    </Modal>
+    </Drawer>
   );
 }

@@ -100,6 +100,7 @@ export function BookingsPage({
   return (
     <div className="page">
       <PageHeader
+        variant="hero"
         eyebrow="Schedule"
         title="Bookings"
         subtitle="Confirm jobs, match cleaners and keep the day moving."
@@ -176,7 +177,7 @@ export function BookingsPage({
         </div>
 
         {filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Bookings" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>
@@ -242,7 +243,7 @@ export function BookingsPage({
                       </td>
                       <td>
                         <span className="cell-main">{formatShortDate(booking.dateISO)}</span>
-                        <small className="cell-sub">{booking.time}</small>
+                        <small className="cell-sub nowrap">{booking.time}</small>
                       </td>
                       <td>
                         {cleaner ? (
@@ -268,7 +269,6 @@ export function BookingsPage({
                               <small key={installment.id} className="cell-sub installment-row">
                                 <span>
                                   {installment.kind === 'Deposit' ? `Deposit ${index + 1}` : installment.kind}
-                                  {' · '}{installment.method}
                                 </span>
                                 <strong>{ugx(installment.amount)}</strong>
                               </small>

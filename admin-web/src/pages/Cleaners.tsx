@@ -277,7 +277,7 @@ export function CleanersPage({
             </div>
             <h3 className="subhead">Recent jobs</h3>
             {selectedBookings.length ? (
-              <div className="table-scroll">
+              <div className="table-scroll" role="region" aria-label="Cleaner jobs" tabIndex={0}>
                 <table className="table compact-table">
                   <thead>
                     <tr>

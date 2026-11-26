@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { formatDate, formatShortDate, ugx } from '../lib/format';
 import type { Booking, Cleaner } from '../types';
 import { Icon } from './Icon';
-import { Avatar, Button, Modal, StatusChip } from './ui';
+import { Avatar, Button, Drawer, StatusChip } from './ui';
 
 const inspectionStatusLabels: Record<string, string> = {
   required: 'needs scheduling',
@@ -39,7 +39,7 @@ export function BookingDetailsDialog({
   const installments = booking.installments ?? [];
 
   return (
-    <Modal
+    <Drawer
       open
       wide
       title={`${booking.customer} · ${booking.id}`}
@@ -193,6 +193,6 @@ export function BookingDetailsDialog({
           ))}
         </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }

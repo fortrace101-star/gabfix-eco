@@ -1,15 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
-import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { registerDeviceToken } from '@/lib/api/push';
+import { getNotifications } from '@/lib/native-module';
 
 export type PushPermission = 'granted' | 'undetermined' | 'denied' | 'unsupported';
 
 export async function getPushPermission(): Promise<PushPermission> {
   if (Platform.OS === 'web') return 'unsupported';
+  const Notifications = getNotifications();
+  if (!Notifications) return 'unsupported';
   try {
     const current = await Notifications.getPermissionsAsync();
     if (current.granted || (current as { ios?: { status?: number } }).ios?.status === 3) {
@@ -23,18 +24,20 @@ export async function getPushPermission(): Promise<PushPermission> {
 
 export async function ensureAndroidChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   try {
     await Notifications.setNotificationChannelAsync('critical', {
       name: 'Booking, payment and security',
-      importance: AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.HIGH,
     });
     await Notifications.setNotificationChannelAsync('routine', {
       name: 'Reminders',
-      importance: AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.DEFAULT,
     });
     await Notifications.setNotificationChannelAsync('promotions', {
       name: 'News and offers',
-      importance: AndroidImportance.LOW,
+      importance: Notifications.AndroidImportance.LOW,
     });
   } catch {
     // Best-effort.
@@ -43,6 +46,8 @@ export async function ensureAndroidChannels(): Promise<void> {
 
 export async function requestPushPermission(): Promise<PushPermission> {
   if (Platform.OS === 'web') return 'unsupported';
+  const Notifications = getNotifications();
+  if (!Notifications) return 'unsupported';
   try {
     await ensureAndroidChannels();
     const next = await Notifications.requestPermissionsAsync();
@@ -102,6 +107,8 @@ export async function syncPushToken(): Promise<string | null> {
 
 export async function registerPushToken(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
   const projectId =
     (Constants.expoConfig?.extra?.eas as { projectId?: string } | undefined)?.projectId ??
     (Constants.easConfig as { projectId?: string } | undefined)?.projectId;

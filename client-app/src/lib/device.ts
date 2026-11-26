@@ -1,8 +1,9 @@
-import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+
+import { getCrypto } from '@/lib/native-module';
 
 const KEY = 'gabfix.device-id.v1';
 let cached: string | null = null;
@@ -21,8 +22,9 @@ export async function getDeviceId(): Promise<string> {
     // Fall through to create a new id.
   }
 
-  const created = typeof Crypto.randomUUID === 'function'
-    ? Crypto.randomUUID()
+  const crypto = getCrypto();
+  const created = crypto && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   cached = created;
   try {

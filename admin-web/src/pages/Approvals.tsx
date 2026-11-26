@@ -302,7 +302,7 @@ export function ApprovalsPage({
             }
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Bookings to confirm" tabIndex={0}>
             <table className="table" aria-label="Bookings to confirm">
               <thead>
                 <tr>
@@ -399,7 +399,7 @@ export function ApprovalsPage({
             }
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Cancellation requests" tabIndex={0}>
             <table className="table" aria-label="Cancellation requests">
               <thead>
                 <tr>

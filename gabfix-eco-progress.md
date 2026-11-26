@@ -235,6 +235,69 @@ Only work with a passing check is listed here.
   stack end to end: `POST /auth/register` returned 201, `/auth/otp/request` returned a 6-digit
   `debugCode`, and `/auth/otp/verify` with it returned a session; the probe user and OTP rows were
   removed afterwards.   `client-app` `tsc --noEmit` clean, `admin-web` `npm run build` passes.
+- **Admin console theme (2026-11-26):** `gabfix-admin-ui-optimization-plan.md` was applied to
+  `admin-web` as a token layer plus an override sheet rather than a rewrite of the 4,711-line
+  `styles.css`: new `src/styles/tokens.css` (the plan's palette, type scale, spacing, radius, shadow,
+  control and motion tokens with legacy aliases) and `src/styles/theme.css` (248px sidebar / 64px
+  topbar, 1440px frame, hero bands with the overlapping KPI row on Overview/Bookings/Payments/Costs/
+  Reports, table rhythm, drawers, identity menu, split-screen sign-in, ≤1279px icon rail and the
+  sub-1024px "larger screen" notice), loaded around `styles.css`, which a one-off script tokenised
+  (local `:root` palette removed, every font-size lifted to a 12px floor, radii snapped to
+  12/14/16/20, raw hex literals replaced). Behaviour: `PageHeader` gained a `hero` variant, the new
+  `Drawer` (portal, Esc, Tab trap, panel focus) replaced `Modal` for booking detail, payment history
+  and assign cleaner, the sidebar cash badge and realtime block are live data, the topbar carries the
+  real signed-in identity and sign-out, Settings shows the signed-in admin instead of “Moses K.”,
+  Overview was restructured for the overlapping KPI row, and the seeded account shortcuts on the
+  sign-in screen are now `import.meta.env.DEV` only. `npm run build` passes. Headless Chrome against
+  the local stack as `admin@gabfix.ug` reviewed every page plus the booking drawer at 1440, Overview
+  at 1280/1024 and the <1024 notice at 900; the Bookings amount column was clipped by 22px, so table
+  cell padding was tightened. Login at 1440 reviewed from a production preview. Temporary screenshot
+  scripts and profiles were deleted. Follow-up layout nits: `.nav` gained a thin scrollbar, a bottom
+  fade and a `max-height: 1000px` tightening block so all six sidebar groups are reachable in a short
+  window, and the catalogue page (scoped by a new `catalogue-page` class) now stacks its 288px
+  category rail above the seven-column table between 1280 and 1429, where the 248px sidebar plus the
+  rail left the table 595px of a needed 770px; the rail's two cards sit side by side and the category
+  list caps at five rows with the same fade. Measured in headless Chrome: `.table-scroll`
+  918/918 at 1280, 1004/1004 at 1366, 1067/1067 at 1429, 760/760 at 1430, 770/770 at 1440 and
+  801/801 at 1279, with document width equal to the viewport at every step. No device pass, no deploy.
+- **Admin UI improvement checklist (2026-11-26):** `gabfix-admin-ui-improvement-checklist.md` lists the
+  remaining console work by priority, grounded in a headless-Chrome audit of all 16 pages at
+  1024/1280/1440. The page frame never overflows, but `.table-scroll` still clips on Bookings
+  (1029/918 at 1280), Payments (1108/1078 at 1440), Overview's Live bookings (777/734 at 1440), Job
+  costs (931/918 at 1280), Cash (875/854) and Customers (873/854) at 1024, and Catalogue (750/546) at
+  1024–1279. It also records: no `tabindex` on scrollable tables and no skip link, no pagination or
+  skeletons, one 672 kB JS chunk with no lazy routes, 7,273 lines of CSS including dead
+  `.mobile-menu`/`.sidebar-scrim` rules, 0 tests in `admin-web`, and Poppins/Inter named in the tokens
+  but never loaded. No application code changed.
+- **Admin P0 table + keyboard fixes (2026-11-26):** The two 1440 table overflows from the checklist are
+  closed. Overview's live table (777px inside a 734px card, 574 at 1280) now folds the visit time into
+  the booking sub-line, and between 1280 and 1360 `.overview-layout` stacks with the action rail as a
+  three-up row, so it reads 734/734 at 1440, 918/918 at 1280 and 854/854 at 1024. Payments' transactions
+  table (1108/1078) folds the booking reference under the transaction id, giving 1078/1078 at 1440 and
+  994 at 1280/1024 (left as a P1). Accessibility: all 17 `.table-scroll` regions now carry
+  `role="region"`, the same name as their table and `tabIndex={0}` with a 2px focus ring, and `App.tsx`
+  adds a `.skip-link` that moves focus to `main#main-content` with `preventDefault`, so the hash router
+  is untouched. Verified in headless Chrome with focus emulation on: skip link on-screen when focused
+  (top 12px) and lands on `MAIN#main-content` with `#/bookings` unchanged, scroll regions take focus
+  with a green outline, table widths as measured, no document overflow at 1024/1280/1440. `npm run
+  build` passes. No device pass, no deploy. Temp audit scripts and screenshots removed.
+- **Admin tables, scroll and smoke suite (2026-11-26):** Bookings stopped printing the payment method
+  under each instalment ("Deposit 1 · Cash"); the method lives in the booking's payments drawer, which
+  already lists it per instalment. Combined with a narrow-width pass — table gutters 12 → 7px below
+  1440 and 5px below 1100, headers allowed to wrap, and the 36-character transaction reference allowed
+  to wrap via `.cell-ref` — every table now fits its card: 1078/1078 at 1440, 918/918 at 1280 and
+  854/854 at 1024 for Bookings, Payments, Job costs, Cash and Customers, and the catalogue at
+  770/770 / 918/918 / 854/854. The catalogue rail stacks above the table up to 1429px, and its category
+  rows truncate to two lines instead of three. Rows now alternate on `--row-alt` (#eef2ef) with a
+  distinct `--row-hover`; the document and sidebar-nav scrollbars are hidden per request, leaving wheel,
+  keyboard and the inner scroll regions intact. Added a Playwright smoke suite (`admin-web/tests`,
+  `channel: 'chrome'`, 5 tests: sign-in, nav routing, named/focusable scroll regions, tables fit at
+  1440, skip link) — all 5 pass against the local seed. Also made the client app boot without optional
+  native modules: `src/lib/native-module.ts` loads `expo-notifications` and `expo-crypto` on demand and
+  returns null when the runtime has no such module, so Expo Go or a stale dev client no longer crashes
+  the root layout with "Cannot find native module"; push and UUID features degrade instead. `tsc
+  --noEmit` is clean for the client app, `npm run build` passes for the admin. No device pass, no
+  deploy.
 - **Production migration state (2026-11-26):** `npx supabase migration list --linked` shows all 25
   migrations applied on `qdnlclphbnsddnixqnkv`, including `20261126120000_payment_kind.sql` and
   `20261126130000_backfill_ledger_payments.sql`, so no payment migration is pending; per instruction

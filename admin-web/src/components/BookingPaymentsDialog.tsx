@@ -1,6 +1,6 @@
 import { downloadCsv, formatDate, ugx } from '../lib/format';
 import type { Booking, BookingInstallment } from '../types';
-import { Button, Modal, StatusChip } from './ui';
+import { Button, Drawer, StatusChip } from './ui';
 
 /** One CSV per payment: the desk's copy of what the customer paid. */
 const downloadReceipt = (booking: Booking, payment: BookingInstallment): void => {
@@ -33,7 +33,7 @@ export function BookingPaymentsDialog({
   const balance = Math.max(booking.total - booking.paid, 0);
 
   return (
-    <Modal
+    <Drawer
       open
       wide
       title={`${booking.id} · payments`}
@@ -57,7 +57,7 @@ export function BookingPaymentsDialog({
       </div>
 
       {history.length ? (
-        <div className="table-scroll">
+        <div className="table-scroll" role="region" aria-label="Payment history" tabIndex={0}>
           <table className="table compact-table">
             <thead>
               <tr>
@@ -96,6 +96,6 @@ export function BookingPaymentsDialog({
           No payments recorded for this booking. Nothing has been collected against it yet.
         </p>
       )}
-    </Modal>
+    </Drawer>
   );
 }

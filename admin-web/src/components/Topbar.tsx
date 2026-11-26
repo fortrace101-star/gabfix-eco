@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { roleLabel, type AdminUser } from '../lib/auth';
 import { cx } from '../lib/format';
 import type { LiveStatus } from '../lib/live';
 import type { Booking, Cleaner, Customer, PageId } from '../types';
@@ -17,12 +18,13 @@ export function Topbar({
   dateRange,
   onDateRange,
   onNavigate,
-  onOpenMobile,
   notifications,
   readNotifications,
   onReadNotification,
   onReadAll,
   live,
+  user,
+  onSignOut,
 }: {
   page: PageId;
   live: LiveStatus;
@@ -32,7 +34,8 @@ export function Topbar({
   dateRange: DateRange;
   onDateRange: (range: DateRange) => void;
   onNavigate: (page: PageId) => void;
-  onOpenMobile: () => void;
+  user: AdminUser;
+  onSignOut: () => void;
   notifications: { id: string; title: string; detail: string; tone: 'warning' | 'danger' | 'success' }[];
   readNotifications: string[];
   onReadNotification: (id: string) => void;
@@ -41,14 +44,17 @@ export function Topbar({
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const identityRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       if (!searchRef.current?.contains(event.target as Node)) setSearchOpen(false);
       if (!notificationRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
+      if (!identityRef.current?.contains(event.target as Node)) setIdentityOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -128,14 +134,6 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button
-          type="button"
-          className="icon-btn mobile-menu"
-          aria-label="Open navigation"
-          onClick={onOpenMobile}
-        >
-          <Icon name="menu" />
-        </button>
         <span className="crumb">
           Operations <Icon name="chevronRight" size={13} /> <strong>{pageLabel[page]}</strong>
         </span>
@@ -278,12 +276,40 @@ export function Topbar({
           ) : null}
         </div>
 
-        <div className="admin-identity">
-          <Avatar name="Moses K" tone="#F5EE5E" size="sm" />
-          <span>
-            <strong>Moses K.</strong>
-            <small>Operations lead</small>
-          </span>
+        <div className="identity-menu" ref={identityRef}>
+          <button
+            type="button"
+            className="identity-button"
+            aria-label="Account menu"
+            aria-expanded={identityOpen}
+            onClick={() => setIdentityOpen((open) => !open)}
+          >
+            <Avatar name={user.name} tone="#C5E8D3" size="sm" />
+            <span className="identity-copy">
+              <strong>{user.name}</strong>
+              <small>{roleLabel(user.role)}</small>
+            </span>
+            <Icon name="chevronDown" size={16} />
+          </button>
+          {identityOpen ? (
+            <div className="identity-popover" role="menu">
+              <div className="identity-popover-head">
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
+              <button
+                type="button"
+                className="identity-action"
+                role="menuitem"
+                onClick={() => {
+                  setIdentityOpen(false);
+                  onSignOut();
+                }}
+              >
+                <Icon name="logout" size={16} /> Sign out
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </header>

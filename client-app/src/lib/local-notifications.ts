@@ -1,7 +1,7 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { mock } from '@/config/mock';
+import { getNotifications } from '@/lib/native-module';
 
 const setChannel = Platform.OS === 'android' ? { channelId: 'critical' } : {};
 
@@ -14,6 +14,8 @@ export async function scheduleAssignmentReminder(
   body: string,
 ): Promise<string | undefined> {
   if (Platform.OS === 'web' || !mock.assignment.enabled) return undefined;
+  const Notifications = getNotifications();
+  if (!Notifications) return undefined;
   try {
     const permission = await Notifications.getPermissionsAsync();
     if (!permission.granted) return undefined;
@@ -37,6 +39,8 @@ export async function scheduleAssignmentReminder(
 /** Cancels a pending assignment notification when a booking is cancelled or moved. */
 export async function cancelAssignmentReminder(id?: string): Promise<void> {
   if (!id) return;
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(id);
   } catch {

@@ -361,7 +361,7 @@ export function QuotesPage({
             }
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Quote queue" tabIndex={0}>
             <table className="table" aria-label="Quote queue">
               <thead>
                 <tr>

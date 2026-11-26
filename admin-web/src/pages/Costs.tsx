@@ -126,6 +126,7 @@ export function CostsPage({
   return (
     <div className="page">
       <PageHeader
+        variant="hero"
         eyebrow="Business"
         title="Job costs and commission"
         subtitle="What a completed job cost, what the technician earns and whether that commission may be released. Costs are entered in the operations app; approving them happens here."
@@ -191,7 +192,7 @@ export function CostsPage({
             detail="When a technician enters a cost on a job it lands here for approval."
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Job costs to approve" tabIndex={0}>
             <table className="table" aria-label="Job costs to approve">
               <thead>
                 <tr>
@@ -274,7 +275,7 @@ export function CostsPage({
             detail="Completed and in-progress jobs appear here with their revenue, costs and commission."
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Job costs and commission" tabIndex={0}>
             <table className="table" aria-label="Job costs and commission">
               <thead>
                 <tr>
@@ -400,7 +401,7 @@ export function CostsPage({
             detail="Costs entered in the operations app appear here with their decision."
           />
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Cost history" tabIndex={0}>
             <table className="table" aria-label="Cost history">
               <thead>
                 <tr>

@@ -492,7 +492,7 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
   };
 
   return (
-    <div className="page">
+    <div className="page catalogue-page">
       <PageHeader
         eyebrow="Catalogue"
         title="Service catalogue"
@@ -668,7 +668,7 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
                 }
               />
             ) : (
-              <div className="table-scroll">
+              <div className="table-scroll" role="region" aria-label="Catalogue services" tabIndex={0}>
                 <table className="table" aria-label="Catalogue services">
                   <thead>
                     <tr>

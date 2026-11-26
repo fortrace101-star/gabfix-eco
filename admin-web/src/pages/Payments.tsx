@@ -80,6 +80,7 @@ export function PaymentsPage({
   return (
     <div className="page">
       <PageHeader
+        variant="hero"
         eyebrow="Money in"
         title="Payments"
         subtitle="Deposits, balances and the exceptions that stop a job from being settled."
@@ -160,7 +161,7 @@ export function PaymentsPage({
 
         {tab === 'Balances' ? (
           balances.length ? (
-            <div className="table-scroll">
+            <div className="table-scroll" role="region" aria-label="Outstanding balances" tabIndex={0}>
               <table className="table">
                 <thead>
                   <tr>
@@ -200,12 +201,11 @@ export function PaymentsPage({
             <EmptyState title="No balances outstanding" detail="Every booking is fully settled." />
           )
         ) : filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Payments" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>
                   <th>Transaction</th>
-                  <th>Booking</th>
                   <th>Customer</th>
                   <th>Type</th>
                   <th>Method</th>
@@ -218,8 +218,10 @@ export function PaymentsPage({
               <tbody>
                 {filtered.map((payment) => (
                   <tr key={payment.id}>
-                    <td className="nowrap"><strong>{payment.id}</strong></td>
-                    <td className="nowrap">{payment.bookingId}</td>
+                    <td className="cell-ref">
+                      <strong>{payment.id}</strong>
+                      <small className="cell-sub">{payment.bookingId}</small>
+                    </td>
                     <td>{payment.customer}</td>
                     <td>{payment.kind}</td>
                     <td>{payment.method}</td>

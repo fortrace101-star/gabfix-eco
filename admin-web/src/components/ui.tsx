@@ -133,14 +133,17 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  variant = 'plain',
 }: {
   eyebrow?: string;
   title: string;
   subtitle: string;
   actions?: ReactNode;
+  /** `hero` is the green band used by the five dashboard pages. */
+  variant?: 'hero' | 'plain';
 }) {
   return (
-    <header className="page-head">
+    <header className={variant === 'hero' ? 'page-hero' : 'page-head'}>
       <div>
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
@@ -245,6 +248,98 @@ export function Modal({
         </div>
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-foot">{footer}</div> : null}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function Drawer({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+  wide,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children?: ReactNode;
+  footer?: ReactNode;
+  wide?: boolean;
+}) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    // Focus the panel, not the close button, so opening the drawer does not paint a focus ring.
+    panelRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previous?.focus?.();
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div className="drawer-backdrop" role="presentation" onMouseDown={onClose}>
+      <div
+        ref={panelRef}
+        className={cx('drawer', wide && 'drawer-wide')}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="drawer-head">
+          <div>
+            <h2 id={titleId}>{title}</h2>
+            {description ? <p>{description}</p> : null}
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClose}
+            aria-label="Close panel"
+          >
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <div className="drawer-body">{children}</div>
+        {footer ? <div className="drawer-foot">{footer}</div> : null}
       </div>
     </div>,
     document.body,

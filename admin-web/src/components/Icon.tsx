@@ -75,6 +75,12 @@ const paths = {
     </>
   ),
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  logout: (
+    <>
+      <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+      <path d="M10 8l-4 4 4 4M6 12h9" />
+    </>
+  ),
   chevronRight: <path d="M9 6l6 6-6 6" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   close: <path d="M5 5l14 14M19 5L5 19" />,
@@ -166,7 +172,7 @@ export function Icon({ name, size = 18, ...props }: IconProps) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

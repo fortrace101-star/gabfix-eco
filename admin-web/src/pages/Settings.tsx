@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Icon } from '../components/Icon';
-import { Button, Field, PageHeader, SectionCard, Toggle } from '../components/ui';
+import { Avatar, Button, Field, PageHeader, SectionCard, Toggle } from '../components/ui';
+import { roleLabel, type AdminUser } from '../lib/auth';
 import type { OperationsSettings } from '../types';
 
 export function SettingsPage({
   settings,
+  user,
   onSave,
 }: {
   settings: OperationsSettings;
+  user: AdminUser;
   onSave: (next: OperationsSettings) => void;
 }) {
   const [draft, setDraft] = useState<OperationsSettings>(() => ({ ...settings }));
@@ -152,11 +155,11 @@ export function SettingsPage({
         <aside className="settings-side">
           <SectionCard title="Signed-in admin" meta="Local operator profile">
             <div className="admin-card">
-              <span className="admin-avatar">MK</span>
+              <Avatar name={user.name} tone="#F5EE5E" size="sm" />
               <div>
-                <strong>Moses K.</strong>
-                <small>Operations lead</small>
-                <small>moses@gabfix.ug</small>
+                <strong>{user.name}</strong>
+                <small>{roleLabel(user.role)}</small>
+                <small>{user.email}</small>
               </div>
             </div>
             <div className="permission-list">

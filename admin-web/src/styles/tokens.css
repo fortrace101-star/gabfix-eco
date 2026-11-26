@@ -1,0 +1,130 @@
+/**
+ * Gabfix admin design tokens — the client app's theme, adapted for desktop.
+ * Mirrored from client-app/src/theme/tokens.ts and styles.ts.
+ *
+ * Rules: no font-size below 12px, no raw hex outside this file, radii and
+ * shadows only from this scale, money and counts use tabular-nums.
+ */
+
+:root {
+  /* Colour — brand greens */
+  --green-50: #e8f6ee;
+  --green-100: #c5e8d3;
+  --green-300: #5bbf86;
+  --green-500: #118e45;
+  --green-700: #1a5e2f;
+  --green-900: #1c411e;
+
+  /* Colour — accent yellows */
+  --yellow-50: #fffce0;
+  --yellow-200: #f5ee5e;
+  --yellow-500: #f7eb15;
+  --yellow-600: #e7be1f;
+  --yellow-800: #8a6d00;
+
+  /* Colour — surfaces and text */
+  --bg: #f6f8f6;
+  --surface: #ffffff;
+  --surface-soft: #fbfcfb;
+  /* Table zebra: a touch deeper than the page background so the band reads
+     against white without becoming a second colour. */
+  --row-alt: #eef2ef;
+  --row-hover: #e4f4ea;
+  --border: #dde5df;
+  --divider: #edf1ee;
+  --disabled-bg: #e3e8e4;
+  --disabled-text: #9aa79f;
+  --text: #16221a;
+  --text-muted: #5f6f65;
+
+  /* Colour — status */
+  --success: #118e45;
+  --success-bg: #e8f6ee;
+  --warning: #e7a500;
+  --warning-bg: #fff4d6;
+  --error: #d32f2f;
+  --error-bg: #fdecec;
+  --info: #1976d2;
+  --info-bg: #e8f1fb;
+
+  /* Colour — effect */
+  --focus-ring: rgba(17, 142, 69, 0.18);
+  --scrim: rgba(22, 34, 26, 0.4);
+  --on-brand: #ffffff;
+  --on-green-muted: rgba(255, 255, 255, 0.85);
+  --glass: rgba(255, 255, 255, 0.14);
+
+  /* Type */
+  --font-display: 'Poppins', 'Inter', sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Spacing — 4pt */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Radius */
+  --r-input: 12px;
+  --r-button: 14px;
+  --r-tile: 16px;
+  --r-card: 20px;
+  --r-sheet: 28px;
+  --r-hero: 40px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 16px rgba(26, 94, 47, 0.08);
+  --shadow-popover: 0 12px 32px rgba(28, 65, 30, 0.16);
+  --shadow-drawer: -12px 0 32px rgba(28, 65, 30, 0.14);
+  --shadow-modal: 0 18px 50px rgba(22, 34, 26, 0.18);
+
+  /* Sizes */
+  --control: 40px;
+  --control-sm: 32px;
+  --row: 52px;
+  --row-compact: 44px;
+  --th: 40px;
+  --topbar: 64px;
+  --sidebar: 248px;
+  --sidebar-rail: 72px;
+
+  /* Motion */
+  --motion-press: 100ms;
+  --motion-fast: 180ms;
+  --motion-base: 250ms;
+  --motion-slow: 300ms;
+
+  /* Layers */
+  --z-sticky: 10;
+  --z-header: 20;
+  --z-drawer: 30;
+  --z-toast: 40;
+  --z-modal: 50;
+
+  /* Legacy aliases — the old stylesheet still references these names. */
+  --green-600: var(--green-700);
+  --red-500: var(--error);
+  --red-50: var(--error-bg);
+  --blue-500: var(--info);
+  --blue-50: var(--info-bg);
+  --muted: var(--text-muted);
+  --muted-soft: var(--disabled-text);
+  --r-btn: var(--r-button);
+  --shadow-pop: var(--shadow-popover);
+  --info-border: var(--info-bg);
+  --border-strong: var(--green-100);
+  --surface-muted: var(--bg);
+
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}

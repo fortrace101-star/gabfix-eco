@@ -187,7 +187,7 @@ export function PromosPage({
         </div>
 
         {filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Promo codes" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>

@@ -148,7 +148,7 @@ export function CustomersPage({
         </div>
 
         {filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" role="region" aria-label="Customers" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>
@@ -267,7 +267,7 @@ export function CustomersPage({
             </div>
             <h3 className="subhead">Recent bookings</h3>
             {customerBookings.length ? (
-              <div className="table-scroll">
+              <div className="table-scroll" role="region" aria-label="Customer bookings" tabIndex={0}>
                 <table className="table compact-table">
                   <thead>
                     <tr>

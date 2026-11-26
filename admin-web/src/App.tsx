@@ -89,7 +89,6 @@ export default function App() {
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState<PageId>(pageFromHash);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('Last 7 days');
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -176,7 +175,6 @@ export default function App() {
 
   const navigate = useCallback((next: PageId) => {
     setPage(next);
-    setMobileOpen(false);
     if (window.location.hash !== `#/${next}`) window.location.hash = `#/${next}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -294,11 +292,11 @@ export default function App() {
 
   if (restoring) {
     return (
-      <div className="auth-shell">
+      <div className="auth-loading">
         <section className="auth-card">
           <p className="auth-eyebrow">Gabfix Operations</p>
           <h1>Loading…</h1>
-          <p>Checking your session.</p>
+          <p className="page-subtitle">Checking your session.</p>
         </section>
       </div>
     );
@@ -307,15 +305,25 @@ export default function App() {
   if (!user) return <Login onSignedIn={setUser} />;
 
   return (
-    <div className="app">
-      <Sidebar
+    <>
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById('main-content')?.focus();
+        }}
+      >
+        Skip to content
+      </a>
+      <div className="app">
+        <Sidebar
         active={page}
-        mobileOpen={mobileOpen}
         onNavigate={navigate}
-        onCloseMobile={() => setMobileOpen(false)}
         user={user}
         role={user.role}
-        onSignOut={handleSignOut}
+        cashDue={cash.filter((entry) => !entry.remitted).length}
+        live={live}
       />
       <div className="main">
         <Topbar
@@ -326,7 +334,8 @@ export default function App() {
           dateRange={dateRange}
           onDateRange={setDateRange}
           onNavigate={navigate}
-          onOpenMobile={() => setMobileOpen(true)}
+          user={user}
+          onSignOut={handleSignOut}
           notifications={notificationsSeed}
           readNotifications={readNotifications}
           onReadNotification={(id) => {
@@ -337,7 +346,7 @@ export default function App() {
           onReadAll={() => setReadNotifications(notificationsSeed.map((item) => item.id))}
           live={live}
         />
-        <main className="page-wrap">
+        <main className="page-wrap" id="main-content" tabIndex={-1}>
           {loadError ? (
             <section className="card restricted" role="alert">
               <h2>Could not load operations data</h2>
@@ -436,7 +445,7 @@ export default function App() {
           ) : null}
           {page === 'settings' ? (
             canViewPage('settings', user.role) ? (
-              <SettingsPage settings={settings} onSave={saveSettings} />
+              <SettingsPage settings={settings} user={user} onSave={saveSettings} />
             ) : (
               <section className="card restricted" role="alert">
                 <h2>Settings is owner-only</h2>
@@ -448,8 +457,21 @@ export default function App() {
             )
           ) : null}
         </main>
-        <Toast message={toast} />
+          <Toast message={toast} />
+        </div>
       </div>
-    </div>
+      <div className="viewport-warning" role="alert">
+        <div>
+          <span className="brand-mark" aria-hidden="true">
+            G
+          </span>
+          <h1>Open Gabfix on a larger screen</h1>
+          <p>
+            The operations console is built for a desktop window of at least 1024px so that
+            bookings, money and dispatch stay readable.
+          </p>
+        </div>
+      </div>
+    </>
   );
 }

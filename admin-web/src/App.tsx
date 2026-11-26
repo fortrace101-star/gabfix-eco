@@ -223,9 +223,12 @@ export default function App() {
 
   const retryPayment = (id: string) => {
     const payment = payments.find((item) => item.id === id);
+    // A retried charge keeps its original instalment role; only the status changes.
+    const booking = bookings.find((item) => item.id === payment?.bookingId);
+    const kind = booking && booking.paid > 0 ? 'Balance' : 'Deposit';
     setPayments((current) =>
       current.map((item) =>
-        item.id === id ? { ...item, kind: 'Deposit', status: 'Received' } : item,
+        item.id === id ? { ...item, kind, status: 'Received' } : item,
       ),
     );
     notify(payment ? `Retry approved for ${payment.bookingId}.` : 'Payment retried.');

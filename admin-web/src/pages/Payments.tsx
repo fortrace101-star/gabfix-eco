@@ -8,7 +8,7 @@ import {
   SectionCard,
   StatusChip,
 } from '../components/ui';
-import { downloadCsv, formatDate, ugx } from '../lib/format';
+import { compactUgx, downloadCsv, formatDate, ugx } from '../lib/format';
 import type { Booking, Payment } from '../types';
 
 type PaymentTab = 'All' | 'Deposits' | 'Balances' | 'Refunds' | 'Failed';
@@ -55,6 +55,12 @@ export function PaymentsPage({
     (payment) => payment.kind === 'Failed payment' && payment.status === 'Failed',
   ).length;
 
+  const received = payments.filter((payment) => payment.status === 'Received' && payment.kind === 'Deposit');
+  const depositsTotal = received.reduce((sum, payment) => sum + payment.amount, 0);
+  const outstandingTotal = balances.reduce((sum, booking) => sum + (booking.total - booking.paid), 0);
+  const refunds = payments.filter((payment) => payment.kind === 'Refund');
+  const refundsTotal = refunds.reduce((sum, payment) => sum + payment.amount, 0);
+
   const exportRows = () => {
     downloadCsv('gabfix-payments-2026-11-20.csv', [
       ['Payment', 'Booking', 'Customer', 'Type', 'Method', 'Amount UGX', 'Status', 'Date'],
@@ -99,27 +105,21 @@ export function PaymentsPage({
       <div className="kpis">
         <KpiCard
           label="Deposits received"
-          value="UGX 8.42m"
-          detail="Last 7 days · 68 transactions"
-          trend="up"
-          trendLabel="9.2%"
+          value={compactUgx(depositsTotal)}
+          detail={`${received.length} deposit${received.length === 1 ? '' : 's'} recorded`}
           icon="payments"
         />
         <KpiCard
           label="Balances outstanding"
-          value="UGX 3.15m"
-          detail={`${balances.length} open bookings`}
-          trend="down"
-          trendLabel="4.1%"
+          value={compactUgx(outstandingTotal)}
+          detail={`${balances.length} open booking${balances.length === 1 ? '' : 's'}`}
           icon="clock"
           tone="yellow"
         />
         <KpiCard
           label="Refunds"
-          value="UGX 420k"
-          detail="6 refunds · all settled"
-          trend="down"
-          trendLabel="2.0%"
+          value={compactUgx(refundsTotal)}
+          detail={`${refunds.length} refund${refunds.length === 1 ? '' : 's'} recorded`}
           icon="refresh"
           tone="blue"
         />

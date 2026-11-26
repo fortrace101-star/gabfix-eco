@@ -1,5 +1,6 @@
 import type {
   Booking,
+  BookingInstallment,
   BookingStatus,
   CashCollection,
   Cleaner,
@@ -47,6 +48,43 @@ const toneFor = (index: number): string =>
 const money = (value: number | string | null | undefined): number =>
   typeof value === 'string' ? Number(value) : (value ?? 0);
 
+const methodLabel = (method: string | null, provider: string | null): Payment['method'] =>
+  method === 'cash'
+    ? 'Cash'
+    : /airtel/i.test(provider ?? '')
+      ? 'Airtel Money'
+      : /visa|card/i.test(provider ?? '')
+        ? 'Visa card'
+        : 'MTN MoMo';
+
+const statusLabel = (status: string): Payment['status'] =>
+  status === 'paid'
+    ? 'Received'
+    : status === 'pending'
+      ? 'Pending'
+      : status === 'refunded'
+        ? 'Refunded'
+        : 'Failed';
+
+/** Stored `kind` wins; rows written before the column existed fall back to amount vs total. */
+const kindLabel = (
+  status: string,
+  kind: string | null,
+  amount: number,
+  total: number,
+): Payment['kind'] =>
+  status === 'refunded'
+    ? 'Refund'
+    : status === 'failed'
+      ? 'Failed payment'
+      : kind === 'balance'
+        ? 'Balance'
+        : kind === 'deposit'
+          ? 'Deposit'
+          : amount < total
+            ? 'Deposit'
+            : 'Balance';
+
 export type ConsoleData = {
   bookings: Booking[];
   cleaners: Cleaner[];
@@ -77,7 +115,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
         .select('booking_id, status, scheduled_at')
         .neq('status', 'withdrawn')
         .order('required_at', { ascending: false }),
-      supabase.from('payments').select('id, booking_id, amount, method, status, provider, paid_at, created_at'),
+      supabase.from('payments').select('id, booking_id, amount, method, status, provider, kind, paid_at, created_at'),
       supabase.from('cash_handovers').select('id, technician_id, amount, confirmed_at, created_at'),
       supabase.from('cash_disputes').select('id, technician_id, status, technician_note'),
     ]);
@@ -126,6 +164,32 @@ export async function loadConsoleData(): Promise<ConsoleData> {
     if (name && !serviceByBooking.has(item.booking_id)) {
       serviceByBooking.set(item.booking_id, name);
     }
+  }
+
+  const installmentsByBooking = new Map<string, BookingInstallment[]>();
+  const historyByBooking = new Map<string, BookingInstallment[]>();
+  const totalPriceById = new Map(bookings.map((row) => [row.id, money(row.total_price)]));
+  for (const row of paymentRows) {
+    if (!row.booking_id) continue;
+    const entry: BookingInstallment = {
+      id: row.id,
+      kind: kindLabel(row.status, row.kind, money(row.amount), totalPriceById.get(row.booking_id) ?? 0),
+      amount: money(row.amount),
+      method: methodLabel(row.method, row.provider),
+      status: statusLabel(row.status),
+      dateISO: dateLabel(row.paid_at ?? row.created_at),
+    };
+    const history = historyByBooking.get(row.booking_id) ?? [];
+    history.push(entry);
+    historyByBooking.set(row.booking_id, history);
+    // Only money actually received counts as an installment.
+    if (row.status !== 'paid') continue;
+    const list = installmentsByBooking.get(row.booking_id) ?? [];
+    list.push(entry);
+    installmentsByBooking.set(row.booking_id, list);
+  }
+  for (const map of [installmentsByBooking, historyByBooking]) {
+    for (const list of map.values()) list.sort((a, b) => a.dateISO.localeCompare(b.dateISO));
   }
 
   const paidByBooking = new Map<string, number>();
@@ -211,6 +275,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       payment,
       total,
       paid,
+      installments: installmentsByBooking.get(row.id) ?? [],
+      paymentHistory: historyByBooking.get(row.id) ?? [],
       scope: {
         summary: `${row.technicians_needed} technician${row.technicians_needed === 1 ? '' : 's'} needed`,
         facts: row.notes ? [{ label: 'Notes', value: row.notes }] : undefined,
@@ -288,37 +354,14 @@ export async function loadConsoleData(): Promise<ConsoleData> {
 
   const paymentList: Payment[] = paymentRows.map((row) => {
     const booking = bookings.find((item) => item.id === row.booking_id);
-    const kind: Payment['kind'] =
-      row.status === 'refunded'
-        ? 'Refund'
-        : row.status === 'failed'
-          ? 'Failed payment'
-          : money(row.amount) < money(booking?.total_price ?? 0)
-            ? 'Deposit'
-            : 'Balance';
-    const method: Payment['method'] =
-      row.method === 'cash'
-        ? 'Cash'
-        : /airtel/i.test(row.provider ?? '')
-          ? 'Airtel Money'
-          : /visa|card/i.test(row.provider ?? '')
-            ? 'Visa card'
-            : 'MTN MoMo';
     return {
       id: row.id,
       bookingId: booking?.reference ?? '—',
       customer: profileById.get(booking?.customer_id ?? '')?.full_name ?? 'Customer',
-      kind,
-      method,
+      kind: kindLabel(row.status, row.kind, money(row.amount), money(booking?.total_price ?? 0)),
+      method: methodLabel(row.method, row.provider),
       amount: money(row.amount),
-      status:
-        row.status === 'paid'
-          ? 'Received'
-          : row.status === 'pending'
-            ? 'Pending'
-            : row.status === 'refunded'
-              ? 'Refunded'
-              : 'Failed',
+      status: statusLabel(row.status),
       dateISO: dateLabel(row.paid_at ?? row.created_at),
     };
   });

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AssignCleanerDialog } from '../components/AssignCleanerDialog';
+import { BookingPaymentsDialog } from '../components/BookingPaymentsDialog';
 import { Icon } from '../components/Icon';
 import {
   Avatar,
@@ -41,6 +42,7 @@ export function BookingsPage({
   const [status, setStatus] = useState<(typeof statuses)[number]>('All statuses');
   const [dateFilter, setDateFilter] = useState('All dates');
   const [assigning, setAssigning] = useState<Booking | null>(null);
+  const [paymentsFor, setPaymentsFor] = useState<Booking | null>(null);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -68,7 +70,7 @@ export function BookingsPage({
 
   const exportRows = () => {
     downloadCsv('gabfix-bookings-2026-11-20.csv', [
-      ['Booking', 'Customer', 'Phone', 'Service', 'Location', 'Date', 'Time', 'Hours', 'Cleaner', 'Status', 'Payment', 'Total UGX', 'Paid UGX'],
+      ['Booking', 'Customer', 'Phone', 'Service', 'Location', 'Date', 'Time', 'Hours', 'Cleaner', 'Status', 'Payment', 'Installments', 'Total UGX', 'Paid UGX'],
       ...filtered.map((booking) => [
         booking.id,
         booking.customer,
@@ -86,6 +88,9 @@ export function BookingsPage({
         ].join(' + '),
         booking.status,
         booking.payment,
+        (booking.installments ?? [])
+          .map((installment) => `${installment.kind} (${installment.method}) ${installment.amount} on ${installment.dateISO}`)
+          .join(' + '),
         booking.total,
         booking.paid,
       ]),
@@ -181,7 +186,13 @@ export function BookingsPage({
                   <th>Cleaner</th>
                   <th>Status</th>
                   <th>Payment</th>
-                  <th className="align-right">Total</th>
+                  <th className="align-right">
+                    <span className="amount-head">
+                      <span>Total</span>
+                      <span className="amount-rule" />
+                      <span className="amount-head-balance">Balance</span>
+                    </span>
+                  </th>
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -241,19 +252,51 @@ export function BookingsPage({
                       <td><StatusChip label={booking.status} /></td>
                       <td>
                         <StatusChip label={booking.payment} />
-                        {booking.payment === 'Balance due' ? (
-                          <small className="cell-sub">{ugx(booking.total - booking.paid)} due</small>
+                        {booking.installments?.length ? (
+                          <div className="installment-list">
+                            {booking.installments.map((installment, index) => (
+                              <small key={installment.id} className="cell-sub installment-row">
+                                <span>
+                                  {installment.kind === 'Deposit' ? `Deposit ${index + 1}` : installment.kind}
+                                  {' · '}{installment.method}
+                                </span>
+                                <strong>{ugx(installment.amount)}</strong>
+                              </small>
+                            ))}
+                            <small className="cell-sub installment-total">
+                              <span>Paid in total</span>
+                              <strong>{ugx(booking.paid)}</strong>
+                            </small>
+                          </div>
                         ) : null}
                       </td>
-                      <td className="align-right nowrap">{ugx(booking.total)}</td>
+                      <td className="align-right nowrap">
+                        <div className="total-cell">
+                          <strong className="total-value">{ugx(booking.total)}</strong>
+                          <span className="amount-rule" />
+                          <strong className="balance-value">
+                            {ugx(Math.max(booking.total - booking.paid, 0))}
+                          </strong>
+                        </div>
+                      </td>
                       <td className="align-right">
-                        <Button
-                          className="btn-small"
-                          icon={cleaner ? 'refresh' : 'cleaners'}
-                          onClick={() => setAssigning(booking)}
-                        >
-                          {cleaner ? 'Reassign' : 'Assign'}
-                        </Button>
+                        <div className="row-actions">
+                          <Button
+                            className="btn-small"
+                            variant="ghost"
+                            icon="payments"
+                            onClick={() => setPaymentsFor(booking)}
+                          >
+                            Payments
+                          </Button>
+                          <Button
+                            className="btn-small"
+                            icon={cleaner ? 'refresh' : 'cleaners'}
+                            onClick={() => setAssigning(booking)}
+                          >
+                            {cleaner ? 'Reassign' : 'Assign'}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -280,6 +323,14 @@ export function BookingsPage({
           />
         )}
       </SectionCard>
+
+      {paymentsFor ? (
+        <BookingPaymentsDialog
+          key={`payments-${paymentsFor.id}`}
+          booking={paymentsFor}
+          onClose={() => setPaymentsFor(null)}
+        />
+      ) : null}
 
       {assigning ? (
         <AssignCleanerDialog

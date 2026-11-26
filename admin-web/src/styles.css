@@ -1468,6 +1468,126 @@ h3 {
   font-size: 9.5px;
 }
 
+.installment-list {
+  display: grid;
+  gap: 1px;
+  margin-top: 4px;
+  min-width: 150px;
+}
+
+.installment-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.installment-row strong,
+.installment-total strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.installment-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid #eceee9;
+  color: var(--green-600);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.installment-total strong {
+  color: var(--green-600);
+}
+
+.total-cell {
+  display: grid;
+  width: 100%;
+  justify-items: end;
+  min-width: 120px;
+}
+
+.amount-head {
+  display: grid;
+  width: 100%;
+  justify-items: end;
+  gap: 2px;
+}
+
+.amount-head-balance {
+  color: var(--red-500);
+}
+
+.total-cell .total-value {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-rule {
+  width: 100%;
+  margin: 3px 0;
+  border-top: 1px solid #eceee9;
+}
+
+.balance-value {
+  color: var(--red-500);
+}
+
+.total-cell .balance-value {
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-paid {
+  color: var(--green-600);
+}
+
+.payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+  background: var(--surface-soft);
+}
+
+.payment-summary div {
+  display: grid;
+  gap: 2px;
+}
+
+.payment-summary span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-summary strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.payment-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-btn);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
 .cleaner-inline {
   display: flex;
   align-items: center;

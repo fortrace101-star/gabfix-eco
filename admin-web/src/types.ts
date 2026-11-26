@@ -33,6 +33,15 @@ export type BookingMedia = {
   durationSec?: number;
 };
 
+export type BookingInstallment = {
+  id: string;
+  kind: 'Deposit' | 'Balance' | 'Refund' | 'Failed payment';
+  amount: number;
+  method: 'MTN MoMo' | 'Airtel Money' | 'Visa card' | 'Cash';
+  status: 'Received' | 'Pending' | 'Refunded' | 'Failed' | 'Reconciled';
+  dateISO: string;
+};
+
 export type Booking = {
   id: string;
   customerId: string;
@@ -48,6 +57,10 @@ export type Booking = {
   payment: PaymentState;
   total: number;
   paid: number;
+  /** Deposit, balance and any later payment for this job, oldest first. */
+  installments?: BookingInstallment[];
+  /** Every payment row for this job, including failed and refunded attempts. */
+  paymentHistory?: BookingInstallment[];
   scope?: {
     summary: string;
     facts?: BookingScopeFact[];

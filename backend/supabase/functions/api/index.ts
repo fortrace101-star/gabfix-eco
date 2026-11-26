@@ -1466,7 +1466,7 @@ app.post('/bookings/:id/payments', async (c) => {
 
   const { data: paymentRows, error: paymentsError } = await admin
     .from('payments')
-    .select('id, booking_id, amount, method, status, provider, provider_reference, paid_at')
+    .select('id, booking_id, amount, method, status, provider, kind, provider_reference, paid_at')
     .eq('booking_id', booking.id);
   if (paymentsError) {
     throw new HTTPException(500, { message: paymentsError.message, cause: 'payments_read' });
@@ -1495,7 +1495,7 @@ app.post('/bookings/:id/payments', async (c) => {
           provider: prior.provider,
           paidAt: prior.paid_at,
         },
-        kind,
+        kind: prior.kind ?? kind,
         paid,
         balance,
       });
@@ -1512,6 +1512,7 @@ app.post('/bookings/:id/payments', async (c) => {
       method: requestedMethod === 'cash' ? 'cash' : 'app',
       status: 'paid',
       provider: requestedMethod,
+      kind,
       provider_reference: idempotencyKey,
       recorded_by: profile.id,
       paid_at: new Date().toISOString(),

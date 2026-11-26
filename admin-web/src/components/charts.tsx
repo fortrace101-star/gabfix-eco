@@ -3,6 +3,22 @@ import { compactUgx } from '../lib/format';
 
 type Point = { label: string; value: number };
 
+/** Rounds a rough axis step up to 1, 2, 2.5 or 5 × a power of ten. */
+const niceStep = (rough: number): number => {
+  if (!Number.isFinite(rough) || rough <= 0) return 1_000_000;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const scaled = rough / magnitude;
+  const factor = scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 2.5 ? 2.5 : scaled <= 5 ? 5 : 10;
+  return factor * magnitude;
+};
+
+const axisLabel = (value: number): string => {
+  if (value === 0) return 'UGX 0';
+  if (value >= 1_000_000) return `${+(value / 1_000_000).toFixed(1)}m`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
+  return String(value);
+};
+
 export function RevenueChart({ data }: { data: Point[] }) {
   const [active, setActive] = useState<number | null>(null);
   const width = 720;
@@ -10,11 +26,14 @@ export function RevenueChart({ data }: { data: Point[] }) {
   const pad = { top: 22, right: 24, bottom: 34, left: 58 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
-  const max = 7_000_000;
-  const maxIndex = data.reduce(
-    (best, point, index) => (point.value > data[best].value ? index : best),
-    0,
+  const peak = data.reduce(
+    (best, point) => (point.value > best.value ? point : best),
+    data[0] ?? { label: 'No days', value: 0 },
   );
+  // Scale to the money actually collected, so a quiet week is not flattened by a fixed axis.
+  const step = niceStep(peak.value / 3);
+  const max = step * 3;
+  const maxIndex = data.findIndex((point) => point.value === peak.value);
 
   const x = (index: number) =>
     pad.left + (data.length === 1 ? chartW / 2 : (index / (data.length - 1)) * chartW);
@@ -31,7 +50,7 @@ export function RevenueChart({ data }: { data: Point[] }) {
         className="revenue-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Revenue for the last seven days. Nineteen November was the highest day at UGX 6.3 million."
+        aria-label={`Revenue for ${data.length} day${data.length === 1 ? '' : 's'}. ${peak.label} was the highest at ${compactUgx(peak.value)}.`}
         onMouseLeave={() => setActive(null)}
       >
         <defs>
@@ -40,20 +59,21 @@ export function RevenueChart({ data }: { data: Point[] }) {
             <stop offset="100%" stopColor="#118E45" stopOpacity="0.01" />
           </linearGradient>
         </defs>
-        {[0, 2, 4, 6].map((value) => {
-          const yy = y(value * 1_000_000);
+        {[0, 1, 2, 3].map((multiple) => {
+          const value = step * multiple;
+          const yy = y(value);
           return (
-            <g key={value}>
+            <g key={multiple}>
               <line
                 x1={pad.left}
                 y1={yy}
                 x2={width - pad.right}
                 y2={yy}
                 stroke="#E7EEE9"
-                strokeDasharray={value === 0 ? undefined : '4 6'}
+                strokeDasharray={multiple === 0 ? undefined : '4 6'}
               />
               <text x={pad.left - 12} y={yy + 4} textAnchor="end" className="chart-axis">
-                {value === 0 ? 'UGX 0' : `${value}m`}
+                {axisLabel(value)}
               </text>
             </g>
           );

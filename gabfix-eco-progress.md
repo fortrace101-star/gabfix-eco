@@ -174,6 +174,34 @@ Only work with a passing check is listed here.
   against the local stack with a probe booking (201, one row, `provider` = method, balance returned)
   and the probe rows deleted; `GBX-988A7A` still reads 630,000 in the app only because its 270,000
   deposit predates the ledger route and has no `payments` row yet.
+- **Ledger backfill + payment kind (2026-11-26):** the two confirmed bookings now match the app. A
+  270,000 MTN deposit was inserted for `GBX-988A7A` (900,000 total → 630,000 balance) and a 750,000
+  Airtel payment for `GBX-6D117E` (750,000 total → settled); both as `method = app` with the exact
+  provider in `provider`, `recorded_by` the customer, `provider_reference` a `backfill-2026-11-26-*`
+  key. The desk also labelled a partial balance payment as "Deposit", because it only compared the
+  row amount with the booking total. Migration `20261126120000_payment_kind.sql` adds a nullable
+  `payments.kind` (`deposit` | `balance`), `POST /bookings/:id/payments` stores the kind it already
+  received, and `admin-web` reads the column, falling back to the old amount comparison for rows
+  written before it. Probe booking `GBX-KINDT` (100,000) took a 30,000 deposit then a 30,000 balance
+  payment: rows stored `deposit` and `balance` respectively, probe rows deleted. `admin-web`
+  `npm run build` passes; both generated `database.types.ts` gained the column. Migration
+  `20261126130000_backfill_ledger_payments.sql` ports the two rows to any environment, keyed on the
+  booking reference and skipped when the backfill row already exists (`INSERT 0 0` on a local re-run).
+- **Instalments in the booking payment field (2026-11-26):** `admin-web` now carries
+  `Booking.installments`, built in `loadConsoleData` from each booking's `paid` payment rows (oldest
+  first) with kind, method, amount and date. The Bookings payment cell lists every instalment with its
+  amount and a closing “Paid in total” line equal to `Booking.paid`, and the CSV export gained an
+  Installments column. The Payments page deposit, outstanding-balance and refund cards now sum real
+  rows instead of the hardcoded “UGX 8.42m / 68 transactions / UGX 420k”, and a retried failed payment
+  keeps its instalment role rather than being relabelled “Deposit”. `npx tsc --noEmit` and
+  `npm run build` pass. The Total field carries its labels in the header — “Total”, a rule, then
+  “Balance” in red — and each row shows the total amount, the rule, then the balance in red a step
+  smaller; “Paid in total” is green. Each booking has a Payments button opening a payment-history dialog with
+  Total/Paid/Balance, every row including failed and refunded attempts, and a per-payment receipt CSV.
+  The Overview revenue chart now scales to the collected money instead of a fixed 7m axis. Verified in
+  the running dev build with headless Chrome (owner sign-in): 9 rows, `GBX-988A7A` showing Total
+  900,000 / Balance 630,000 / Paid in total 270,000, the dialog and receipt action rendering, Payments
+  KPIs at UGX 1.2m deposits / 1.1m outstanding, and a 0–3m chart axis peaking at 1.7m.
 
 ---
 

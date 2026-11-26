@@ -13,24 +13,6 @@ import type {
 /** Local calendar day, so date filters follow the desk's clock rather than a frozen demo date. */
 export const TODAY = new Date().toLocaleDateString('en-CA');
 
-export const revenueSeries = [
-  { label: '14 Nov', value: 3_240_000 },
-  { label: '15 Nov', value: 4_180_000 },
-  { label: '16 Nov', value: 2_940_000 },
-  { label: '17 Nov', value: 5_460_000 },
-  { label: '18 Nov', value: 4_720_000 },
-  { label: '19 Nov', value: 6_280_000 },
-  { label: '20 Nov', value: 5_130_000 },
-];
-
-export const bookingsByArea = [
-  { area: 'Kololo', count: 86 },
-  { area: 'Ntinda', count: 74 },
-  { area: 'Bugolobi', count: 58 },
-  { area: 'Muyenga', count: 47 },
-  { area: 'Nakasero', count: 39 },
-];
-
 export const initialBookings: Booking[] = [
   {
     id: 'GBX-27104',

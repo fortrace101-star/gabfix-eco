@@ -715,14 +715,14 @@ isOneToOne: false
                   ]
                 },"payments": {
                   Row: {
-                    "amount": number,"booking_id": string | null,"created_at": string,"id": string,"laundry_order_id": string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at": string | null,"provider": string | null,"provider_reference": string | null,"recorded_by": string | null,"status": Database["public"]['Enums']["payment_status"]
+                    "amount": number,"booking_id": string | null,"created_at": string,"id": string,"kind": string | null,"laundry_order_id": string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at": string | null,"provider": string | null,"provider_reference": string | null,"recorded_by": string | null,"status": Database["public"]['Enums']["payment_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
+                    "amount": number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: string | null,"laundry_order_id"?: string | null,"method": Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
                   }
                   Update: {
-                    "amount"?: number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"laundry_order_id"?: string | null,"method"?: Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
+                    "amount"?: number,"booking_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: string | null,"laundry_order_id"?: string | null,"method"?: Database["public"]['Enums']["payment_method"],"paid_at"?: string | null,"provider"?: string | null,"provider_reference"?: string | null,"recorded_by"?: string | null,"status"?: Database["public"]['Enums']["payment_status"]
                   }
                   Relationships: [
                     {

@@ -317,11 +317,8 @@ async function createMediaTargets(
 /** Session + booking ownership/access check shared by the media routes. */
 async function mediaBookingAccess(c: Context, bookingId: string) {
   const { profile } = await session(c);
-  const { data: booking } = await admin
-    .from('bookings')
-    .select('id, customer_id')
-    .eq('id', bookingId)
-    .maybeSingle();
+  // The app passes the reference it shows; the desk passes the UUID.
+  const booking = await bookingByReferenceOrId(bookingId);
   const isDesk = ['admin', 'manager', 'customer_relations'].includes(profile.role);
   if (!booking || (booking.customer_id !== profile.id && !isDesk)) {
     throw new HTTPException(404, { message: 'That booking was not found.', cause: 'not_found' });
@@ -1428,7 +1425,8 @@ app.post('/bookings', async (c) => {
   }
 
   const response = {
-    bookingId: booking.id,
+    // The app shows and routes bookings by their reference, not the desk UUID.
+    bookingId: booking.reference,
     ...(uploads ? { uploads } : {}),
     booking: {
       id: booking.id,
@@ -1590,8 +1588,7 @@ app.post('/bookings/:id/payments', async (c) => {
 
 // W3 media contract: issue targets, complete, refresh and delete booking media.
 app.post('/bookings/:id/media/targets', async (c) => {
-  const bookingId = c.req.param('id');
-  const { profile } = await mediaBookingAccess(c, bookingId);
+  const { profile, booking } = await mediaBookingAccess(c, c.req.param('id'));
   const body = (await c.req.json().catch(() => null)) as { items?: unknown } | null;
   const items = Array.isArray(body?.items) ? (body!.items as MediaInput[]) : [];
   if (items.length === 0) return fail(c, 400, 'media_required', 'Attach at least one photo or video.');
@@ -1602,27 +1599,26 @@ app.post('/bookings/:id/media/targets', async (c) => {
   const { data: existing, error: countError } = await admin
     .from('booking_media')
     .select('id')
-    .eq('booking_id', bookingId);
+    .eq('booking_id', booking.id);
   if (countError) throw new HTTPException(500, { message: countError.message, cause: 'media_read' });
   if ((existing?.length ?? 0) + items.length > MAX_MEDIA_ITEMS) {
     return fail(c, 400, 'invalid_media', `Add at most ${MAX_MEDIA_ITEMS} photos or videos.`);
   }
 
-  const issued = await createMediaTargets(bookingId, profile.id, items);
+  const issued = await createMediaTargets(booking.id, profile.id, items);
   if (issued.error) throw new HTTPException(500, { message: issued.error, cause: 'media_target' });
   return c.json({ uploads: issued.uploads }, 201);
 });
 
 app.post('/bookings/:id/media/:mediaId/complete', async (c) => {
-  const bookingId = c.req.param('id');
-  await mediaBookingAccess(c, bookingId);
+  const { booking } = await mediaBookingAccess(c, c.req.param('id'));
   const mediaId = c.req.param('mediaId');
 
   const { data: media, error } = await admin
     .from('booking_media')
     .select('id, booking_id, storage_path, status')
     .eq('id', mediaId)
-    .eq('booking_id', bookingId)
+    .eq('booking_id', booking.id)
     .maybeSingle();
   if (error) throw new HTTPException(500, { message: error.message, cause: 'media_read' });
   if (!media) return fail(c, 404, 'not_found', 'That attachment was not found.');
@@ -1631,7 +1627,7 @@ app.post('/bookings/:id/media/:mediaId/complete', async (c) => {
   const fileName = media.storage_path.split('/').pop() ?? '';
   const { data: objects, error: listError } = await admin.storage
     .from(MEDIA_BUCKET)
-    .list(bookingId, { limit: 100 });
+    .list(booking.id, { limit: 100 });
   if (listError) throw new HTTPException(500, { message: listError.message, cause: 'media_list' });
   if (!(objects ?? []).some((object) => object.name === fileName)) {
     return fail(c, 409, 'media_missing', 'The file has not reached storage yet. Retry the upload.');
@@ -1648,15 +1644,14 @@ app.post('/bookings/:id/media/:mediaId/complete', async (c) => {
 });
 
 app.post('/bookings/:id/media/:mediaId/refresh', async (c) => {
-  const bookingId = c.req.param('id');
-  await mediaBookingAccess(c, bookingId);
+  const { booking } = await mediaBookingAccess(c, c.req.param('id'));
   const mediaId = c.req.param('mediaId');
 
   const { data: media, error } = await admin
     .from('booking_media')
     .select('id, storage_path, status, mime_type')
     .eq('id', mediaId)
-    .eq('booking_id', bookingId)
+    .eq('booking_id', booking.id)
     .maybeSingle();
   if (error) throw new HTTPException(500, { message: error.message, cause: 'media_read' });
   if (!media) return fail(c, 404, 'not_found', 'That attachment was not found.');
@@ -1681,15 +1676,14 @@ app.post('/bookings/:id/media/:mediaId/refresh', async (c) => {
 });
 
 app.delete('/bookings/:id/media/:mediaId', async (c) => {
-  const bookingId = c.req.param('id');
-  await mediaBookingAccess(c, bookingId);
+  const { booking } = await mediaBookingAccess(c, c.req.param('id'));
   const mediaId = c.req.param('mediaId');
 
   const { data: media, error } = await admin
     .from('booking_media')
     .select('id, storage_path')
     .eq('id', mediaId)
-    .eq('booking_id', bookingId)
+    .eq('booking_id', booking.id)
     .maybeSingle();
   if (error) throw new HTTPException(500, { message: error.message, cause: 'media_read' });
   if (!media) return fail(c, 404, 'not_found', 'That attachment was not found.');
@@ -2178,10 +2172,116 @@ app.post('/threads/:id/messages', async (c) => {
 
 const CHAT_ARCHIVE_BUCKET = 'chat-archives';
 
+type ArchiveThread = {
+  id: string;
+  booking_id: string;
+  customer_id: string;
+  lead_id: string | null;
+  created_at: string;
+  bookings: { reference: string | null; status: string } | null;
+  customer: { id: string; full_name: string } | null;
+  lead: { id: string; full_name: string } | null;
+};
+
+/**
+ * Writes one thread as JSONL to the private archive, then removes it from the
+ * database. Every line is a JSON object: a `thread` header, then one `message`.
+ */
+async function archiveBookingThread(thread: ArchiveThread, archivedBy: string) {
+  const { data: messages, error: messagesError } = await admin
+    .from('booking_messages')
+    .select('id, sender_id, body, created_at, profiles!booking_messages_sender_id_fkey(full_name)')
+    .eq('thread_id', thread.id)
+    .order('created_at');
+  if (messagesError) throw new HTTPException(500, { message: messagesError.message, cause: 'messages_read' });
+
+  const archivedAt = new Date().toISOString();
+  const rows = (messages ?? []) as unknown as {
+    id: string;
+    sender_id: string;
+    body: string;
+    created_at: string;
+    profiles: { full_name: string } | { full_name: string }[] | null;
+  }[];
+  const senderName = (row: (typeof rows)[number]) =>
+    (Array.isArray(row.profiles) ? row.profiles[0]?.full_name : row.profiles?.full_name) ?? 'Gabfix';
+
+  const threadHeader = {
+    type: 'thread',
+    thread_id: thread.id,
+    booking_id: thread.booking_id,
+    reference: thread.bookings?.reference ?? null,
+    booking_status: thread.bookings?.status ?? null,
+    customer: thread.customer,
+    technician: thread.lead,
+    created_at: thread.created_at,
+    archived_at: archivedAt,
+    archived_by: archivedBy,
+    message_count: rows.length,
+  };
+  const lines = [
+    JSON.stringify(threadHeader),
+    ...rows.map((row) =>
+      JSON.stringify({
+        type: 'message',
+        id: row.id,
+        thread_id: thread.id,
+        sender_id: row.sender_id,
+        sender_name: senderName(row),
+        body: row.body,
+        created_at: row.created_at,
+      }),
+    ),
+  ];
+
+  const safeReference = String(thread.bookings?.reference ?? thread.booking_id).replace(/[^A-Za-z0-9_-]/g, '');
+  // The backup is named after the booking, e.g. GBX-45RT67436T.jsonl.
+  const path = `booking-chats/${safeReference}.jsonl`;
+  const { error: uploadError } = await admin.storage
+    .from(CHAT_ARCHIVE_BUCKET)
+    .upload(path, new Blob([`${lines.join('\n')}\n`], { type: 'application/x-ndjson' }), {
+      contentType: 'application/x-ndjson',
+      upsert: true,
+    });
+  if (uploadError) {
+    throw new HTTPException(500, { message: uploadError.message, cause: 'chat_archive_write' });
+  }
+
+  // Only clear the database once the backup is safely written.
+  const { error: deleteError } = await admin
+    .from('booking_threads')
+    .delete()
+    .eq('id', thread.id);
+  if (deleteError) {
+    throw new HTTPException(500, { message: deleteError.message, cause: 'chat_archive_delete' });
+  }
+
+  return { path, messages: rows.length };
+}
+
+/**
+ * A finished job must not keep a live thread. The ERP archives when it completes
+ * the job, but that call is best effort (offline device, function restart), so the
+ * owner console sweeps anything left behind before listing the archive.
+ */
+async function archiveCompletedChats(archivedBy: string): Promise<void> {
+  const { data } = await admin
+    .from('booking_threads')
+    .select('id, booking_id, customer_id, lead_id, created_at, bookings!inner(reference, status), customer:profiles!booking_threads_customer_id_fkey(id, full_name), lead:profiles!booking_threads_lead_id_fkey(id, full_name)')
+    .eq('bookings.status', 'completed');
+
+  for (const thread of (data ?? []) as unknown as ArchiveThread[]) {
+    try {
+      await archiveBookingThread(thread, archivedBy);
+    } catch {
+      // Keep the console usable; the next visit retries this thread.
+    }
+  }
+}
+
 /**
  * Exports one booking's conversation as JSONL and removes it from the database.
- * The ERP calls this after `complete_job`; the desk can call it too. Every line
- * is a JSON object: a `thread` header, then one `message` per line.
+ * The ERP calls this after `complete_job`; the desk can call it too.
  */
 app.post('/bookings/:id/chat/archive', async (c) => {
   const { profile } = await session(c);
@@ -2218,75 +2318,8 @@ app.post('/bookings/:id/chat/archive', async (c) => {
   if (threadError) throw new HTTPException(500, { message: threadError.message, cause: 'thread_read' });
   if (!thread) return c.json({ archived: false, path: null, messages: 0 });
 
-  const { data: messages, error: messagesError } = await admin
-    .from('booking_messages')
-    .select('id, sender_id, body, created_at, profiles!booking_messages_sender_id_fkey(full_name)')
-    .eq('thread_id', thread.id)
-    .order('created_at');
-  if (messagesError) throw new HTTPException(500, { message: messagesError.message, cause: 'messages_read' });
-
-  const archivedAt = new Date().toISOString();
-  const rows = (messages ?? []) as unknown as {
-    id: string;
-    sender_id: string;
-    body: string;
-    created_at: string;
-    profiles: { full_name: string } | { full_name: string }[] | null;
-  }[];
-  const senderName = (row: (typeof rows)[number]) =>
-    (Array.isArray(row.profiles) ? row.profiles[0]?.full_name : row.profiles?.full_name) ?? 'Gabfix';
-
-  const threadHeader = {
-    type: 'thread',
-    thread_id: thread.id,
-    booking_id: thread.booking_id,
-    reference: thread.bookings?.reference ?? null,
-    booking_status: thread.bookings?.status ?? null,
-    customer: thread.customer,
-    technician: thread.lead,
-    created_at: thread.created_at,
-    archived_at: archivedAt,
-    archived_by: profile.id,
-    message_count: rows.length,
-  };
-  const lines = [
-    JSON.stringify(threadHeader),
-    ...rows.map((row) =>
-      JSON.stringify({
-        type: 'message',
-        id: row.id,
-        thread_id: thread.id,
-        sender_id: row.sender_id,
-        sender_name: senderName(row),
-        body: row.body,
-        created_at: row.created_at,
-      }),
-    ),
-  ];
-
-  const safeReference = String(thread.bookings?.reference ?? bookingId).replace(/[^A-Za-z0-9_-]/g, '');
-  // The backup is named after the booking, e.g. GBX-45RT67436T.jsonl.
-  const path = `booking-chats/${safeReference}.jsonl`;
-  const { error: uploadError } = await admin.storage
-    .from(CHAT_ARCHIVE_BUCKET)
-    .upload(path, new Blob([`${lines.join('\n')}\n`], { type: 'application/x-ndjson' }), {
-      contentType: 'application/x-ndjson',
-      upsert: true,
-    });
-  if (uploadError) {
-    throw new HTTPException(500, { message: uploadError.message, cause: 'chat_archive_write' });
-  }
-
-  // Only clear the database once the backup is safely written.
-  const { error: deleteError } = await admin
-    .from('booking_threads')
-    .delete()
-    .eq('id', thread.id);
-  if (deleteError) {
-    throw new HTTPException(500, { message: deleteError.message, cause: 'chat_archive_delete' });
-  }
-
-  return c.json({ archived: true, path, messages: rows.length });
+  const archived = await archiveBookingThread(thread as unknown as ArchiveThread, profile.id);
+  return c.json({ archived: true, path: archived.path, messages: archived.messages });
 });
 
 // The owner-only archive console reads through the API, so storage stays private.
@@ -2299,7 +2332,9 @@ async function requireAdmin(c: Context) {
 }
 
 app.get('/chat-archives', async (c) => {
-  await requireAdmin(c);
+  const { profile } = await requireAdmin(c);
+  // Pick up chats whose completion-time archive call did not land.
+  await archiveCompletedChats(profile.id);
   const { data, error } = await admin.storage.from(CHAT_ARCHIVE_BUCKET).list('booking-chats', {
     limit: 200,
     sortBy: { column: 'name', order: 'desc' },

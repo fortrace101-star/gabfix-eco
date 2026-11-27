@@ -7,7 +7,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -277,27 +276,6 @@ export default function ChatThreadScreen() {
           }
         />
 
-        {thread.quickReplies?.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.quickRow}>
-            {thread.quickReplies.map((reply) => (
-              <Pressable
-                key={reply}
-                accessibilityRole="button"
-                accessibilityLabel={`Send quick reply: ${reply}`}
-                onPress={() => sendMessage(thread.id, reply)}
-                style={({ pressed }) => [styles.quickChip, pressed && styles.quickChipPressed]}>
-                <Text style={styles.quickText} maxFontSizeMultiplier={1.2}>
-                  {reply}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        ) : null}
-
         <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, space[2]) }]}>
           <Pressable
             accessibilityRole="button"
@@ -465,28 +443,6 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
   },
   emptyThread: { ...text.bodyM, textAlign: 'center', color: colors.textMuted },
-  quickRow: {
-    gap: space[2],
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
-  },
-  quickChip: {
-    height: 32,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.green100,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space[3],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickChipPressed: { backgroundColor: colors.green50 },
-  quickText: {
-    fontFamily: font.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.green700,
-  },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

@@ -16,10 +16,13 @@ export type UploadTarget = {
 };
 
 export type BookingResult = {
+  /** The human-readable reference the app shows, e.g. GBX-7K2M9Q4T1B. */
   bookingId: string;
   priceBreakdown: PriceBreakdown;
   /** Present when the backend accepted media metadata and issued targets. */
   uploads?: UploadTarget[];
+  /** The server's booking row; `reference` is what the customer sees. */
+  booking?: { id: string; reference: string };
 };
 
 export type ServerBookingAssignment = {
@@ -99,7 +102,7 @@ export async function createBooking(draft: BookingDraft, total: number): Promise
     return { bookingId: localBookingId(), priceBreakdown: price(draft) };
   }
 
-  return apiRequest<BookingResult>('/bookings', {
+  const result = await apiRequest<BookingResult>('/bookings', {
     method: 'POST',
     idempotencyKey: `booking-${Date.now()}-${draft.serviceSlug}`,
     body: {
@@ -127,4 +130,9 @@ export async function createBooking(draft: BookingDraft, total: number): Promise
       clientTotal: total,
     },
   });
+
+  // Older API builds returned the desk UUID as `bookingId`; always show the reference.
+  return result.booking?.reference
+    ? { ...result, bookingId: result.booking.reference }
+    : result;
 }

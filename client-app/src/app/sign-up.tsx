@@ -86,7 +86,7 @@ export default function SignUpScreen() {
 
   return (
     <AuthScreen
-      blobs={['topCenterLeft']}
+      blobs={[]}
       loading={loading}
       contentTop={40}
       footer={

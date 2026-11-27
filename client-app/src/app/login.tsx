@@ -1,6 +1,6 @@
 import { Mail } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -13,6 +13,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supportsNativeDriver } from '@/lib/animation';
 import { login, requestOtp } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  saveRememberedLogin,
+} from '@/lib/remembered-login';
 import { startSession } from '@/store/session';
 import { auth, authSize, font } from '@/theme';
 import { isPhoneOrEmail, isStrongEnoughPassword, normalisePhone } from '@/utils/validation';
@@ -28,6 +33,19 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
   const submitted = useRef(false);
+
+  // "Remember me" prefills the last identifier used on this device.
+  useEffect(() => {
+    let active = true;
+    void loadRememberedLogin().then((saved) => {
+      if (!active || !saved) return;
+      setIdentifier((current) => current || saved);
+      setRemember(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const phoneLike = identifier.trim().length > 0 && /^\+?[\d\s]+$/.test(identifier.trim());
 
@@ -63,8 +81,11 @@ export default function LoginScreen() {
     submitted.current = true;
     setLoading(true);
     try {
-      const session = await login({ identifier: identifier.trim(), password });
-      await startSession(session);
+      const trimmedIdentifier = identifier.trim();
+      const session = await login({ identifier: trimmedIdentifier, password });
+      await startSession(session, { remember });
+      if (remember) await saveRememberedLogin(trimmedIdentifier);
+      else await clearRememberedLogin();
       router.replace('/welcome-back');
     } catch (error) {
       const message =
@@ -102,7 +123,7 @@ export default function LoginScreen() {
 
   return (
     <AuthScreen
-      blobs={['topRight']}
+      blobs={[]}
       loading={loading}
       contentTop={84}
       footer={

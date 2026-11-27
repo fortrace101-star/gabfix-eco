@@ -14,6 +14,8 @@ type SessionState = {
 
 let state: SessionState = { status: 'loading', session: null };
 let expired = false;
+/** False when the user signed in without "Remember me": keep the session in memory only. */
+let persistSession = true;
 const listeners = new Set<() => void>();
 const expiredListeners = new Set<() => void>();
 
@@ -53,21 +55,31 @@ export async function restoreSession(): Promise<void> {
   emit({ status: 'unauthenticated', session: null });
 }
 
-/** Called after login or OTP verification. Persists the tokens and updates the greeting. */
-export async function startSession(session: AuthSession): Promise<void> {
+/**
+ * Called after login or OTP verification. Persists the tokens and updates the
+ * greeting; `remember: false` (the unticked "Remember me") keeps the session for
+ * this run only and clears any tokens stored by an earlier sign-in.
+ */
+export async function startSession(
+  session: AuthSession,
+  options: { remember?: boolean } = {},
+): Promise<void> {
   if (expired) {
     expired = false;
     emitExpired();
   }
+  const remember = options.remember ?? true;
+  persistSession = remember;
   const firstName = firstNameOf(session.user);
   if (firstName) setUserName(firstName);
   emit({ status: 'authenticated', session });
-  await saveSession(session);
+  await saveSession(remember ? session : null);
 }
 
 export async function endSession(): Promise<void> {
   emit({ status: 'unauthenticated', session: null });
   setUserName(null);
+  persistSession = true;
   await saveSession(null);
 }
 
@@ -78,7 +90,7 @@ export async function updateSessionUser(patch: Partial<AuthUser>): Promise<void>
   const next: AuthSession = { ...current, user: { ...current.user, ...patch } };
   emit({ status: 'authenticated', session: next });
   setUserName(next.user.name?.trim().split(/\s+/)[0] || null);
-  await saveSession(next);
+  if (persistSession) await saveSession(next);
 }
 
 let refreshInFlight: Promise<boolean> | null = null;
@@ -98,7 +110,7 @@ async function refreshActiveSession(): Promise<boolean> {
           refreshToken: tokens.refreshToken ?? current.refreshToken,
         };
         emit({ status: 'authenticated', session: next });
-        await saveSession(next);
+        if (persistSession) await saveSession(next);
         return true;
       } catch {
         markSessionExpired();

@@ -73,6 +73,15 @@ describe('session store', () => {
     expect(storage.saveSession).toHaveBeenCalledWith(storedSession);
   });
 
+  it('keeps an unticked "Remember me" session in memory only', async () => {
+    const { session, storage } = load();
+
+    await session.startSession(storedSession, { remember: false });
+
+    expect(session.getSessionState().status).toBe('authenticated');
+    expect(storage.saveSession).toHaveBeenLastCalledWith(null);
+  });
+
   it('clears both the state and the stored tokens on sign-out', async () => {
     const { session, storage } = load();
     await session.startSession(storedSession);

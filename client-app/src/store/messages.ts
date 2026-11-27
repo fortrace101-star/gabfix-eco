@@ -48,8 +48,6 @@ export type ChatThread = {
   unread: number;
   updatedAtISO: string;
   messages: ChatMessage[];
-  /** P27c: shown above the composer on support threads. */
-  quickReplies?: string[];
 };
 
 type MessagesState = {
@@ -69,11 +67,6 @@ const seedThreads = (): ChatThread[] => [
     kind: 'support',
     unread: 2,
     updatedAtISO: minutesAgo(18),
-    quickReplies: [
-      'I need help with a booking',
-      'I have a payment question',
-      'Can I reschedule?',
-    ],
     messages: [
       {
         id: 'support-1',
@@ -186,10 +179,6 @@ const normalizeThread = (value: unknown): ChatThread | null => {
       ...message,
       status: 'sent',
     })),
-    quickReplies:
-      thread.kind === 'support' && Array.isArray(thread.quickReplies)
-        ? thread.quickReplies.filter((reply): reply is string => typeof reply === 'string')
-        : undefined,
   };
 };
 
@@ -270,7 +259,9 @@ const bookingThreadFromApi = (thread: ApiBookingThread, viewerId: string): ChatT
 export async function syncBookingThreads(): Promise<boolean> {
   try {
     const { threads, viewerId } = await fetchBookingThreads();
-    const mapped = threads.map((thread) => bookingThreadFromApi(thread, viewerId));
+    const mapped = threads
+      .filter((thread) => thread.status !== 'completed')
+      .map((thread) => bookingThreadFromApi(thread, viewerId));
     const local = state.threads.filter((thread) => thread.kind !== 'booking');
     state = { ...state, threads: [...mapped, ...local].sort((a, b) =>
       new Date(b.updatedAtISO).getTime() - new Date(a.updatedAtISO).getTime(),

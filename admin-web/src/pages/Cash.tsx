@@ -12,21 +12,26 @@ import {
 } from '../components/ui';
 import { cashOlderThan } from '../data';
 import { downloadCsv, formatShortDate, ugx } from '../lib/format';
-import type { CashCollection, Cleaner } from '../types';
+import type { CashCollection, Cleaner, PendingHandover } from '../types';
 
-type CashTab = 'All' | 'Pending' | 'Remitted' | 'Disputes';
+type CashTab = 'All' | 'Pending' | 'Remitted' | 'Disputes' | 'Approvals';
 
 export function CashPage({
   cash,
   cleaners,
+  pendingHandovers,
   reminderHours,
+  onApproveHandover,
   onMarkRemitted,
   onResolveDispute,
   notify,
 }: {
   cash: CashCollection[];
   cleaners: Cleaner[];
+  /** Technician handovers the desk has not approved; none of them reduce cash due yet. */
+  pendingHandovers: PendingHandover[];
   reminderHours: number;
+  onApproveHandover: (id: string) => void;
   onMarkRemitted: (id: string) => void;
   onResolveDispute: (id: string) => void;
   notify: (message: string) => void;
@@ -42,7 +47,8 @@ export function CashPage({
         tab === 'All' ||
         (tab === 'Pending' && !entry.remitted && !entry.dispute) ||
         (tab === 'Remitted' && entry.remitted) ||
-        (tab === 'Disputes' && Boolean(entry.dispute));
+        (tab === 'Disputes' && Boolean(entry.dispute)) ||
+        (tab === 'Approvals' && !entry.remitted && Boolean(entry.pendingCount));
       const matchesQuery =
         !term || [entry.cleaner, entry.id, entry.period].join(' ').toLowerCase().includes(term);
       return matchesTab && matchesQuery;
@@ -54,6 +60,7 @@ export function CashPage({
   const flagged = cash.filter(
     (entry) => !entry.remitted && !entry.dispute && cashOlderThan(entry.confirmedOn, reminderHours),
   );
+  const pendingTotal = pendingHandovers.reduce((sum, entry) => sum + entry.amount, 0);
   const totalDue = pending.reduce((sum, entry) => sum + entry.amountDue, 0);
   const totalRemitted = cash
     .filter((entry) => entry.remitted)
@@ -106,7 +113,7 @@ export function CashPage({
         <KpiCard
           label="Cash due to Gabfix"
           value={ugx(totalDue)}
-          detail={`${pending.length} collections open`}
+          detail={`${pending.length} collections open${pendingHandovers.length ? ` · ${pendingHandovers.length} awaiting approval` : ''}`}
           icon="cash"
         />
         <KpiCard
@@ -136,7 +143,7 @@ export function CashPage({
 
       <SectionCard>
         <div className="tab-row" role="tablist" aria-label="Cash views">
-          {(['All', 'Pending', 'Remitted', 'Disputes'] as CashTab[]).map((option) => (
+          {(['All', 'Pending', 'Remitted', 'Disputes', 'Approvals'] as CashTab[]).map((option) => (
             <button
               type="button"
               role="tab"
@@ -147,6 +154,9 @@ export function CashPage({
             >
               {option}
               {option === 'Disputes' && disputes.length ? <span>{disputes.length}</span> : null}
+              {option === 'Approvals' && pendingHandovers.length ? (
+                <span>{pendingHandovers.length}</span>
+              ) : null}
             </button>
           ))}
           <label className="search-field tab-search">
@@ -160,7 +170,65 @@ export function CashPage({
           </label>
         </div>
 
-        {filtered.length ? (
+        {tab === 'Approvals' ? (
+          pendingHandovers.length ? (
+            <div className="table-scroll" role="region" aria-label="Handovers awaiting approval" tabIndex={0}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Cleaner</th>
+                    <th>Handed over</th>
+                    <th>Note</th>
+                    <th>Recorded</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingHandovers.map((handover) => {
+                    const cleaner = cleaners.find((item) => item.id === handover.cleanerId);
+                    return (
+                      <tr key={handover.id}>
+                        <td>
+                          <div className="cell-person">
+                            <Avatar
+                              name={handover.cleaner}
+                              tone={cleaner?.tone ?? '#E8F6EE'}
+                              size="sm"
+                            />
+                            <span>
+                              <strong>{handover.cleaner}</strong>
+                              <small>{handover.id}</small>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="nowrap"><strong>{ugx(handover.amount)}</strong></td>
+                        <td>{handover.note ?? <span className="muted-small">No note</span>}</td>
+                        <td className="nowrap">{formatShortDate(handover.recordedOn)}</td>
+                        <td className="align-right">
+                          <Button
+                            className="btn-small"
+                            variant="primary"
+                            icon="check"
+                            onClick={() => onApproveHandover(handover.id)}
+                          >
+                            Approve
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              icon="check"
+              title="No handovers awaiting approval"
+              detail="Handovers recorded in the technician app appear here before they count against cash due."
+              action={<Button onClick={() => setTab('All')}>Show all</Button>}
+            />
+          )
+        ) : filtered.length ? (
           <div className="table-scroll" role="region" aria-label="Cash collections" tabIndex={0}>
             <table className="table">
               <thead>
@@ -213,9 +281,16 @@ export function CashPage({
                       <td>
                         {entry.remitted ? (
                           <StatusChip label="Remitted" />
+                        ) : entry.pendingCount ? (
+                          <StatusChip label="Awaiting approval" tone="info" />
                         ) : (
                           <StatusChip label="Due" tone="warning" />
                         )}
+                        {!entry.remitted && entry.pendingCount ? (
+                          <small className="muted-small">
+                            {ugx(entry.pendingAmount ?? 0)} handed over
+                          </small>
+                        ) : null}
                       </td>
                       <td className="align-right">
                         {entry.dispute ? (
@@ -224,6 +299,14 @@ export function CashPage({
                           </Button>
                         ) : entry.remitted ? (
                           <span className="muted-small">No action</span>
+                        ) : entry.pendingCount ? (
+                          <Button
+                            className="btn-small"
+                            icon="check"
+                            onClick={() => setTab('Approvals')}
+                          >
+                            Review handover
+                          </Button>
                         ) : (
                           <Button
                             className="btn-small"
@@ -250,6 +333,22 @@ export function CashPage({
           />
         )}
       </SectionCard>
+
+      {pendingHandovers.length ? (
+        <div className="info-panel warning">
+          <span className="info-icon"><Icon name="clock" size={18} /></span>
+          <div>
+            <strong>
+              {pendingHandovers.length} handover{pendingHandovers.length === 1 ? '' : 's'} awaiting approval ·{' '}
+              {ugx(pendingTotal)}
+            </strong>
+            <p>
+              Cash handed over in the technician app stays part of the cleaner&apos;s balance until
+              the desk approves it. Check the cash, then approve from the Approvals tab.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {flagged.length ? (
         <div className="info-panel warning">

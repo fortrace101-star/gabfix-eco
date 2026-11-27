@@ -65,6 +65,19 @@ describe('syncBookingsFromServer', () => {
     expect(synced?.cleanerName).toBe('Daniel Cleaner');
   });
 
+  it('replaces a stored booking UUID with the reference the app displays', async () => {
+    const uuid = '7b0c1f2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b';
+    addBooking(booking(uuid));
+    fetchMyBookings.mockResolvedValue([
+      { ...serverBooking('GBX-ERP7', 'confirmed'), id: uuid },
+    ]);
+
+    await syncBookingsFromServer();
+
+    expect(getBookingById('GBX-ERP7')?.status).toBe('upcoming');
+    expect(getBookingById(uuid)).toBeUndefined();
+  });
+
   it('leaves an upcoming booking upcoming while the job is still confirmed', async () => {
     addBooking(booking('GBX-ERP2'));
     fetchMyBookings.mockResolvedValue([serverBooking('GBX-ERP2', 'confirmed')]);

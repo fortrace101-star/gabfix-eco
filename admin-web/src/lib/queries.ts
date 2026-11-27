@@ -8,6 +8,7 @@ import type {
   Customer,
   Payment,
   PaymentState,
+  PendingHandover,
 } from '../types';
 import { formatUGPhone } from './phone';
 import { supabase } from './supabase';
@@ -92,6 +93,8 @@ export type ConsoleData = {
   customers: Customer[];
   payments: Payment[];
   cash: CashCollection[];
+  /** Technician handovers the desk still has to check; they do not reduce cash due. */
+  pendingHandovers: PendingHandover[];
 };
 
 /** Reference → booking UUID, so the desk can assign by the id shown in the UI. */
@@ -117,7 +120,10 @@ export async function loadConsoleData(): Promise<ConsoleData> {
         .neq('status', 'withdrawn')
         .order('required_at', { ascending: false }),
       supabase.from('payments').select('id, booking_id, amount, method, status, provider, kind, paid_at, created_at'),
-      supabase.from('cash_handovers').select('id, technician_id, amount, confirmed_at, created_at'),
+      supabase
+        .from('cash_handovers')
+        .select('id, technician_id, amount, note, confirmed_at, created_at')
+        .order('created_at', { ascending: true }),
       supabase.from('cash_disputes').select('id, technician_id, status, technician_note'),
       // Everything the customer answered while booking, across all stages.
       supabase.from('booking_form_snapshots').select('booking_id, questions, answers'),
@@ -279,12 +285,41 @@ export async function loadConsoleData(): Promise<ConsoleData> {
   }
 
   const handoverByTechnician = new Map<string, number>();
+  const pendingAmountByTechnician = new Map<string, number>();
+  const pendingCountByTechnician = new Map<string, number>();
+  const pendingHandovers: PendingHandover[] = [];
   for (const handover of handovers) {
-    handoverByTechnician.set(
+    const amount = money(handover.amount);
+    if (handover.confirmed_at) {
+      // Only money the desk has checked reduces what the technician still owes.
+      handoverByTechnician.set(
+        handover.technician_id,
+        (handoverByTechnician.get(handover.technician_id) ?? 0) + amount,
+      );
+      continue;
+    }
+    pendingAmountByTechnician.set(
       handover.technician_id,
-      (handoverByTechnician.get(handover.technician_id) ?? 0) + money(handover.amount),
+      (pendingAmountByTechnician.get(handover.technician_id) ?? 0) + amount,
     );
+    pendingCountByTechnician.set(
+      handover.technician_id,
+      (pendingCountByTechnician.get(handover.technician_id) ?? 0) + 1,
+    );
+    pendingHandovers.push({
+      id: handover.id,
+      cleanerId: handover.technician_id,
+      cleaner:
+        techNameById.get(handover.technician_id) ??
+        profileById.get(handover.technician_id)?.full_name ??
+        'Technician',
+      amount,
+      note: handover.note ?? undefined,
+      recordedOn: dateLabel(handover.created_at),
+      recordedAtISO: handover.created_at,
+    });
   }
+  pendingHandovers.sort((a, b) => a.recordedAtISO.localeCompare(b.recordedAtISO));
 
   const openDisputeByTechnician = new Map<string, string>();
   for (const dispute of disputes) {
@@ -389,6 +424,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       cashConfirmedOn: cashConfirmedByTechnician.get(tech.user_id),
       cashRemitted: cashTotal - handedOver <= 0,
       cashDispute: openDisputeByTechnician.get(tech.user_id),
+      pendingHandoverAmount: pendingAmountByTechnician.get(tech.user_id) ?? 0,
+      pendingHandoverCount: pendingCountByTechnician.get(tech.user_id) ?? 0,
     };
   });
 
@@ -448,6 +485,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       amountDue: cleaner.cashDue,
       remitted: cleaner.cashRemitted,
       dispute: cleaner.cashDispute,
+      pendingAmount: cleaner.pendingHandoverAmount,
+      pendingCount: cleaner.pendingHandoverCount,
     }));
 
   return {
@@ -456,6 +495,7 @@ export async function loadConsoleData(): Promise<ConsoleData> {
     customers: customerRows,
     payments: paymentList,
     cash: cashRows,
+    pendingHandovers,
   };
 }
 
@@ -479,6 +519,15 @@ export async function assignTechnician(reference: string, technicianId: string):
     p_crew_role: crewRole,
   });
   if (rpcError) throw new Error(rpcError.message);
+}
+
+/**
+ * Approving settles a handover the technician already recorded. Until this runs the
+ * row has no `confirmed_at`, so the console still counts that cash as due.
+ */
+export async function approveCashHandover(handoverId: string): Promise<void> {
+  const { error } = await supabase.rpc('approve_cash_handover', { p_handover: handoverId });
+  if (error) throw new Error(error.message);
 }
 
 /**

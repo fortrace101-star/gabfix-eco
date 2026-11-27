@@ -302,10 +302,14 @@ export async function syncBookingsFromServer(): Promise<void> {
     if (server.length === 0) return;
     let changed = false;
     const next = state.bookings.map((booking) => {
-      const match = server.find((item) => item.reference === booking.id);
+      const match = server.find(
+        (item) => item.reference === booking.id || item.id === booking.id,
+      );
       if (!match) return booking;
       const lead = match.assignments.find((assignment) => assignment.role === 'lead') ?? match.assignments[0];
-      let updated = booking;
+      // Bookings created before the app used the reference still carry the desk
+      // UUID; switch them to the reference every screen shows.
+      let updated = match.reference !== booking.id ? { ...booking, id: match.reference } : booking;
 
       const serverStatus = match.status as SavedBooking['serverStatus'];
       if (serverStatus && updated.serverStatus !== serverStatus) {
@@ -354,7 +358,9 @@ export async function syncBookingsFromServer(): Promise<void> {
     server
       .filter((item) => item.status === 'completed')
       .forEach((item) => {
-        const local = state.bookings.find((booking) => booking.id === item.reference);
+        const local = state.bookings.find(
+          (booking) => booking.id === item.reference || booking.id === item.id,
+        );
         if (local?.status === 'upcoming') completeBooking(local.id);
       });
   } catch {

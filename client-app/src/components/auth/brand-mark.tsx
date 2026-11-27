@@ -10,7 +10,7 @@ type Props = {
 };
 
 /** Badge + two-tone wordmark used top-left on auth screens and in the Home hero. */
-export function BrandMark({ size = 28, textSize = 13, style }: Props) {
+export function BrandMark({ size = 34, textSize = 15, style }: Props) {
   return (
     <View
       style={[styles.row, style]}

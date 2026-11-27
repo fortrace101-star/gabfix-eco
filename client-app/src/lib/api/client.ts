@@ -113,14 +113,16 @@ async function send(
 
     const text = await response.text();
     return { status: response.status, ok: response.ok, body: parseBody(text), text };
-  } catch {
+  } catch (error) {
     if (controller.signal.aborted) {
       throw new ApiError(TIMEOUT_MESSAGE, 0, 'timeout');
     }
     // In development name the host that failed; on a device this is usually a
     // misconfigured API base URL rather than a real connection problem.
+    const detail =
+      __DEV__ && error instanceof Error && error.message ? ` (${error.message})` : '';
     throw new ApiError(
-      __DEV__ ? `${NETWORK_MESSAGE} Could not reach ${API_BASE_URL}.` : NETWORK_MESSAGE,
+      __DEV__ ? `${NETWORK_MESSAGE} Could not reach ${API_BASE_URL}.${detail}` : NETWORK_MESSAGE,
       0,
       'network',
     );

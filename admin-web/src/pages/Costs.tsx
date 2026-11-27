@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '../components/Icon';
 import {
   Button,
@@ -43,6 +43,16 @@ export function CostsPage({
   const [adding, setAdding] = useState<string | null>(null);
   const [draftDescription, setDraftDescription] = useState('');
   const [draftAmount, setDraftAmount] = useState('');
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+
+  const toggleJobCosts = (bookingId: string) => {
+    setExpandedJobs((current) => {
+      const next = new Set(current);
+      if (next.has(bookingId)) next.delete(bookingId);
+      else next.add(bookingId);
+      return next;
+    });
+  };
 
   const canApprove = role === 'admin' || role === 'operations';
   const canEnter = role === 'admin';
@@ -290,97 +300,187 @@ export function CostsPage({
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((job) => (
-                  <tr key={job.bookingId}>
-                    <td>
-                      <span className="cell-main">
-                        <strong>{job.reference}</strong>
-                        <span className="cell-sub">
-                          {job.customer} · {formatDateTime(job.scheduledStart)}
-                        </span>
-                      </span>
-                    </td>
-                    <td>
-                      <span className="cell-main">{job.technicians}</span>
-                      <span className="cell-sub">{job.commissionRate}% commission</span>
-                    </td>
-                    <td className="align-right price-cell">{ugx(job.revenue)}</td>
-                    <td className="align-right price-cell">
-                      {ugx(job.costs)}
-                      {job.pendingCosts > 0 ? (
-                        <span className="cell-sub">{job.pendingCosts} awaiting approval</span>
-                      ) : null}
-                    </td>
-                    <td className="align-right price-cell">{ugx(job.commission)}</td>
-                    <td className="align-right price-cell">{ugx(job.margin)}</td>
-                    <td>
-                      <StatusChip
-                        label={
-                          job.commissionReady
-                            ? 'Ready'
-                            : realised(job.status)
-                              ? 'Held · costs open'
-                              : 'Not completed'
-                        }
-                        tone={job.commissionReady ? 'success' : 'warning'}
-                      />
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        <Button
-                          className="btn-small"
-                          icon="plus"
-                          disabled={!canEnter}
-                          onClick={() => {
-                            setAdding(adding === job.bookingId ? null : job.bookingId);
-                            setDraftDescription('');
-                            setDraftAmount('');
-                            setFormError('');
-                          }}
-                        >
-                          {adding === job.bookingId ? 'Close' : 'Add cost'}
-                        </Button>
-                      </div>
-                      {adding === job.bookingId ? (
-                        <div className="inline-cost-form">
-                          <Field label="Cost" hint="Fuel, materials, transport">
-                            <input
-                              className="input"
-                              value={draftDescription}
-                              onChange={(event) => setDraftDescription(event.target.value)}
-                              placeholder="e.g. Fuel to Ntinda"
-                            />
-                          </Field>
-                          <Field label="Amount (UGX)">
-                            <input
-                              className="input"
-                              inputMode="numeric"
-                              value={draftAmount}
-                              onChange={(event) =>
-                                setDraftAmount(event.target.value.replace(/[^\d]/g, ''))
+                {jobs.map((job) => {
+                  const jobLines = linesByBooking.get(job.bookingId) ?? [];
+                  const expanded = expandedJobs.has(job.bookingId);
+                  return (
+                    <Fragment key={job.bookingId}>
+                        <tr>
+                          <td>
+                            <span className="cell-main">
+                              <strong>{job.reference}</strong>
+                              <span className="cell-sub">
+                                {job.customer} · {formatDateTime(job.scheduledStart)}
+                              </span>
+                            </span>
+                          </td>
+                          <td>
+                            <span className="cell-main">{job.technicians}</span>
+                            <span className="cell-sub">{job.commissionRate}% commission</span>
+                          </td>
+                          <td className="align-right price-cell">{ugx(job.revenue)}</td>
+                          <td className="align-right price-cell">
+                            {ugx(job.costs)}
+                            {job.pendingCosts > 0 ? (
+                              <span className="cell-sub">{job.pendingCosts} awaiting approval</span>
+                            ) : null}
+                          </td>
+                          <td className="align-right price-cell">{ugx(job.commission)}</td>
+                          <td className="align-right price-cell">{ugx(job.margin)}</td>
+                          <td>
+                            <StatusChip
+                              label={
+                                job.commissionReady
+                                  ? 'Ready'
+                                  : realised(job.status)
+                                    ? 'Held · costs open'
+                                    : 'Not completed'
                               }
-                              placeholder="15000"
+                              tone={job.commissionReady ? 'success' : 'warning'}
                             />
-                          </Field>
-                          <Button
-                            className="btn-small"
-                            variant="primary"
-                            disabled={saving}
-                            onClick={() => void submitCost(job.bookingId)}
-                          >
-                            Save cost
-                          </Button>
-                        </div>
-                      ) : null}
-                      {(linesByBooking.get(job.bookingId) ?? []).length > 0 ? (
-                        <small className="cell-sub">
-                          {(linesByBooking.get(job.bookingId) ?? []).length} cost line
-                          {(linesByBooking.get(job.bookingId) ?? []).length === 1 ? '' : 's'}
-                        </small>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <Button
+                                className="btn-small"
+                                icon="plus"
+                                disabled={!canEnter}
+                                onClick={() => {
+                                  setAdding(adding === job.bookingId ? null : job.bookingId);
+                                  setDraftDescription('');
+                                  setDraftAmount('');
+                                  setFormError('');
+                                }}
+                              >
+                                {adding === job.bookingId ? 'Close' : 'Add cost'}
+                              </Button>
+                              {jobLines.length > 0 ? (
+                                <Button
+                                  className="btn-small"
+                                  onClick={() => toggleJobCosts(job.bookingId)}
+                                  aria-expanded={expanded}
+                                  aria-controls={`job-costs-${job.bookingId}`}
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <Icon
+                                      name="chevronRight"
+                                      size={14}
+                                      style={{
+                                        transform: expanded ? 'rotate(90deg)' : undefined,
+                                        transition: 'transform 0.15s ease',
+                                      }}
+                                    />
+                                    {expanded ? 'Hide' : 'View'} costs ({jobLines.length})
+                                  </span>
+                                </Button>
+                              ) : null}
+                            </div>
+                            {adding === job.bookingId ? (
+                              <div className="inline-cost-form">
+                                <Field label="Cost" hint="Fuel, materials, transport">
+                                  <input
+                                    className="input"
+                                    value={draftDescription}
+                                    onChange={(event) => setDraftDescription(event.target.value)}
+                                    placeholder="e.g. Fuel to Ntinda"
+                                  />
+                                </Field>
+                                <Field label="Amount (UGX)">
+                                  <input
+                                    className="input"
+                                    inputMode="numeric"
+                                    value={draftAmount}
+                                    onChange={(event) =>
+                                      setDraftAmount(event.target.value.replace(/[^\d]/g, ''))
+                                    }
+                                    placeholder="15000"
+                                  />
+                                </Field>
+                                <Button
+                                  className="btn-small"
+                                  variant="primary"
+                                  disabled={saving}
+                                  onClick={() => void submitCost(job.bookingId)}
+                                >
+                                  Save cost
+                                </Button>
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                        {expanded && jobLines.length > 0 ? (
+                          <tr id={`job-costs-${job.bookingId}`}>
+                            <td colSpan={8} style={{ paddingTop: 0 }}>
+                              <div
+                                style={{
+                                  background: 'var(--surface-2, #f8fafc)',
+                                  borderRadius: 8,
+                                  padding: '12px 16px',
+                                  margin: '4px 0 8px',
+                                }}
+                              >
+                                <strong style={{ display: 'block', marginBottom: 8 }}>
+                                  Cost breakdown
+                                </strong>
+                                <div className="table-scroll">
+                                  <table className="table" aria-label={`Costs for ${job.reference}`}>
+                                    <thead>
+                                      <tr>
+                                        <th>Cost</th>
+                                        <th>Status</th>
+                                        <th>Entered by</th>
+                                        <th>Recorded</th>
+                                        <th className="align-right">Amount</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {jobLines.map((line) => (
+                                        <tr key={line.id}>
+                                          <td>
+                                            <span className="cell-main">{line.description}</span>
+                                            {line.note ? (
+                                              <span className="cell-sub">{line.note}</span>
+                                            ) : null}
+                                          </td>
+                                          <td>
+                                            <StatusChip
+                                              label={
+                                                line.status === 'approved'
+                                                  ? 'Approved'
+                                                  : line.status === 'rejected'
+                                                    ? 'Rejected'
+                                                    : 'Pending'
+                                              }
+                                              tone={
+                                                line.status === 'approved'
+                                                  ? 'success'
+                                                  : line.status === 'rejected'
+                                                    ? 'danger'
+                                                    : 'warning'
+                                              }
+                                            />
+                                          </td>
+                                          <td className="nowrap">{line.enteredBy}</td>
+                                          <td className="nowrap">{formatDateTime(line.createdAt)}</td>
+                                          <td className="align-right price-cell">{ugx(line.amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

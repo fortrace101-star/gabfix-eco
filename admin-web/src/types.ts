@@ -89,6 +89,9 @@ export type Cleaner = {
   cashConfirmedOn?: string;
   cashRemitted: boolean;
   cashDispute?: string;
+  /** Handed over from the technician app but not yet approved by the desk. */
+  pendingHandoverAmount?: number;
+  pendingHandoverCount?: number;
 };
 
 export type Customer = {
@@ -124,6 +127,20 @@ export type CashCollection = {
   amountDue: number;
   remitted: boolean;
   dispute?: string;
+  /** Pending handovers stay out of `amountDue` until approved. */
+  pendingAmount?: number;
+  pendingCount?: number;
+};
+
+/** A technician handover waiting for the desk to check the cash. */
+export type PendingHandover = {
+  id: string;
+  cleanerId: string;
+  cleaner: string;
+  amount: number;
+  note?: string;
+  recordedOn: string;
+  recordedAtISO: string;
 };
 
 export type Promo = {

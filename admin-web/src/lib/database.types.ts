@@ -1267,6 +1267,22 @@ isOneToOne: false
 "can_view_conversation":
 { Args: { "p_conversation": string }; Returns: boolean
                            },
+"approve_cash_handover":
+{ Args: { "p_handover": string,"p_note"?: string }; Returns: {
+              "amount": number,
+"confirmed_at": string | null,
+"confirmed_by": string | null,
+"created_at": string,
+"id": string,
+"note": string | null,
+"technician_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "cash_handovers"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "can_view_inspection":
 { Args: { "p_inspection": string }; Returns: boolean
                            },

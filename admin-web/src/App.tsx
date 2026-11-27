@@ -13,7 +13,12 @@ import {
 import { canViewPage, restoreSession, signOut, type AdminUser } from './lib/auth';
 import { subscribeToOperations, type LiveStatus } from './lib/live';
 import { loadNavBadges, type NavBadges } from './lib/nav-badges';
-import { assignTechnician, confirmCashHandover, loadConsoleData } from './lib/queries';
+import {
+  approveCashHandover,
+  assignTechnician,
+  confirmCashHandover,
+  loadConsoleData,
+} from './lib/queries';
 import { ApprovalsPage } from './pages/Approvals';
 import { BookingsPage } from './pages/Bookings';
 import { CataloguePage } from './pages/Catalogue';
@@ -39,6 +44,7 @@ import type {
   OperationsSettings,
   PageId,
   Payment,
+  PendingHandover,
   Promo,
   RateCard,
 } from './types';
@@ -106,6 +112,7 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [cash, setCash] = useState<CashCollection[]>([]);
+  const [pendingHandovers, setPendingHandovers] = useState<PendingHandover[]>([]);
   const [promos, setPromos] = useState<Promo[]>(initialPromos);
   const [rateCard, setRateCard] = useState<RateCard>(initialRateCard);
   const [settings, setSettings] = useState<OperationsSettings>(initialSettings);
@@ -132,6 +139,7 @@ export default function App() {
       setCustomers(data.customers);
       setPayments(data.payments);
       setCash(data.cash);
+      setPendingHandovers(data.pendingHandovers);
       setNavBadges(badges);
       setLoadError(null);
     } catch (error) {
@@ -199,6 +207,22 @@ export default function App() {
       notify(cleaner ? `${cleaner.name} assigned to ${bookingId}.` : `${bookingId} updated.`);
     } catch (error) {
       notify(error instanceof Error ? `Assignment failed: ${error.message}` : 'Assignment failed.');
+    }
+  };
+
+  /** Approving is what finally counts a technician's handover against their cash due. */
+  const approveHandover = async (id: string) => {
+    const handover = pendingHandovers.find((item) => item.id === id);
+    try {
+      await approveCashHandover(id);
+      await refresh();
+      notify(
+        handover
+          ? `${handover.cleaner}'s handover approved · ${handover.amount.toLocaleString('en-UG')} UGX.`
+          : 'Handover approved.',
+      );
+    } catch (error) {
+      notify(error instanceof Error ? `Approval failed: ${error.message}` : 'Approval failed.');
     }
   };
 
@@ -300,6 +324,7 @@ export default function App() {
     setCustomers([]);
     setPayments([]);
     setCash([]);
+    setPendingHandovers([]);
   };
 
   if (restoring) {
@@ -412,7 +437,9 @@ export default function App() {
             <CashPage
               cash={cash}
               cleaners={cleaners}
+              pendingHandovers={pendingHandovers}
               reminderHours={settings.cashReminderHours}
+              onApproveHandover={approveHandover}
               onMarkRemitted={markRemitted}
               onResolveDispute={resolveDispute}
               notify={notify}

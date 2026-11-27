@@ -2,35 +2,37 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
- * Runtime configuration. Set EXPO_PUBLIC_API_BASE_URL in your environment or EAS
- * build profile to connect the client to the Gabfix API.
+ * Runtime configuration, kept in step with the technician (ERP) app's
+ * `src/lib/env.ts` so both apps reach the backend the same way.
  *
- * Local development: an explicit `localhost`/`127.0.0.1` API URL only works on
- * the same machine. On a phone or emulator (native or Expo web opened over the
- * LAN) it points at the device itself, so `fetch` fails with a misleading
- * "check your connection" error. In a dev build we swap the loopback host for
- * the host serving the app (the Expo dev server or the browser's address) and
- * keep the configured port. Explicit non-loopback URLs are untouched.
+ * `EXPO_PUBLIC_API_BASE_URL` names the Hono `api` function directly. As in the ERP
+ * app, `EXPO_PUBLIC_SUPABASE_URL` is also accepted: the API lives under
+ * `/functions/v1/api`, so the same `.env.local` works for both apps.
+ *
+ * Local development: `localhost`/`127.0.0.1` means "this device", so a phone, an
+ * emulator or a browser opened from a LAN address cannot reach the stack through
+ * it. A loopback URL is rewritten to the host the app was loaded from — the Metro
+ * host on native, the page's host on web — keeping the port. Any non-loopback URL
+ * (a hosted project) is left alone, and a release build has no dev host, so it is
+ * untouched too.
  */
-const configured = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
-const isLoopback = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(configured);
+const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/\/+$/, '');
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
 
-const devHost = (() => {
-  if (!__DEV__) return undefined;
-  if (Platform.OS === 'web') {
-    const location = (globalThis as { location?: { hostname?: string } }).location;
-    return location?.hostname;
-  }
-  return Constants.expoConfig?.hostUri?.split(':')[0];
-})();
+const configured = configuredApi || (supabaseUrl ? `${supabaseUrl}/functions/v1/api` : '');
 
-const isRemoteHost = Boolean(devHost && devHost !== 'localhost' && devHost !== '127.0.0.1');
+function resolveDevUrl(url: string) {
+  const host =
+    Platform.OS === 'web'
+      ? typeof window !== 'undefined'
+        ? window.location?.hostname
+        : undefined
+      : Constants.expoConfig?.hostUri?.split(':')[0];
+  if (!host || LOOPBACK.has(host)) return url;
+  return url.replace(/\/(localhost|127\.0\.0\.1)(?=[:/]|$)/, `/${host}`);
+}
 
-export const API_BASE_URL = (
-  configured && isRemoteHost && isLoopback
-    ? configured.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)/i, `$1${devHost}`)
-    : configured
-).replace(/\/+$/, '');
-
+export const API_BASE_URL = resolveDevUrl(configured);
 export const hasApiBaseUrl = API_BASE_URL.length > 0;

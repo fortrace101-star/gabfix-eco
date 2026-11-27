@@ -156,7 +156,7 @@ export const authSize = {
   gap: 12,
   radius: 999,
   brandTop: 12,
-  logoMark: 28,
+  logoMark: 34,
 } as const;
 
 export const text: Record<

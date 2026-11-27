@@ -10,6 +10,8 @@ if (!url || !anonKey) {
   );
 }
 
+export const supabaseUrl = url;
+
 export const supabase = createClient<Database>(url, anonKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });

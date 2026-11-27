@@ -172,7 +172,7 @@ export default function LocationScreen() {
     update({ street: address, landmark: '', addressId: undefined, lat: undefined, lng: undefined });
   };
 
-  const { requestExit, sheet } = useDraftExit({ step: 'location' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'location' });
   const ready = useDraftGuard(slug);
 
   if (!ready || !active) return <View style={styles.screen} />;
@@ -244,7 +244,7 @@ export default function LocationScreen() {
     <StickyComposer style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Location'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"

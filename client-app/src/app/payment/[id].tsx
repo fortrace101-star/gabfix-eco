@@ -60,7 +60,7 @@ export default function PaymentScreen() {
     kind?: string;
     from?: string;
   }>();
-  const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-00000';
+  const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-0000000000';
   const accountIdsParam = typeof params.bookingIds === 'string' ? params.bookingIds : '';
   const slug = typeof params.slug === 'string' ? params.slug : '';
   const amount = Number(params.amount) || 0;

@@ -119,7 +119,7 @@ export default function ScheduleScreen() {
     if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
   }, [slug, service]);
 
-  const { requestExit, sheet } = useDraftExit({ step: 'schedule' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'schedule' });
   const ready = useDraftGuard(slug);
 
   if (!ready || !active) return <View style={styles.screen} />;
@@ -194,7 +194,7 @@ export default function ScheduleScreen() {
     <View style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Schedule'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"

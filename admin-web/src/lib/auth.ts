@@ -129,7 +129,7 @@ export async function signOut(): Promise<void> {
 /** Settings is owner-only and approvals are manager-only; support sees the customer-facing modules only. */
 export const canViewPage = (page: PageId, role: AdminRole): boolean => {
   if (role === 'admin') return true;
-  if (role === 'operations') return page !== 'settings';
+  if (role === 'operations') return page !== 'settings' && page !== 'chat-archive';
   return (
     page === 'overview' ||
     page === 'bookings' ||

@@ -51,7 +51,7 @@ export default function AddOnsScreen() {
     if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
   }, [slug, service]);
 
-  const { requestExit, sheet } = useDraftExit({ step: 'add-ons' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'add-ons' });
   const ready = useDraftGuard(slug);
 
   if (!ready || !active) return <View style={styles.screen} />;
@@ -71,7 +71,7 @@ export default function AddOnsScreen() {
     <View style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Extras'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"

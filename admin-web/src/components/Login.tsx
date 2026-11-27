@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import logoUrl from '../assets/gabfix-logo.png';
 import { signIn, type AdminUser } from '../lib/auth';
 import { Icon } from './Icon';
 import { Button, Field } from './ui';
@@ -35,7 +36,7 @@ export function Login({ onSignedIn }: { onSignedIn: (user: AdminUser) => void })
       <aside className="auth-brand">
         <div className="auth-brand-top">
           <span className="brand-mark" aria-hidden="true">
-            G
+            <img className="brand-logo" src={logoUrl} alt="" />
           </span>
           <span className="brand-copy">
             <strong>Gabfix</strong>

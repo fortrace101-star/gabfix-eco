@@ -73,7 +73,7 @@ export default function JobDetailsScreen() {
     if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
   }, [slug, service]);
 
-  const { requestExit, sheet } = useDraftExit({ step: 'details' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'details' });
   const ready = useDraftGuard(slug, { entry: true });
 
   if (!ready || !active) return <View style={styles.screen} />;
@@ -97,7 +97,7 @@ export default function JobDetailsScreen() {
     <View style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Job details'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"

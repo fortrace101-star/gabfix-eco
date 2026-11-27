@@ -13,6 +13,8 @@ type Props<T extends string> = {
   onChange: (value: T) => void;
   /** Active label colour; defaults to `green700` so other screens are unchanged. */
   activeLabelColor?: string;
+  /** Options that have unseen updates, each shown with a small beacon dot. */
+  beacons?: Partial<Record<T, boolean>>;
 };
 
 /** Track 48, 4 padding, animated white thumb (Gabfix_App_Ui_2.md, 6.0). */
@@ -21,6 +23,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   activeLabelColor = colors.green700,
+  beacons,
 }: Props<T>) {
   const [width, setWidth] = useState(0);
   const index = Math.max(
@@ -58,11 +61,12 @@ export function SegmentedControl<T extends string>({
       <View style={styles.labels}>
         {options.map((option) => {
           const selected = option.value === value;
+          const beacon = Boolean(beacons?.[option.value]);
           return (
             <Pressable
               key={option.value}
               accessibilityRole="radio"
-              accessibilityLabel={option.label}
+              accessibilityLabel={`${option.label}${beacon ? ', has updates' : ''}`}
               accessibilityState={{ selected }}
               onPress={() => {
                 if (selected) return;
@@ -70,16 +74,19 @@ export function SegmentedControl<T extends string>({
                 onChange(option.value);
               }}
               style={styles.segment}>
-              <Text
-                maxFontSizeMultiplier={1.2}
-                numberOfLines={1}
-                style={[
-                  styles.label,
-                  selected && styles.labelOn,
-                  selected && { color: activeLabelColor },
-                ]}>
-                {option.label}
-              </Text>
+              <View style={styles.labelRow}>
+                <Text
+                  maxFontSizeMultiplier={1.2}
+                  numberOfLines={1}
+                  style={[
+                    styles.label,
+                    selected && styles.labelOn,
+                    selected && { color: activeLabelColor },
+                  ]}>
+                  {option.label}
+                </Text>
+                {beacon ? <View style={styles.beacon} /> : null}
+              </View>
             </Pressable>
           );
         })}
@@ -107,6 +114,8 @@ const styles = StyleSheet.create({
   },
   labels: { flexDirection: 'row', flex: 1 },
   segment: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   label: { ...text.bodyM, fontSize: 13, color: colors.textMuted },
   labelOn: { color: colors.green700, fontFamily: font.bodySemi },
+  beacon: { width: 7, height: 7, borderRadius: radius.pill, backgroundColor: colors.yellow500 },
 });

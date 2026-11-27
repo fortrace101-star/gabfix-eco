@@ -40,6 +40,43 @@ test('signs in and lands on the overview', async ({ page }) => {
   await expect(page.locator('.sidebar')).toBeVisible();
 });
 
+test('the overview reads top to bottom: KPIs, 65/35 charts, live table, three queues', async ({
+  page,
+}) => {
+  await signIn(page);
+  await expect(page.locator('.kpis > *')).toHaveCount(4);
+
+  const layout = await page.evaluate(() => {
+    const box = (element: Element) => element.getBoundingClientRect();
+    const chart = document.querySelector('.chart-grid')!;
+    const chartCards = [...chart.children].map((element) => box(element).width);
+    const live = [...document.querySelectorAll('.page > .section-card')].find((element) =>
+      element.textContent?.includes('Live bookings'),
+    )!;
+    const queues = document.querySelector('.overview-queues')!;
+
+    return {
+      pageWidth: box(document.querySelector('.page')!).width,
+      chartTop: box(chart).top,
+      chartShare: chartCards[0] / (chartCards[0] + chartCards[1]),
+      liveTop: box(live).top,
+      liveWidth: box(live).width,
+      queueTop: box(queues).top,
+      queueWidth: box(queues).width,
+      queueCards: [...queues.children].map((element) => Math.round(box(element).width)),
+    };
+  });
+
+  // Charts split 65/35, then the live table, then the queues, all full width.
+  expect(layout.chartShare).toBeGreaterThan(0.63);
+  expect(layout.chartShare).toBeLessThan(0.67);
+  expect(layout.liveTop).toBeGreaterThan(layout.chartTop);
+  expect(layout.queueTop).toBeGreaterThan(layout.liveTop);
+  expect(Math.abs(layout.liveWidth - layout.pageWidth)).toBeLessThan(2);
+  expect(Math.abs(layout.queueWidth - layout.pageWidth)).toBeLessThan(2);
+  expect(new Set(layout.queueCards).size).toBe(1);
+});
+
 test('the side nav routes between sections', async ({ page }) => {
   await signIn(page);
   await page.locator('.sidebar').getByRole('button', { name: 'Bookings' }).click();

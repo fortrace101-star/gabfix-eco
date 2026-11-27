@@ -1,6 +1,7 @@
 import type {
   Booking,
   BookingInstallment,
+  BookingScopeFact,
   BookingStatus,
   CashCollection,
   Cleaner,
@@ -97,7 +98,7 @@ export type ConsoleData = {
 const bookingIds = new Map<string, string>();
 
 export async function loadConsoleData(): Promise<ConsoleData> {
-  const [bookingsRes, itemsRes, assignmentsRes, addressesRes, profilesRes, techRes, inspectionsRes, paymentsRes, handoversRes, disputesRes] =
+  const [bookingsRes, itemsRes, assignmentsRes, addressesRes, profilesRes, techRes, inspectionsRes, paymentsRes, handoversRes, disputesRes, snapshotsRes] =
     await Promise.all([
       supabase
         .from('bookings')
@@ -118,6 +119,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       supabase.from('payments').select('id, booking_id, amount, method, status, provider, kind, paid_at, created_at'),
       supabase.from('cash_handovers').select('id, technician_id, amount, confirmed_at, created_at'),
       supabase.from('cash_disputes').select('id, technician_id, status, technician_note'),
+      // Everything the customer answered while booking, across all stages.
+      supabase.from('booking_form_snapshots').select('booking_id, questions, answers'),
     ]);
 
   const failure =
@@ -130,7 +133,8 @@ export async function loadConsoleData(): Promise<ConsoleData> {
     inspectionsRes.error ??
     paymentsRes.error ??
     handoversRes.error ??
-    disputesRes.error;
+    disputesRes.error ??
+    snapshotsRes.error;
   if (failure) throw new Error(failure.message);
 
   const bookings = bookingsRes.data ?? [];
@@ -143,9 +147,11 @@ export async function loadConsoleData(): Promise<ConsoleData> {
   const paymentRows = paymentsRes.data ?? [];
   const handovers = handoversRes.data ?? [];
   const disputes = disputesRes.data ?? [];
+  const snapshots = snapshotsRes.data ?? [];
 
   const profileById = new Map(profiles.map((row) => [row.id, row]));
   const areaById = new Map(addresses.map((row) => [row.id, row.area]));
+  const addressLineById = new Map(addresses.map((row) => [row.id, row.line1]));
   const techNameById = new Map(technicians.map((row) => [row.user_id, row.display_name]));
 
   // One inspection per booking matters here (the latest one that is still active).
@@ -159,11 +165,67 @@ export async function loadConsoleData(): Promise<ConsoleData> {
     }
   }
   const serviceByBooking = new Map<string, string>();
+  const servicesByBooking = new Map<string, string[]>();
   for (const item of items) {
     const name = (item.services as { name?: string } | null)?.name;
     if (name && !serviceByBooking.has(item.booking_id)) {
       serviceByBooking.set(item.booking_id, name);
     }
+    if (!name) continue;
+    const list = servicesByBooking.get(item.booking_id) ?? [];
+    const label = Number(item.quantity) > 1 ? `${name} × ${item.quantity}` : name;
+    if (!list.includes(label)) list.push(label);
+    servicesByBooking.set(item.booking_id, list);
+  }
+
+  // The form snapshot keeps the questions as they were asked, so the drawer can
+  // show every stage of the booking with readable labels rather than ids.
+  type SnapshotField = {
+    id?: string;
+    label?: string;
+    type?: string;
+    options?: { id?: string; label?: string }[];
+  };
+  type SnapshotSection = { title?: string; fields?: SnapshotField[] };
+  type SnapshotQuestions = { sections?: SnapshotSection[] };
+
+  const answerText = (field: SnapshotField, answer: unknown): string | null => {
+    if (answer === null || answer === undefined || answer === '') return null;
+    if (Array.isArray(answer)) {
+      if (answer.length === 0) return null;
+      const labels = answer.map((value) => {
+        const option = (field.options ?? []).find((entry) => entry.id === value);
+        return option?.label ?? String(value);
+      });
+      return labels.join(', ');
+    }
+    if (typeof answer === 'boolean') return answer ? 'Yes' : 'No';
+    if (typeof answer === 'object') {
+      const measured = answer as { value?: unknown; unit?: string };
+      if (measured.value === undefined || measured.value === null || measured.value === '') return null;
+      return `${measured.value}${measured.unit ? ` ${measured.unit}` : ''}`;
+    }
+    const option = (field.options ?? []).find((entry) => entry.id === answer);
+    return option?.label ?? String(answer);
+  };
+
+  const formFactsByBooking = new Map<string, BookingScopeFact[]>();
+  for (const snapshot of snapshots) {
+    const questions = (snapshot.questions ?? {}) as SnapshotQuestions;
+    const answers = (snapshot.answers ?? {}) as Record<string, unknown>;
+    const facts: BookingScopeFact[] = [];
+    for (const section of questions.sections ?? []) {
+      for (const field of section.fields ?? []) {
+        if (!field.id || field.type === 'media-slot') continue;
+        const value = answerText(field, answers[field.id]);
+        if (!value) continue;
+        facts.push({
+          label: section.title ? `${section.title} · ${field.label ?? field.id}` : (field.label ?? field.id),
+          value,
+        });
+      }
+    }
+    if (facts.length > 0) formFactsByBooking.set(snapshot.booking_id, facts);
   }
 
   const installmentsByBooking = new Map<string, BookingInstallment[]>();
@@ -279,7 +341,16 @@ export async function loadConsoleData(): Promise<ConsoleData> {
       paymentHistory: historyByBooking.get(row.id) ?? [],
       scope: {
         summary: `${row.technicians_needed} technician${row.technicians_needed === 1 ? '' : 's'} needed`,
-        facts: row.notes ? [{ label: 'Notes', value: row.notes }] : undefined,
+        facts: (() => {
+          const facts: BookingScopeFact[] = [];
+          const services = servicesByBooking.get(row.id) ?? [];
+          if (services.length > 0) facts.push({ label: 'Services', value: services.join(', ') });
+          const addressLine = row.address_id ? addressLineById.get(row.address_id) : null;
+          if (addressLine) facts.push({ label: 'Address', value: addressLine });
+          facts.push(...(formFactsByBooking.get(row.id) ?? []));
+          if (row.notes) facts.push({ label: 'Notes', value: row.notes });
+          return facts.length > 0 ? facts : undefined;
+        })(),
       },
     };
   });

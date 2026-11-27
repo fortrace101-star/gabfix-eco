@@ -118,6 +118,7 @@ export function Topbar({
     approvals: 'Approvals',
     quotes: 'Quotes & inspections',
     support: 'Support',
+    'chat-archive': 'Chat Archive',
     costs: 'Job costs',
     payments: 'Payments',
     cash: 'Cash collections',

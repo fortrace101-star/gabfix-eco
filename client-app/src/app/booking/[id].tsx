@@ -26,6 +26,7 @@ import {
   type BookingStatus,
   completeBooking,
   getBookingById,
+  markBookingSeen,
   skipBookingRating,
   syncBookingsFromServer,
   useBookings,
@@ -119,6 +120,11 @@ export default function BookingDetailScreen() {
   // screen opens instead of relying on the Bookings tab having synced already.
   useEffect(() => {
     if (id) void syncBookingsFromServer();
+  }, [id]);
+
+  // Reading the details clears this booking's beacon and the Bookings tab badge.
+  useEffect(() => {
+    if (id) markBookingSeen(id);
   }, [id]);
 
   if (!booking) {

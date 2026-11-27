@@ -1,3 +1,4 @@
+import { newBookingReference } from '@/lib/booking-reference';
 import { price, type BookingDraft, type PriceBreakdown } from '@/lib/pricing';
 import { hasApiBaseUrl } from '@/lib/config';
 
@@ -86,10 +87,7 @@ export async function recordBookingPayment(
   }
 }
 
-const localBookingId = (): string => {
-  const serial = String(Date.now()).slice(-5);
-  return `GBX-${serial}`;
-};
+const localBookingId = (): string => newBookingReference();
 
 /**
  * `POST /bookings` with a local fallback until the endpoint is available. The

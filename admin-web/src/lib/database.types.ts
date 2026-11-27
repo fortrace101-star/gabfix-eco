@@ -1007,14 +1007,14 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"id": string,"image_path": string | null,"name": string,"popular_rank": number | null,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null,"slug": string | null,"tag": string | null
+                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"excludes": string[] | null,"faqs": Json | null,"id": string,"image_path": string | null,"includes": string[] | null,"name": string,"popular_rank": number | null,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null,"slug": string | null,"tag": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name": string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
+                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: string[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: string[] | null,"name": string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Update: {
-                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"id"?: string,"image_path"?: string | null,"name"?: string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
+                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: string[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: string[] | null,"name"?: string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Relationships: [
                     {

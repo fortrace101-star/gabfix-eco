@@ -313,7 +313,6 @@ export default function ReviewScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState<string>();
-  const [consent, setConsent] = useState(false);
   const [depositTouched, setDepositTouched] = useState(false);
 
   useEffect(() => {
@@ -322,7 +321,7 @@ export default function ReviewScreen() {
     if (!current || current.serviceSlug !== slug) startDraft(slug, servicePricing(service));
   }, [slug, service]);
 
-  const { requestExit, sheet } = useDraftExit({ step: 'review' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'review' });
   const draftReady = useDraftGuard(slug);
 
   if (!draftReady || !active) return <View style={styles.screen} />;
@@ -389,7 +388,6 @@ export default function ReviewScreen() {
   const ready =
     hasSchedule &&
     hasLocation &&
-    consent &&
     accountBalance <= 0 &&
     (isQuote ||
       ((plan !== 'deposit' || depositValid) &&
@@ -562,7 +560,7 @@ export default function ReviewScreen() {
     <StickyComposer style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Review'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"
@@ -1001,13 +999,8 @@ export default function ReviewScreen() {
           </Section>
         ) : null}
 
-        {plan !== 'full_now' ? (
-          <Section
-            title={
-              plan === 'deposit'
-                ? 'Pay the rest after the service with'
-                : 'Pay after the service with'
-            }>
+        {plan === 'after_service' ? (
+          <Section title="Pay after the service with">
             {balanceMethods.map((method) => (
               <MethodTile
                 key={method}
@@ -1049,8 +1042,7 @@ export default function ReviewScreen() {
               </Text>
             ) : null}
 
-            {isMomoMethod(balanceMethod) &&
-            !(plan === 'deposit' && payNowNeedsMomo && payNowMethod === balanceMethod) ? (
+            {isMomoMethod(balanceMethod) ? (
               <MomoNumberPicker
                 network={balanceMethod}
                 saved={savedMomoByNetwork(balanceMethod)}
@@ -1069,11 +1061,6 @@ export default function ReviewScreen() {
               />
             ) : null}
 
-            {plan === 'deposit' && payNowNeedsMomo && isMomoMethod(balanceMethod) && payNowMethod === balanceMethod ? (
-              <Text style={styles.helperText} maxFontSizeMultiplier={1.3}>
-                We&apos;ll use the mobile money number above.
-              </Text>
-            ) : null}
           </Section>
         ) : null}
 
@@ -1086,38 +1073,6 @@ export default function ReviewScreen() {
           </>
         ) : null}
 
-        <View style={styles.consent}>
-          <Checkbox
-            checked={consent}
-            onChange={setConsent}
-            label="I agree to the Terms and the cancellation policy, including any late fee."
-          />
-          <View style={styles.legalRow}>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Read the Terms"
-              hitSlop={8}
-              onPress={() => router.push({ pathname: '/policies/[doc]', params: { doc: 'terms' } })}>
-              <Text style={styles.legalLink} maxFontSizeMultiplier={1.3}>
-                Read the Terms
-              </Text>
-            </Pressable>
-            <Text style={styles.legalDot} maxFontSizeMultiplier={1.3}>
-              ·
-            </Text>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Payment and refund policy"
-              hitSlop={8}
-              onPress={() =>
-                router.push({ pathname: '/policies/[doc]', params: { doc: 'payments-refunds' } })
-              }>
-              <Text style={styles.legalLink} maxFontSizeMultiplier={1.3}>
-                Payment and refund policy
-              </Text>
-            </Pressable>
-          </View>
-        </View>
       </KeyboardScreen>
     </StickyComposer>
   );
@@ -1306,13 +1261,4 @@ const styles = StyleSheet.create({
   accountBlockTitle: { ...text.bodyM, fontFamily: font.bodySemi, color: colors.error },
   accountBlockBody: { ...text.caption, color: colors.text },
   accountBlockButton: { alignSelf: 'flex-start', marginTop: space[1] },
-  consent: { gap: space[2] },
-  legalRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  legalLink: {
-    ...text.caption,
-    color: colors.green700,
-    fontFamily: font.bodySemi,
-    textDecorationLine: 'underline',
-  },
-  legalDot: { ...text.caption },
 });

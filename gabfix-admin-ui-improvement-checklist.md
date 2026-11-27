@@ -149,9 +149,11 @@ exceeds the viewport.
 
 ## H. Verification
 
-- [ ] **P1 — No tests in `admin-web`** (0 test files). Add a small Playwright smoke suite: sign-in,
-      navigation to all 16 pages, one table row count, one drawer open/Esc, and the 1023/1024 notice
-      boundary.
+- [x] **P1 — Smoke tests added (2026-11-27).** `admin-web/tests/admin-smoke.spec.ts` now has 6
+      Playwright smoke tests: sign-in shell, all 16 nav pages, table row count, drawer open/Esc,
+      1023/1024 notice boundary, and Overview layout order/65-35 chart ratio/full-width live table/three
+      equal queue cards. Run with `cd admin-web && npx playwright test` (Chrome channel, dev server). Still
+      missing: broader coverage, visual baselines in CI.
 - [ ] **P2 — Visual baselines.** Keep the 1440/1280/1024 screenshots of Overview, Bookings, Payments,
       Costs, Reports and Catalogue as the review set for future theme changes.
 - [ ] **P2 — Do not deploy until the API is redeployed.** `paidTotal`/`cashPaid`/`cashPaidAt` exist in

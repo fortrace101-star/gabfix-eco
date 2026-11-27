@@ -63,6 +63,9 @@ const styles = StyleSheet.create({
     right: '50%',
     height: 2,
     backgroundColor: colors.border,
+    // The rule runs between stages, behind the numbered circles.
+    zIndex: 0,
+    pointerEvents: 'none',
   },
   connectorDone: { backgroundColor: colors.green500 },
   circle: {
@@ -72,6 +75,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.border,
+    zIndex: 1,
   },
   circleActive: {
     backgroundColor: colors.green500,

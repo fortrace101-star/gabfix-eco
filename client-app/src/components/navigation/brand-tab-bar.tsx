@@ -9,6 +9,8 @@ import {
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useBookingUpdateCount } from '@/store/bookings';
+import { useThreads } from '@/store/messages';
 import { colors, font, radius, shadow, size, space } from '@/theme';
 import { selectionHaptic } from '@/utils/haptics';
 
@@ -39,6 +41,13 @@ export function BrandTabBar({
   navigateToTab,
   insets,
 }: BottomTabBarProps) {
+  const threads = useThreads();
+  const bookingUpdates = useBookingUpdateCount();
+  const badges: Record<string, number> = {
+    bookings: bookingUpdates,
+    messages: threads.reduce((total, thread) => total + thread.unread, 0),
+  };
+
   return (
     <View role="tablist" style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space[2]) }]}>
       {state.routes.map((route, index) => {
@@ -48,12 +57,14 @@ export function BrandTabBar({
           tabLabels[route.name] ??
           (typeof options.title === 'string' ? options.title : route.name);
         const Icon = tabIcons[route.name] ?? Sparkles;
+        const badge = badges[route.name] ?? 0;
+        const badgeLabel = badge > 0 ? `, ${badge} ${badge === 1 ? 'update' : 'updates'}` : '';
 
         return (
           <Pressable
             key={route.key}
             accessibilityRole="tab"
-            accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
+            accessibilityLabel={`${options.tabBarAccessibilityLabel ?? label}${badgeLabel}`}
             accessibilityState={focused ? { selected: true } : {}}
             onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
             onPress={() => {
@@ -73,6 +84,13 @@ export function BrandTabBar({
                 strokeWidth={2}
                 color={focused ? colors.green900 : colors.textMuted}
               />
+              {badge > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText} maxFontSizeMultiplier={1.1}>
+                    {badge > 9 ? '9+' : badge}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <Text
               maxFontSizeMultiplier={1.3}
@@ -112,6 +130,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconPillOn: { backgroundColor: colors.yellow500 },
+  // Sits slightly left and lower so every badge overlaps its icon a little.
+  badge: {
+    position: 'absolute',
+    top: 1,
+    right: 8,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: font.bodySemi,
+    fontSize: 10,
+    lineHeight: 13,
+    color: colors.surface,
+  },
   label: {
     fontFamily: font.bodyMedium,
     fontSize: 11,

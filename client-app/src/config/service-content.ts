@@ -511,17 +511,42 @@ export const relatedServices = (slug: string): readonly Service[] =>
  */
 const fallbackCache = new Map<string, ServiceContent>();
 
+const genericIntro =
+  'Scope, price and timing are confirmed before any work starts, and every booking is checked in by photo.';
+
+const genericIncludes = [
+  'A vetted Gabfix specialist',
+  'Scope confirmed before the visit',
+  'Materials listed at checkout',
+  'Photo check-in when the work starts',
+  'Clean-up of the work area',
+];
+
+const genericExcludes = [
+  'Large materials (quoted at cost)',
+  'Work outside the agreed scope',
+  'Repairs found after the visit',
+];
+
+/**
+ * Complete copy for a service with no editorial entry. Also the base every API payload is
+ * normalized against, so a partial payload can never reach a screen as `undefined` arrays.
+ */
+export const genericServiceContent = (slug: string, intro = genericIntro): ServiceContent => ({
+  slug,
+  intro,
+  includes: [...genericIncludes],
+  excludes: [...genericExcludes],
+  faqs: [...sharedFaqs],
+  rating: 0,
+  reviewCount: 0,
+});
+
 const fallbackContent = (service: Service): ServiceContent => ({
-  slug: service.slug,
-  intro: `${service.tagline.replace(/\.$/, '')}. Every booking is confirmed with a vetted specialist, a clear scope and a price agreed before work starts.`,
-  includes: [
-    'A vetted Gabfix specialist',
-    'Scope confirmed before the visit',
-    'Materials listed at checkout',
-    'Photo check-in when the work starts',
-    'Clean-up of the work area',
-  ],
-  excludes: ['Large materials (quoted at cost)', 'Work outside the agreed scope', 'Repairs found after the visit'],
+  ...genericServiceContent(
+    service.slug,
+    `${service.tagline.replace(/\.$/, '')}. Every booking is confirmed with a vetted specialist, a clear scope and a price agreed before work starts.`,
+  ),
   faqs: [
     {
       question: `How is ${service.name.toLowerCase()} priced?`,
@@ -532,9 +557,56 @@ const fallbackContent = (service: Service): ServiceContent => ({
     },
     ...sharedFaqs,
   ],
-  rating: 0,
-  reviewCount: 0,
 });
+
+const asText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+
+const asStringList = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+
+const asFaqList = (value: unknown): FaqItem[] =>
+  Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!item || typeof item !== 'object') return [];
+        const { question, answer } = item as Partial<FaqItem>;
+        const text = asText(question);
+        return text ? [{ question: text, answer: asText(answer) }] : [];
+      })
+    : [];
+
+const asCount = (value: unknown, fallback: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+/**
+ * Merges what the API sent over the bundled copy and fills whatever is still missing.
+ * `GET /services/{slug}` sends only `slug`, `intro` and the images today, so trusting its
+ * payload as a full `ServiceContent` left `includes`, `excludes` and `faqs` undefined and
+ * crashed the landing page on `.map` for any service without bundled editorial copy.
+ */
+export const normalizeServiceContent = (
+  slug: string,
+  remote: Partial<ServiceContent> | null | undefined,
+  base?: ServiceContent | null,
+): ServiceContent => {
+  const fallback = base ?? genericServiceContent(slug);
+  const includes = asStringList(remote?.includes);
+  const excludes = asStringList(remote?.excludes);
+  const faqs = asFaqList(remote?.faqs);
+
+  return {
+    slug: asText(remote?.slug) || slug || fallback.slug,
+    heroImage: asText(remote?.heroImage) || fallback.heroImage,
+    cardImage: asText(remote?.cardImage) || fallback.cardImage,
+    intro: asText(remote?.intro) || fallback.intro,
+    includes: includes.length ? includes : fallback.includes,
+    excludes: excludes.length ? excludes : fallback.excludes,
+    faqs: faqs.length ? faqs : fallback.faqs,
+    rating: asCount(remote?.rating, fallback.rating),
+    reviewCount: asCount(remote?.reviewCount, fallback.reviewCount),
+  };
+};
 
 export const serviceContentBySlug = (slug?: string): ServiceContent | undefined => {
   if (!slug) return undefined;

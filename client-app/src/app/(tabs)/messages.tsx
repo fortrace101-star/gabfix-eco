@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { inboxTimeLabel, messagePreview } from '@/lib/chat';
-import { openThread, type ChatThread, useThreads } from '@/store/messages';
+import { openThread, syncBookingThreads, type ChatThread, useThreads } from '@/store/messages';
 import { colors, font, radius, space, text } from '@/theme';
 
 function ThreadRow({ thread }: { thread: ChatThread }) {
@@ -53,10 +53,18 @@ function ThreadRow({ thread }: { thread: ChatThread }) {
   );
 }
 
-/** P27c message inbox. Threads and delivery are local until the chat API exists. */
+/**
+ * P27c message inbox. Support stays local-only; booking chats are real threads
+ * created when a technician is assigned (see `booking_threads`).
+ */
 export default function MessagesTab() {
   useStatusBarStyle('dark');
   const threads = useThreads();
+  const [syncFailed, setSyncFailed] = useState(false);
+
+  useEffect(() => {
+    void syncBookingThreads().then((ok) => setSyncFailed(!ok));
+  }, []);
 
   const sorted = useMemo(
     () =>
@@ -74,7 +82,7 @@ export default function MessagesTab() {
           Messages
         </Text>
         <Text style={styles.subtitle} maxFontSizeMultiplier={1.3}>
-          Chat with support and your cleaners in one place.
+          Chat with your team lead and support in one place.
         </Text>
       </View>
 
@@ -85,6 +93,13 @@ export default function MessagesTab() {
         contentContainerStyle={[styles.list, sorted.length === 0 && styles.listEmpty]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          syncFailed ? (
+            <Text style={styles.syncNote} maxFontSizeMultiplier={1.2}>
+              Showing saved messages. Job chats refresh when you reconnect.
+            </Text>
+          ) : undefined
+        }
         ListEmptyComponent={
           <EmptyState
             icon={MessageCircle}
@@ -110,6 +125,7 @@ const styles = StyleSheet.create({
   title: { ...text.h1 },
   subtitle: { ...text.body, color: colors.textMuted },
   list: { paddingHorizontal: space[4], paddingBottom: space[6] },
+  syncNote: { ...text.caption, color: colors.textMuted, paddingVertical: space[2] },
   listEmpty: { flexGrow: 1, justifyContent: 'center' },
   row: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, CheckCheck, Paperclip, SendHorizontal } from 'lucide-react-native';
+import { ArrowLeft, CheckCheck, Paperclip, SendHorizontal, Video } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -21,7 +21,9 @@ import { TopBar } from '@/components/ui/top-bar';
 import { clockLabel } from '@/lib/chat';
 import {
   closeThread,
+  loadBookingMessages,
   openThread,
+  sendMediaMessage,
   sendMessage,
   type ChatMessage,
   useThread,
@@ -53,7 +55,14 @@ function MessageBubble({ message, initials }: { message: DecoratedMessage; initi
       ) : null}
       <View style={[styles.messageColumn, mine && styles.messageColumnMine]}>
         <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          {message.imageUri ? (
+          {message.mediaKind === 'video' ? (
+            <View style={styles.videoTile}>
+              <Video size={20} color={colors.surface} strokeWidth={2} />
+              <Text style={styles.videoLabel} maxFontSizeMultiplier={1.2}>
+                Video{message.mediaDurationMs ? ` · ${Math.round(message.mediaDurationMs / 1000)}s` : ''}
+              </Text>
+            </View>
+          ) : message.imageUri ? (
             <Image
               source={{ uri: message.imageUri }}
               style={styles.bubbleImage}
@@ -78,6 +87,10 @@ function MessageBubble({ message, initials }: { message: DecoratedMessage; initi
               message.status === 'sending' ? (
                 <Text style={styles.meta} maxFontSizeMultiplier={1.2}>
                   Sending…
+                </Text>
+              ) : message.status === 'failed' ? (
+                <Text style={styles.metaFailed} maxFontSizeMultiplier={1.2}>
+                  Not sent
                 </Text>
               ) : (
                 <View style={styles.sentRow}>
@@ -110,7 +123,14 @@ export default function ChatThreadScreen() {
   useEffect(() => {
     if (!threadId) return;
     openThread(threadId);
-    return () => closeThread(threadId);
+    void loadBookingMessages(threadId);
+    // The client app talks to the REST API, not Realtime, so it refreshes the
+    // open conversation on a short interval to show the technician's replies.
+    const timer = setInterval(() => void loadBookingMessages(threadId), 4_000);
+    return () => {
+      clearInterval(timer);
+      closeThread(threadId);
+    };
   }, [threadId]);
 
   const decorated = useMemo(() => {
@@ -167,22 +187,42 @@ export default function ChatThreadScreen() {
       if (!permission.granted) {
         Alert.alert(
           'Photo access needed',
-          'Allow photo access in your device settings to attach a photo to this conversation.',
+          'Allow photo access in your device settings to attach a photo or video to this conversation.',
         );
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.5,
-        base64: true,
+        mediaTypes: ['images', 'videos'],
+        quality: 0.7,
+        videoMaxDuration: 30,
       });
       if (result.canceled) return;
       const asset = result.assets[0];
       if (!asset) return;
-      const uri = asset.base64
-        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
-        : asset.uri;
-      sendMessage(thread.id, draft, uri);
+
+      const kind = asset.type === 'video' ? 'video' : 'image';
+      const bytes = asset.fileSize ?? 0;
+      const durationMs = asset.duration ?? 0;
+      if (!bytes) {
+        Alert.alert('Could not read that file', 'Choose the photo or video again.');
+        return;
+      }
+      if (bytes > 25 * 1024 * 1024) {
+        Alert.alert('File too large', 'Photos and videos must be 25 MB or smaller.');
+        return;
+      }
+      if (kind === 'video' && (!durationMs || durationMs > 30_000)) {
+        Alert.alert('Video too long', 'Attach a video that is 30 seconds or shorter.');
+        return;
+      }
+
+      void sendMediaMessage(thread.id, draft, {
+        uri: asset.uri,
+        kind,
+        mimeType: asset.mimeType ?? (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
+        bytes,
+        durationMs: kind === 'video' ? durationMs : undefined,
+      });
       setDraft('');
       setInputHeight(44);
     } finally {
@@ -383,6 +423,17 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   bubbleImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 4 },
+  videoTile: {
+    width: 200,
+    height: 110,
+    borderRadius: 12,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.green700,
+  },
+  videoLabel: { ...text.caption, color: colors.surface },
   bubbleText: { ...text.body, lineHeight: 20 },
   bubbleTextMine: { color: colors.surface },
   attach: {
@@ -401,6 +452,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   metaRowMine: { justifyContent: 'flex-end' },
+  metaFailed: {
+    ...text.caption,
+    color: colors.error,
+  },
   meta: { ...text.caption, fontSize: 10, lineHeight: 14 },
   sentRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   systemNote: {

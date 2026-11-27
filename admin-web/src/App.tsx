@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import logoUrl from './assets/gabfix-logo.png';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Topbar, type DateRange } from './components/Topbar';
@@ -11,10 +12,12 @@ import {
 } from './data';
 import { canViewPage, restoreSession, signOut, type AdminUser } from './lib/auth';
 import { subscribeToOperations, type LiveStatus } from './lib/live';
+import { loadNavBadges, type NavBadges } from './lib/nav-badges';
 import { assignTechnician, confirmCashHandover, loadConsoleData } from './lib/queries';
 import { ApprovalsPage } from './pages/Approvals';
 import { BookingsPage } from './pages/Bookings';
 import { CataloguePage } from './pages/Catalogue';
+import { ChatArchivePage } from './pages/ChatArchive';
 import { QuotesPage } from './pages/Quotes';
 import { CashPage } from './pages/Cash';
 import { CostsPage } from './pages/Costs';
@@ -51,6 +54,7 @@ const pages: PageId[] = [
   'cleaners',
   'catalogue',
   'support',
+  'chat-archive',
   'costs',
   'services',
   'forms',
@@ -65,6 +69,7 @@ const pageTitles: Record<PageId, string> = {
   approvals: 'Approvals',
   quotes: 'Quotes & inspections',
   support: 'Support',
+  'chat-archive': 'Chat Archive',
   costs: 'Job costs',
   payments: 'Payments',
   cash: 'Cash collections',
@@ -105,6 +110,7 @@ export default function App() {
   const [rateCard, setRateCard] = useState<RateCard>(initialRateCard);
   const [settings, setSettings] = useState<OperationsSettings>(initialSettings);
   const [readNotifications, setReadNotifications] = useState<string[]>([]);
+  const [navBadges, setNavBadges] = useState<NavBadges>({});
 
   const notify = useCallback((message: string) => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
@@ -115,12 +121,18 @@ export default function App() {
   const refresh = useCallback(async () => {
     setLoadingData(true);
     try {
-      const data = await loadConsoleData();
+      // Queue counts are for the nav, not the page, so a failure there must not block
+      // the console from loading.
+      const [data, badges] = await Promise.all([
+        loadConsoleData(),
+        loadNavBadges().catch(() => ({}) as NavBadges),
+      ]);
       setBookings(data.bookings);
       setCleaners(data.cleaners);
       setCustomers(data.customers);
       setPayments(data.payments);
       setCash(data.cash);
+      setNavBadges(badges);
       setLoadError(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not read the operations data.');
@@ -322,7 +334,14 @@ export default function App() {
         onNavigate={navigate}
         user={user}
         role={user.role}
-        cashDue={cash.filter((entry) => !entry.remitted).length}
+        badges={{
+          ...navBadges,
+          // Confirmed jobs with nobody on them are dispatch's queue.
+          bookings: bookings.filter(
+            (booking) => booking.status === 'Confirmed' && !booking.cleanerId,
+          ).length,
+          cash: cash.filter((entry) => !entry.remitted).length,
+        }}
         live={live}
       />
       <div className="main">
@@ -418,6 +437,16 @@ export default function App() {
           {page === 'support' ? (
             <SupportPage notify={notify} refreshKey={liveTick} />
           ) : null}
+          {page === 'chat-archive' ? (
+            canViewPage('chat-archive', user.role) ? (
+              <ChatArchivePage notify={notify} />
+            ) : (
+              <section className="card restricted" role="alert">
+                <h2>Chat Archive is owner-only</h2>
+                <p>Ask an owner to download completed job conversations.</p>
+              </section>
+            )
+          ) : null}
           {page === 'costs' ? (
             <CostsPage role={user.role} notify={notify} refreshKey={liveTick} />
           ) : null}
@@ -463,7 +492,7 @@ export default function App() {
       <div className="viewport-warning" role="alert">
         <div>
           <span className="brand-mark" aria-hidden="true">
-            G
+            <img className="brand-logo" src={logoUrl} alt="" />
           </span>
           <h1>Open Gabfix on a larger screen</h1>
           <p>

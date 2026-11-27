@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -7,8 +8,9 @@ import { Screen } from '@/components/ui/screen';
 import { TextField } from '@/components/ui/text-field';
 import { formatMoney, formatTime } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import { markTabSeen } from '@/store/badges';
 import { useAuth } from '@/store/auth';
-import { colors, radius, shadow, space, text } from '@/theme';
+import { colors, font, radius, shadow, space, text } from '@/theme';
 
 function startOfTodayIso() {
   const now = new Date();
@@ -48,6 +50,12 @@ export default function CashScreen() {
   const [handingOver, setHandingOver] = useState(false);
 
   const { data, error, isLoading } = useQuery({ queryKey: ['cash', 'today'], queryFn: fetchCash });
+
+  useFocusEffect(
+    useCallback(() => {
+      markTabSeen('cash');
+    }, []),
+  );
 
   const handover = useMutation({
     mutationFn: async () => {
@@ -163,7 +171,11 @@ export default function CashScreen() {
                 <View key={row.id} style={styles.row}>
                   <View style={styles.rowText}>
                     <Text style={styles.body}>{formatMoney(Number(row.amount))}</Text>
-                    <Text style={styles.caption}>
+                    <Text
+                      style={[
+                        styles.caption,
+                        row.confirmed_at ? styles.confirmed : styles.awaiting,
+                      ]}>
                       {row.confirmed_at
                         ? `Confirmed ${formatTime(row.confirmed_at)}`
                         : 'Awaiting confirmation'}
@@ -203,5 +215,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, gap: 2 },
   body: { ...text.bodyM },
   caption: { ...text.caption },
+  awaiting: { color: colors.error, fontFamily: font.bodySemi },
+  confirmed: { color: colors.green700, fontFamily: font.bodySemi },
   amount: { ...text.price, fontSize: 15 },
 });

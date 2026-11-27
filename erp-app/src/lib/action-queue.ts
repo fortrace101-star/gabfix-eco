@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { archiveBookingChat } from '@/lib/chat-archive';
 import { supabase } from '@/lib/supabase';
 
 export type QueuedAction =
@@ -89,6 +90,10 @@ export async function flushActionQueue(): Promise<{ done: number; remaining: num
       remaining.push(action);
     } else {
       done += 1;
+      // A completion queued offline still closes its chat once it lands.
+      if (action.kind === 'rpc' && action.name === 'complete_job') {
+        await archiveBookingChat(action.params.p_booking);
+      }
     }
   }
 

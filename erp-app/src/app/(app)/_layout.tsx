@@ -6,12 +6,17 @@ import { useAuth } from '@/store/auth';
 import { colors, font, size } from '@/theme';
 import { StyleSheet, Text, View } from 'react-native';
 
-type TabRole = 'home' | 'jobs' | 'schedule' | 'cash' | 'profile';
+// Expo Router reads this for the tab navigator's first screen. Home is where a
+// technician starts the day.
+export const unstable_settings = { anchor: 'home' };
 
-const HIDDEN_ROUTES = new Set(['notifications', 'inspections']);
+type TabRole = 'home' | 'chat' | 'jobs' | 'schedule' | 'cash' | 'profile';
+
+const HIDDEN_ROUTES = new Set(['index', 'notifications', 'inspections']);
 
 const VISIBLE_FOR: Record<TabRole, string[]> = {
   home: ['technician', 'laundry_operator', 'sales_operator', 'customer_relations', 'manager', 'admin'],
+  chat: ['technician', 'customer_relations', 'manager', 'admin'],
   jobs: ['technician', 'customer_relations', 'manager', 'admin'],
   schedule: ['technician', 'manager', 'admin'],
   cash: ['technician', 'manager', 'admin'],
@@ -38,6 +43,7 @@ export default function AppLayout() {
 
   return (
     <Tabs
+      backBehavior="initialRoute"
       tabBar={(props) => <BrandTabBar {...props} hiddenRoutes={HIDDEN_ROUTES} />}
       screenOptions={{
         headerShown: false,
@@ -45,6 +51,10 @@ export default function AppLayout() {
         sceneStyle: { backgroundColor: colors.bg },
       }}>
       <Tabs.Screen name="home" options={{ title: 'Home', href: visible('home') ? undefined : null }} />
+      <Tabs.Screen
+        name="chat"
+        options={{ title: 'Chat', href: visible('chat') ? undefined : null }}
+      />
       <Tabs.Screen name="jobs" options={{ title: 'Jobs', href: visible('jobs') ? undefined : null }} />
       <Tabs.Screen
         name="schedule"
@@ -56,6 +66,7 @@ export default function AppLayout() {
         options={{ title: 'Profile', href: visible('profile') ? undefined : null }}
       />
       {/* Routes inside the tabs so the bar stays visible, filtered out of the bar itself. */}
+      <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
       <Tabs.Screen name="inspections" options={{ title: 'Inspections' }} />
     </Tabs>

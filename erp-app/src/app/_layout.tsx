@@ -15,8 +15,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SyncManager } from '@/components/sync-manager';
+import { syncPushToken } from '@/lib/push';
 import { persistQueryCache, restoreQueryCache } from '@/lib/query-persistence';
 import { AuthProvider, useAuth } from '@/store/auth';
+import { hydrateBadges } from '@/store/badges';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -28,11 +30,16 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { status } = useAuth();
+  const { status, profile } = useAuth();
 
   useEffect(() => {
     if (status !== 'loading') SplashScreen.hideAsync();
   }, [status]);
+
+  // Chat pushes reach this handset even when the app is closed.
+  useEffect(() => {
+    if (status === 'signedIn' && profile?.id) void syncPushToken(profile.id);
+  }, [status, profile?.id]);
 
   if (status === 'loading') return null;
 
@@ -53,6 +60,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Restore before the first screens mount so a cold offline start has today's jobs.
     void restoreQueryCache(queryClient);
+    void hydrateBadges();
     return persistQueryCache(queryClient);
   }, []);
 

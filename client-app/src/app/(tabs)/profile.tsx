@@ -228,16 +228,7 @@ export default function ProfileTab() {
           <Pressable
             accessibilityRole="button"
             onPress={() => {
-              Alert.alert('Sign out?', 'You can sign back in any time.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Sign out',
-                  style: 'destructive',
-                  onPress: () => {
-                    void endSession().then(() => router.replace('/login' as Href));
-                  },
-                },
-              ]);
+              void endSession().then(() => router.replace('/login' as Href));
             }}
             style={styles.dangerRow}>
             <LogOut size={20} color={colors.text} strokeWidth={2} />

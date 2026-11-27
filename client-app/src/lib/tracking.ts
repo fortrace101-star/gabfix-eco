@@ -142,6 +142,41 @@ export function trackingStateFor(booking: SavedBooking, now = new Date()): Track
     };
   }
 
+  // The cleaner's own step (On the way → started → done) wins over the clock.
+  const serverPhase =
+    booking.serverStatus === 'scheduled'
+      ? 0
+      : booking.serverStatus
+        ? phaseForStatus(booking.serverStatus)
+        : undefined;
+  if (serverPhase === 3) {
+    return {
+      phase: 3,
+      progress: 1,
+      eta: 'Clean completed',
+      detail: 'This clean has finished. You can rate your cleaner from the booking details.',
+      live: false,
+    };
+  }
+  if (serverPhase === 2) {
+    return {
+      phase: 2,
+      progress: 1,
+      eta: 'Cleaning in progress',
+      detail: 'Your cleaner has started the clean and is working through the checklist.',
+      live: false,
+    };
+  }
+  if (serverPhase === 1) {
+    return {
+      phase: 1,
+      progress: 0.45,
+      eta: 'On the way',
+      detail: 'Your cleaner has confirmed they are on the way to you.',
+      live: false,
+    };
+  }
+
   const start = parseStart(booking);
   if (!start) {
     return {

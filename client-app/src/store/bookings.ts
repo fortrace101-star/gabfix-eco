@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 import { mock } from '@/config/mock';
 import { fetchMyBookings } from '@/lib/api/bookings';
+import { newBookingReference } from '@/lib/booking-reference';
 import { cancelAssignmentReminder } from '@/lib/local-notifications';
 import { isRecurringFrequency, nextOccurrenceISO, toISODate } from '@/lib/plans';
 import type {
@@ -46,8 +47,12 @@ export type SavedBooking = {
   /** Mock assignment (S1 12.3): when the assignee should appear, and when they did. */
   assignAtISO?: string;
   assignedAtISO?: string;
+  /** When the customer last opened this booking, so a newer stage change can beacon. */
+  updatesSeenAtISO?: string;
   /** Pending local notification for the assignment, so it can be cancelled. */
   assignmentNotificationId?: string;
+  /** The server's booking status, so tracking follows the cleaner's steps. */
+  serverStatus?: 'confirmed' | 'scheduled' | 'on_the_way' | 'in_progress' | 'completed' | 'cancelled';
   /** S1 12.4: set when the job reaches the completed state. */
   completedAtISO?: string;
   /** The customer skipped the rating prompt; do not ask again. */
@@ -146,8 +151,22 @@ export async function hydrateBookings(): Promise<void> {
   } catch {
     bookings = [];
   }
+
+  // Bookings saved before beacons existed start caught up; only what changes from
+  // now on should raise one.
+  let baselined = false;
+  bookings = bookings.map((booking) => {
+    if (booking.updatesSeenAtISO) return booking;
+    baselined = true;
+    return {
+      ...booking,
+      updatesSeenAtISO: bookingUpdateAtISO(booking) ?? new Date().toISOString(),
+    };
+  });
+
   state = { bookings, hydrated: true };
   listeners.forEach((listener) => listener());
+  if (baselined) persist(bookings);
   expireUnpaidBookings();
 }
 
@@ -189,12 +208,11 @@ export function rescheduleBooking(
 }
 
 const recurringBookingId = (): string => {
-  const base = Number(String(Date.now()).slice(-5));
   for (let step = 0; step < 100; step += 1) {
-    const id = `GBX-${String((base + step) % 100000).padStart(5, '0')}`;
+    const id = newBookingReference();
     if (!state.bookings.some((item) => item.id === id)) return id;
   }
-  return `GBX-${String(Date.now()).slice(-5)}`;
+  return newBookingReference();
 };
 
 /**
@@ -289,8 +307,19 @@ export async function syncBookingsFromServer(): Promise<void> {
       const lead = match.assignments.find((assignment) => assignment.role === 'lead') ?? match.assignments[0];
       let updated = booking;
 
+      const serverStatus = match.status as SavedBooking['serverStatus'];
+      if (serverStatus && updated.serverStatus !== serverStatus) {
+        updated = { ...updated, serverStatus };
+      }
+
       if (lead && (booking.cleanerId !== lead.technicianId || booking.cleanerName !== lead.name)) {
-        updated = { ...updated, cleanerId: lead.technicianId, cleanerName: lead.name };
+        updated = {
+          ...updated,
+          cleanerId: lead.technicianId,
+          cleanerName: lead.name,
+          // A new assignee is a stage change the customer should see.
+          assignedAtISO: new Date().toISOString(),
+        };
       }
 
       // The cleaner's "Record cash" writes a cash payment on the server; the customer's
@@ -441,8 +470,49 @@ export function cancelBooking(
   });
 }
 
+/**
+ * Booking stages the customer did not cause: an assignee, completion, cancellation or
+ * cash recorded on the job. Used for the Bookings tab badge and each card's beacon.
+ */
+const bookingUpdateAtISO = (booking: SavedBooking): string | undefined => {
+  const stamps = [
+    booking.createdAtISO,
+    booking.assignedAtISO,
+    booking.completedAtISO,
+    booking.cancelledAtISO,
+    booking.cashPayment?.atISO,
+  ].filter((value): value is string => typeof value === 'string');
+
+  return stamps.reduce<string | undefined>(
+    (latest, value) => (!latest || Date.parse(value) > Date.parse(latest) ? value : latest),
+    undefined,
+  );
+};
+
+export function hasBookingUpdate(booking: SavedBooking): boolean {
+  const updatedAt = bookingUpdateAtISO(booking);
+  if (!updatedAt) return false;
+  const seenAt = booking.updatesSeenAtISO ?? booking.createdAtISO;
+  return Date.parse(updatedAt) > Date.parse(seenAt);
+}
+
+/** Opening the details is what clears a booking's beacon. */
+export function markBookingSeen(id: string): void {
+  const booking = state.bookings.find((item) => item.id === id);
+  if (!booking || !hasBookingUpdate(booking)) return;
+  updateBooking(id, { updatesSeenAtISO: new Date().toISOString() });
+}
+
 export function useBookings(): SavedBooking[] {
   return useSyncExternalStore(subscribe, getState, getState).bookings;
+}
+
+export function useBookingUpdateCount(): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => getState().bookings.filter(hasBookingUpdate).length,
+    () => getState().bookings.filter(hasBookingUpdate).length,
+  );
 }
 
 export function useBookingsHydrated(): boolean {

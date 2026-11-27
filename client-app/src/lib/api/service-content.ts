@@ -1,4 +1,8 @@
-import { serviceContentBySlug, type ServiceContent } from '@/config/service-content';
+import {
+  normalizeServiceContent,
+  serviceContentBySlug,
+  type ServiceContent,
+} from '@/config/service-content';
 import { apiRequest } from '@/lib/api/client';
 import { hasApiBaseUrl } from '@/lib/config';
 
@@ -15,6 +19,8 @@ export async function getServiceContent(slug: string): Promise<ServiceContent | 
 
   const data = await apiRequest<ServiceContentResponse>(`/services/${encodeURIComponent(slug)}`);
 
-  if (!local) return data?.content ? ({ ...data.content, slug } as ServiceContent) : null;
-  return { ...local, ...data?.content, slug: local.slug };
+  // The payload may be partial (missing `includes`, `excludes`, `faqs`), so it is merged
+  // into the bundled copy — or the generic copy — rather than cast to ServiceContent.
+  if (!data?.content) return local;
+  return normalizeServiceContent(slug, data.content, local);
 }

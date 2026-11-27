@@ -38,6 +38,7 @@ import {
   type BookingStatus,
   type SavedBooking,
   expireUnpaidBookings,
+  hasBookingUpdate,
   hydrateBookings,
   syncBookingsFromServer,
   useBookings,
@@ -87,7 +88,7 @@ const whenLabel = (booking: SavedBooking): string => {
 const whereLabel = (booking: SavedBooking): string =>
   [booking.area, booking.street].filter(Boolean).join(' · ') || 'Address to confirm';
 
-function BookingCard({ booking }: { booking: SavedBooking }) {
+function BookingCard({ booking, updated }: { booking: SavedBooking; updated: boolean }) {
   const open = () => router.push(`/booking/${booking.id}` as never);
   const bookAgain = (event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -101,7 +102,7 @@ function BookingCard({ booking }: { booking: SavedBooking }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open booking ${booking.id}`}
+      accessibilityLabel={`Open booking ${booking.id}${updated ? ', has updates' : ''}`}
       onPress={open}
       style={styles.card}>
       <View style={styles.cardTop}>
@@ -113,7 +114,13 @@ function BookingCard({ booking }: { booking: SavedBooking }) {
             {booking.id}
           </Text>
         </View>
-        <StatusChip label={statusChip[booking.status].label} tone={statusChip[booking.status].tone} />
+        <View style={styles.statusWrap}>
+          <StatusChip
+            label={statusChip[booking.status].label}
+            tone={statusChip[booking.status].tone}
+          />
+          {updated ? <View style={styles.cardBeacon} /> : null}
+        </View>
       </View>
 
       <View style={styles.metaRow}>
@@ -312,6 +319,25 @@ export default function BookingsScreen() {
     [bookings, tab],
   );
 
+  // A beacon per stage the customer has not caught up with, and on each card.
+  const updatedIds = useMemo(
+    () => new Set(bookings.filter(hasBookingUpdate).map((booking) => booking.id)),
+    [bookings],
+  );
+  const stageBeacons = useMemo(
+    () => ({
+      upcoming: bookings.some((booking) => booking.status === 'upcoming' && hasBookingUpdate(booking)),
+      completed: bookings.some(
+        (booking) => booking.status === 'completed' && hasBookingUpdate(booking),
+      ),
+      cancelled: bookings.some(
+        (booking) => booking.status === 'cancelled' && hasBookingUpdate(booking),
+      ),
+      requests: false,
+    }),
+    [bookings],
+  );
+
   // One Requests section: the desk's quote requests and any legacy device copy, newest
   // first, so a quote request for a service reads exactly like a custom inquiry.
   const requestItems = useMemo(() => {
@@ -357,7 +383,8 @@ export default function BookingsScreen() {
           options={TABS}
           value={tab}
           onChange={setTab}
-          activeLabelColor={colors.green900}
+          activeLabelColor={colors.green700}
+          beacons={stageBeacons}
         />
       </View>
       {tab === 'requests' ? (
@@ -385,7 +412,9 @@ export default function BookingsScreen() {
         <FlatList
           data={hydrated ? filtered : []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <BookingCard booking={item} />}
+          renderItem={({ item }) => (
+            <BookingCard booking={item} updated={updatedIds.has(item.id)} />
+          )}
           contentContainerStyle={[styles.listContent, filtered.length === 0 && styles.listEmpty]}
           refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}
@@ -423,6 +452,18 @@ const styles = StyleSheet.create({
   cardTitleWrap: { flex: 1, gap: 2 },
   cardTitle: { ...text.h3, color: colors.text },
   cardId: { ...text.caption, color: colors.textMuted },
+  statusWrap: { position: 'relative' },
+  cardBeacon: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.yellow500,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaText: { ...text.bodyM, color: colors.textMuted, flex: 1 },
   assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

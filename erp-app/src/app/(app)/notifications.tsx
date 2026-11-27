@@ -21,6 +21,8 @@ async function fetchNotifications(userId: string): Promise<NotificationRow[]> {
     .from('notifications')
     .select('id, title, body, type, read_at, created_at')
     .eq('user_id', userId)
+    // Chat lives in its own tab and badge, never in Alerts.
+    .neq('type', 'chat')
     .order('created_at', { ascending: false })
     .limit(50);
 

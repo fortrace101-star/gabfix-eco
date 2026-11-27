@@ -32,8 +32,14 @@ export type CatalogueService = {
   requiredSkillId: string | null;
   popularRank: number | null;
   tag: string | null;
+  /** Landing-page copy for the customer app; empty arrays mean "use the generic copy". */
+  includes: string[];
+  excludes: string[];
+  faqs: ServiceFaq[];
   active: boolean;
 };
+
+export type ServiceFaq = { question: string; answer: string };
 
 export type Skill = { id: string; name: string };
 
@@ -67,6 +73,9 @@ export type ServiceInput = {
   requiredSkillId: string | null;
   popularRank: number | null;
   tag: string | null;
+  includes: string[];
+  excludes: string[];
+  faqs: ServiceFaq[];
   active: boolean;
 };
 
@@ -116,6 +125,9 @@ const mapService = (row: {
   popular_rank: number | null;
   tag: string | null;
   active: boolean;
+  includes: string[] | null;
+  excludes: string[] | null;
+  faqs: unknown;
 }): CatalogueService => ({
   id: row.id,
   slug: row.slug ?? row.id,
@@ -129,6 +141,9 @@ const mapService = (row: {
   requiredSkillId: row.required_skill_id,
   popularRank: row.popular_rank,
   tag: row.tag,
+  includes: row.includes ?? [],
+  excludes: row.excludes ?? [],
+  faqs: Array.isArray(row.faqs) ? row.faqs : [],
   active: row.active,
 });
 
@@ -156,7 +171,7 @@ export async function loadCatalogue(): Promise<Catalogue> {
     supabase
       .from('services')
       .select(
-        'id, slug, name, description, category_id, image_path, pricing_type, price, duration_minutes, required_skill_id, popular_rank, tag, active',
+        'id, slug, name, description, category_id, image_path, pricing_type, price, duration_minutes, required_skill_id, popular_rank, tag, active, includes, excludes, faqs',
       )
       .order('name'),
     supabase.from('skills').select('id, name').order('name'),
@@ -175,7 +190,7 @@ export async function loadCatalogue(): Promise<Catalogue> {
 const categoryColumns =
   'id, slug, name, description, image_path, parent_id, display_order, active';
 const serviceColumns =
-  'id, slug, name, description, category_id, image_path, pricing_type, price, duration_minutes, required_skill_id, popular_rank, tag, active';
+  'id, slug, name, description, category_id, image_path, pricing_type, price, duration_minutes, required_skill_id, popular_rank, tag, active, includes, excludes, faqs';
 
 export async function saveCategory(input: CategoryInput): Promise<CatalogueCategory> {
   const payload = {
@@ -211,6 +226,9 @@ export async function saveService(input: ServiceInput): Promise<CatalogueService
     required_skill_id: input.requiredSkillId,
     popular_rank: input.popularRank,
     tag: input.tag?.trim() || null,
+    includes: input.includes.length ? input.includes : null,
+    excludes: input.excludes.length ? input.excludes : null,
+    faqs: input.faqs.length ? input.faqs : null,
     active: input.active,
   };
 

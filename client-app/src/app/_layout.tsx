@@ -31,7 +31,7 @@ import { hydrateBookings } from '@/store/bookings';
 import { refreshDeviceSessions } from '@/store/device-sessions';
 import { hydrateLoginActivity } from '@/store/login-activity';
 import { hydrateMediaUploads } from '@/store/media-uploads';
-import { hydrateMessages } from '@/store/messages';
+import { hydrateMessages, syncBookingThreads } from '@/store/messages';
 import { hydrateNotifications } from '@/store/notifications';
 import { hydratePaymentMethods } from '@/store/payment-methods';
 import { hydratePlans } from '@/store/plans';
@@ -95,6 +95,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (!signedInUserId) return;
     void syncPushToken();
+  }, [signedInUserId]);
+
+  // Keeps the Messages badge current while the app is open, including a chat
+  // that opens when a technician is assigned.
+  useEffect(() => {
+    if (!signedInUserId) return;
+    void syncBookingThreads();
+    const timer = setInterval(() => void syncBookingThreads(), 15_000);
+    return () => clearInterval(timer);
   }, [signedInUserId]);
 
   // S1 12.3/12.4: mock assignment and completion. Runs once after hydration, whenever the

@@ -25,11 +25,16 @@ type Options = {
 };
 
 export type DraftExit = {
-  /** Call from the X button, header back and any in-screen cancel. */
+  /** Call from the X button and any in-screen cancel: offer to save the draft. */
   requestExit: () => void;
+  /** Call from the header back arrow and hardware back: step back, prompt only at stage one. */
+  requestBack: () => void;
   /** Render once, inside the screen. */
   sheet: ReactElement;
 };
+
+/** The first order step; backing out of it is leaving the flow. */
+const FIRST_STEP: BookingDraftStep = 'details';
 
 /**
  * One exit path for every order-flow step (Section 12.1): hardware back, header back and
@@ -68,14 +73,24 @@ export function useDraftExit({ step, enabled = true }: Options): DraftExit {
     setOpen(true);
   }, []);
 
+  // Back is navigation, not an exit: it returns to the previous stage. Only backing
+  // out of stage one (or the X) asks about saving the draft.
+  const requestBack = useCallback(() => {
+    if (step === FIRST_STEP || !router.canGoBack()) {
+      requestExit();
+      return;
+    }
+    router.back();
+  }, [requestExit, step]);
+
   useEffect(() => {
     if (!enabled) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      requestExit();
+      requestBack();
       return true;
     });
     return () => subscription.remove();
-  }, [enabled, requestExit]);
+  }, [enabled, requestBack]);
 
   const sheet = (
     <ConfirmSheet
@@ -97,7 +112,7 @@ export function useDraftExit({ step, enabled = true }: Options): DraftExit {
     />
   );
 
-  return { requestExit, sheet };
+  return { requestExit, requestBack, sheet };
 }
 
 /**

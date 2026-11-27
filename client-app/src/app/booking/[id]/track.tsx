@@ -10,7 +10,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { cleaners, type Cleaner } from '@/config/cleaners';
 import { useLiveTracking } from '@/hooks/use-live-tracking';
 import type { TrackingPhase } from '@/lib/tracking';
-import { getBookingById, useBookings } from '@/store/bookings';
+import { getBookingById, syncBookingsFromServer, useBookings } from '@/store/bookings';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 
 const STEPS = ['Confirmed', 'On the way', 'In progress', 'Completed'] as const;
@@ -182,6 +182,13 @@ export default function LiveTrackingScreen() {
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // The cleaner's "On the way" / "Start" / "Complete" reaches this screen.
+  useEffect(() => {
+    void syncBookingsFromServer();
+    const timer = setInterval(() => void syncBookingsFromServer(), 15_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -440,12 +447,15 @@ const styles = StyleSheet.create({
   },
   timelineLine: {
     position: 'absolute',
-    top: 8,
-    left: 16,
-    right: 16,
+    // The dot centres sit 1/8 in from each edge for four equal steps.
+    top: 11,
+    left: '12.5%',
+    right: '12.5%',
     height: 2,
     borderRadius: radius.pill,
     backgroundColor: colors.border,
+    // Behind the step dots, like the booking stepper.
+    zIndex: 0,
   },
   timelineStep: {
     flex: 1,
@@ -456,20 +466,16 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   timelineDotComplete: {
-    borderColor: colors.green500,
     backgroundColor: colors.green500,
   },
   timelineDotActive: {
-    borderWidth: 3,
-    borderColor: colors.yellow500,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.yellow500,
   },
   timelineDotInner: {
     width: 6,

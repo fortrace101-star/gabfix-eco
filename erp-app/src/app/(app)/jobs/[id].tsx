@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Banknote, MapPin, Phone } from 'lucide-react-native';
+import { ArrowLeft, Banknote, MapPin, MessageCircle, Phone } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { JobPhotos } from '@/components/job-photos';
 import { isOfflineError, queueAction } from '@/lib/action-queue';
+import { archiveBookingChat } from '@/lib/chat-archive';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
@@ -103,6 +104,8 @@ export default function JobDetailScreen() {
     onSuccess: async (_result, variables) => {
       setFinishing(false);
       setHours('');
+      // A finished job's chat is archived as JSONL and deleted from the database.
+      if (variables.action === 'complete_job' && id) void archiveBookingChat(id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['job', id] }),
         queryClient.invalidateQueries({ queryKey: ['jobs'] }),
@@ -270,6 +273,14 @@ export default function JobDetailScreen() {
                 <Text style={styles.link}>{formatUGPhone(data.customer_phone)}</Text>
               </Pressable>
             ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Message the customer about this job"
+              onPress={() => router.push(`/chat/${data.id}` as never)}
+              style={styles.linkRow}>
+              <MessageCircle size={16} color={colors.green500} />
+              <Text style={styles.link}>Message customer</Text>
+            </Pressable>
           </View>
 
           <View style={styles.card}>

@@ -4,9 +4,8 @@ import { useSyncExternalStore } from 'react';
 import type { BookingLocation } from '@/lib/pricing';
 
 /**
- * P24 saved address book. `src/config/location-fixtures.ts` seeded the two demo addresses
- * before this store existed; they are used only for the first run, then the customer owns
- * the list.
+ * P24 saved address book. Customers add and manage their own addresses; the app
+ * does not seed demo addresses.
  */
 const STORAGE_KEY = 'gabfix.addresses.v1';
 
@@ -29,29 +28,6 @@ export type SavedAddress = {
 export type AddressInput = Omit<SavedAddress, 'id' | 'createdAtISO' | 'isDefault'> & {
   isDefault?: boolean;
 };
-
-const seedAddresses = (): SavedAddress[] => [
-  {
-    id: 'home',
-    label: 'Home',
-    street: 'Plot 14, Ntinda Road',
-    landmark: 'Near Shell petrol station, blue gate',
-    area: 'Ntinda',
-    propertyType: 'house',
-    isDefault: true,
-    createdAtISO: '2026-11-17T09:00:00.000Z',
-  },
-  {
-    id: 'work',
-    label: 'Work',
-    street: '3rd floor, Acacia Mall, Kololo',
-    landmark: 'Ask for reception on the third floor',
-    area: 'Kololo',
-    propertyType: 'office',
-    isDefault: false,
-    createdAtISO: '2026-11-17T09:00:00.000Z',
-  },
-];
 
 type AddressesState = {
   addresses: SavedAddress[];
@@ -78,15 +54,12 @@ const setAddresses = (addresses: SavedAddress[]) => {
   persist(addresses);
 };
 
-/** Called once at boot from the root layout. Seeds Home/Work only on the first run. */
+/** Called once at boot from the root layout. */
 export async function hydrateAddresses(): Promise<void> {
   let addresses: SavedAddress[] = [];
-  let firstRun = false;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw === null) {
-      firstRun = true;
-    } else {
+    if (raw !== null) {
       const parsed = JSON.parse(raw) as unknown;
       if (Array.isArray(parsed)) {
         addresses = parsed.filter(
@@ -97,10 +70,8 @@ export async function hydrateAddresses(): Promise<void> {
   } catch {
     addresses = [];
   }
-  if (firstRun) addresses = seedAddresses();
   state = { addresses, hydrated: true };
   listeners.forEach((listener) => listener());
-  if (firstRun) persist(addresses);
 }
 
 export const getAddresses = (): SavedAddress[] => state.addresses;

@@ -53,6 +53,20 @@ h3 {
   padding: 0 var(--space-3);
 }
 
+/* The company mark is the client app's logo, not a letter tile. */
+.brand-mark {
+  overflow: hidden;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .brand-copy span {
   color: rgba(255, 255, 255, 0.55);
   font-size: 12px;
@@ -782,15 +796,23 @@ h3 {
   line-height: 16px;
 }
 
-/* Overview layout */
+/* Overview: four KPIs, a 65/35 chart row, the live table across the full width,
+   then the three action queues as equal columns. */
 
-.overview-layout {
-  grid-template-columns: minmax(0, 1fr) 320px;
+.chart-grid {
+  grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
   gap: var(--space-6);
 }
 
-.overview-main {
+.overview-queues {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-6);
+  align-items: stretch;
+}
+
+.overview-queues > * {
+  min-width: 0;
 }
 
 .rail {
@@ -2201,7 +2223,7 @@ h3 {
   width: 44px;
   height: 44px;
   flex-basis: 44px;
-  border-radius: var(--r-input);
+  border-radius: 50%;
   font-size: 24px;
 }
 
@@ -2397,7 +2419,6 @@ h3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .overview-layout,
   .pricing-layout,
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);

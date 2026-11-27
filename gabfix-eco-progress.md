@@ -15,6 +15,7 @@ milestone on the setup checklist closes.
 | **Repository** | `gabfix-eco` — `client-app/`, `erp-app/`, `admin-web/`, `backend/` (independent folders, no workspaces) |
 | **Branch / commits** | `main`, 2 commits; a large working tree is uncommitted (see §7) |
 | **Status legend** | ⬜ Not started · 🟨 In progress · ✅ Done and verified · 🚫 Blocked |
+| **Latest session (2026-11-27)** | Booking chat (one thread per booking, created by the assignment trigger; customer and lead write, desk reads) and update badges on both tab bars — ERP Chat/Jobs/Cash and client Bookings/Messages — with per-booking stage beacons in the client. The ERP opens on Home, booking references are now `GBX-` + 10 alphanumerics, the order flow's back button steps back instead of prompting to save a draft (only stage one or the X does), cash handovers read red/green by state, and the admin console uses the company logo plus per-section nav badges. The local stack came back: the **edge-runtime container had exited**, so every `/functions/v1/api` call was 503; it is running again and the three unapplied migrations were applied with `psql -f`. |
 
 Detail behind each figure lives in the per-area sources: `client-app/Gabfix_UI_Progress.md`
 (per-page ledger; restored from its parent commit on 2026-11-24 after the committed copy was found
@@ -61,6 +62,7 @@ file's 14/25 were both wrong.
 
 Only work with a passing check is listed here.
 
+- **Booking chat, badges and booking references (2026-11-27):** the local stack is back. `supabase_edge_runtime_backend` had exited with code 255 (Docker `Exited (255)`), so Kong answered `503` on `/functions/v1/api/*`; restarting the container gives `health = 200`. `20261126150000_service_landing_copy.sql`, `20261127120000_booking_chat.sql` (9 threads backfilled) and `20261127130000_booking_reference_format.sql` were applied with `psql -f` (the CLI ledger still lists the psql-applied 2026-11-25/26 migrations as unapplied, so `migration up` is not safe here). Evidence: `backend` `npm test` 12/12 pass against the live stack; a real `POST /bookings` as `customer@gabfix.ug` returned `201` and its row carried `GBX-KSXUSMIWUF` (the probe booking and script were deleted); `GET /threads` returned `200` with 3 threads and `viewerId`; `select public.new_booking_reference()` returns a 10-character code. `erp-app` and `client-app` `tsc --noEmit` are clean, `client-app` eslint on the touched files is clean, `jest src/store/__tests__/sync-from-server.test.ts` passes 6/6, and `admin-web` `tsc -b` + `npm run build` pass. Badge counts, beacons, the logo rendering and the cash colours were **not** seen running in a browser or on a device.
 - **Client app:** `npx tsc --noEmit`, `npx expo lint`, `npx jest --runInBand` (13 suites / 105
   tests) all pass. Scripted headless-Chrome passes cover 13 page flows at 390 × 844, most recently
   the booking sheets and the address action menu (E7), with no console errors. No real-device pass
@@ -302,6 +304,18 @@ Only work with a passing check is listed here.
   the root layout with "Cannot find native module"; push and UUID features degrade instead. `tsc
   --noEmit` is clean for the client app, `npm run build` passes for the admin. No device pass, no
   deploy.
+- **Service landing crash on `.map` (2026-11-26):** `[slug].tsx` rendered `content.includes.map(...)`
+  and threw `Cannot read property 'map' of undefined` for services created in the admin catalogue.
+  Cause: `GET /services/{slug}` sends `content: { slug, intro, cardImage, heroImage }` only — no
+  `includes`/`excludes`/`faqs` — and `lib/api/service-content.ts` cast that partial payload to
+  `ServiceContent`. Any slug with a bundled editorial entry survived because the spread kept the
+  local arrays; a catalogue service without one got the bare payload. Added
+  `normalizeServiceContent()` (and `genericServiceContent()`) in `config/service-content.ts`: the API
+  payload is merged over the bundled copy or over generic copy, arrays are filtered for non-empty
+  strings, FAQ entries need a non-empty question, and counts must be finite numbers, so all three
+  lists are always present. `getServiceContent` now returns `local` when the payload is empty instead
+  of a cast. 3 unit tests cover a payload with no lists, a merge that keeps bundled fields, and
+  malformed values. `tsc --noEmit` clean; client suite 123 tests pass.
 - **Production migration state (2026-11-26):** `npx supabase migration list --linked` shows all 25
   migrations applied on `qdnlclphbnsddnixqnkv`, including `20261126120000_payment_kind.sql` and
   `20261126130000_backfill_ledger_payments.sql`, so no payment migration is pending; per instruction
@@ -430,6 +444,21 @@ and `admin-web/src/pages/Catalogue.tsx` (service image file input).
 The working tree was committed on 2026-11-26 (`31a1cf3 Index.ts Fix`, after `b940592 Production
 Push`); this session's edits (`admin-web/src/components/Login.tsx`, `admin-web/src/styles.css`,
 `client-app/src/app/otp.tsx` and the git-ignored `client-app/.env.local`) are uncommitted again.
+
+Added on 2026-11-27 and still uncommitted: `admin-web/src/pages/Overview.tsx` (restructured to the
+requested layout: KPI row, 65/35 revenue-vs-bookings chart grid, full-width Live bookings, three
+equal queue cards for Unassigned jobs / Balance overdue / Unconfirmed cash), matching
+`admin-web/src/styles/theme.css` (`.chart-grid` 65/35, `.overview-queues` 3-col stretch, removed
+the old `.overview-layout`/aside rail), and `admin-web/tests/admin-smoke.spec.ts` (6 Playwright smoke
+tests including layout order/ratios; `npm run build` and the suite pass). Client/service-copy:
+`backend/supabase/migrations/20261126150000_service_landing_copy.sql` adds
+`services.includes/excludes/faqs` (listed in `supabase migration list`, not yet applied locally);
+`backend/supabase/functions/api/index.ts` `GET /services/:slug` now selects and returns those fields;
+`admin-web/src/lib/catalogue.ts` + `admin-web/src/pages/Catalogue.tsx` + `admin-web/src/lib/database.types.ts`
+edit/save the landing copy; `client-app/src/config/service-content.ts` normalizes partial API content
+and `client-app/src/lib/api/service-content.ts` no longer casts, fixing the `[slug].tsx` map-of-undefined
+crash (3 new tests; client 17 suites/123 tests, `tsc --noEmit` clean). The `as`-payload audit found no
+other unsafe array cast in `client-app/src/lib/api`.
 
 ---
 

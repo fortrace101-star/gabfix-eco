@@ -52,7 +52,7 @@ export default function SignUpScreen() {
     if (!isStrongEnoughPassword(password)) next.password = 'Use at least 8 characters';
     if (!isStrongEnoughPassword(confirm)) next.confirm = 'Retype your password';
     else if (confirm !== password) next.confirm = 'Passwords do not match';
-    if (!terms) next.terms = 'Accept the Terms and Privacy Policy to continue';
+    if (!terms) next.terms = 'Accept the Terms and cancellation policy to continue';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -215,30 +215,51 @@ export default function SignUpScreen() {
             clearError('terms');
           }}
           error={errors.terms}
-          accessibilityLabel="I agree to the Terms and Privacy Policy"
+          accessibilityLabel="I agree to the Terms and the cancellation policy, including any late fee"
           label={
             <Text style={styles.termsText} maxFontSizeMultiplier={1.3}>
-              I agree to the{' '}
-              <Text
-                accessibilityRole="link"
-                onPress={() =>
-                  router.push({ pathname: '/policies/[doc]', params: { doc: 'terms' } })
-                }
-                style={styles.termsLink}>
-                Terms
-              </Text>{' '}
-              and{' '}
-              <Text
-                accessibilityRole="link"
-                onPress={() =>
-                  router.push({ pathname: '/policies/[doc]', params: { doc: 'privacy' } })
-                }
-                style={styles.termsLink}>
-                Privacy Policy
-              </Text>
+              I agree to the Terms and the cancellation policy, including any late fee.
             </Text>
           }
         />
+
+        <View style={styles.legalRow}>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Read the Terms"
+            hitSlop={8}
+            onPress={() => router.push({ pathname: '/policies/[doc]', params: { doc: 'terms' } })}>
+            <Text style={styles.termsLink} maxFontSizeMultiplier={1.3}>
+              Read the Terms
+            </Text>
+          </Pressable>
+          <Text style={styles.legalDot} maxFontSizeMultiplier={1.3}>
+            ·
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Payment and refund policy"
+            hitSlop={8}
+            onPress={() =>
+              router.push({ pathname: '/policies/[doc]', params: { doc: 'payments-refunds' } })
+            }>
+            <Text style={styles.termsLink} maxFontSizeMultiplier={1.3}>
+              Payment and refund policy
+            </Text>
+          </Pressable>
+          <Text style={styles.legalDot} maxFontSizeMultiplier={1.3}>
+            ·
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+            hitSlop={8}
+            onPress={() => router.push({ pathname: '/policies/[doc]', params: { doc: 'privacy' } })}>
+            <Text style={styles.termsLink} maxFontSizeMultiplier={1.3}>
+              Privacy Policy
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <PillButton label="Sign Up" onPress={createAccount} style={styles.primary} />
@@ -288,6 +309,8 @@ const styles = StyleSheet.create({
     color: auth.text,
   },
   termsLink: { fontFamily: font.poppinsSemi, color: auth.accent },
+  legalRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  legalDot: { fontFamily: font.poppins, fontSize: 12, color: auth.textSoft },
   primary: { marginTop: 20 },
   divider: { marginTop: 16 },
   social: { marginTop: 16 },

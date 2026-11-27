@@ -1,10 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSyncExternalStore } from 'react';
+
+import {
+  fetchBookingMessages,
+  fetchBookingThreads,
+  requestChatMediaUpload,
+  sendBookingMessage,
+  type ApiBookingThread,
+} from '@/lib/api/chat';
+import { playMessageSound } from '@/lib/message-sound';
 
 const STORAGE_KEY = 'gabfix.messages.v1';
 
 export type ChatSender = 'me' | 'them' | 'system';
-export type ChatMessageStatus = 'sending' | 'sent';
+export type ChatMessageStatus = 'sending' | 'sent' | 'failed';
 
 export type ChatMessage = {
   id: string;
@@ -13,8 +23,18 @@ export type ChatMessage = {
   from: ChatSender;
   /** Only used on outgoing messages. */
   status?: ChatMessageStatus;
-  /** Local image attachment (data URI) sent with the message. */
+  /** Image preview: a local file while sending, the signed URL once loaded. */
   imageUri?: string;
+  mediaKind?: 'image' | 'video';
+  mediaDurationMs?: number;
+};
+
+export type ChatAttachment = {
+  uri: string;
+  kind: 'image' | 'video';
+  mimeType: string;
+  bytes: number;
+  durationMs?: number;
 };
 
 export type ChatThread = {
@@ -22,7 +42,9 @@ export type ChatThread = {
   name: string;
   initials: string;
   role: string;
-  kind: 'support' | 'cleaner';
+  kind: 'support' | 'cleaner' | 'booking';
+  /** Id of the server-side booking thread, when this chat is not local-only. */
+  serverId?: string;
   unread: number;
   updatedAtISO: string;
   messages: ChatMessage[];
@@ -142,7 +164,7 @@ const normalizeThread = (value: unknown): ChatThread | null => {
     !thread.id ||
     !thread.name ||
     !thread.initials ||
-    (thread.kind !== 'support' && thread.kind !== 'cleaner') ||
+    (thread.kind !== 'support' && thread.kind !== 'cleaner' && thread.kind !== 'booking') ||
     !Array.isArray(thread.messages)
   ) {
     return null;
@@ -150,7 +172,13 @@ const normalizeThread = (value: unknown): ChatThread | null => {
 
   return {
     ...thread,
-    role: thread.role || (thread.kind === 'support' ? 'Support team' : 'Your cleaner'),
+    role:
+      thread.role ||
+      (thread.kind === 'support'
+        ? 'Support team'
+        : thread.kind === 'booking'
+          ? 'Job chat'
+          : 'Your cleaner'),
     unread: typeof thread.unread === 'number' && thread.unread > 0 ? thread.unread : 0,
     updatedAtISO:
       typeof thread.updatedAtISO === 'string' ? thread.updatedAtISO : new Date().toISOString(),
@@ -182,6 +210,122 @@ export async function hydrateMessages(): Promise<void> {
   }
   state = { threads, hydrated: true };
   listeners.forEach((listener) => listener());
+}
+
+/** Initials for a booking chat avatar, e.g. "Rose Nakato (Gabfix Team)" → "RN". */
+const initialsOf = (name: string) =>
+  name
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'GB';
+
+/**
+ * Maps the server thread into the inbox model. The customer's counterpart is the
+ * assigned technician, named as they are in the ERP; staff see the customer.
+ * A thread that has no technician yet falls back to "Gabfix team".
+ */
+const bookingThreadFromApi = (thread: ApiBookingThread, viewerId: string): ChatThread => {
+  const viewerIsCustomer = thread.customer?.id === viewerId;
+  const counterpart = viewerIsCustomer ? thread.lead : thread.customer;
+  // The title carries the party's first name and designation: "Daniel (Gabfix Team)".
+  const firstName = counterpart?.full_name?.trim().split(/\s+/)[0];
+  const name = firstName
+    ? `${firstName} (${viewerIsCustomer ? 'Gabfix Team' : 'Customer'})`
+    : viewerIsCustomer
+      ? 'Gabfix Team'
+      : 'Customer';
+  const role = viewerIsCustomer ? 'Your technician' : 'Customer';
+  const last = thread.lastMessage;
+  return {
+    id: `booking:${thread.id}`,
+    serverId: thread.id,
+    name,
+    initials: initialsOf(name),
+    role: thread.reference ? `${role} · ${thread.reference}` : role,
+    kind: 'booking',
+    unread: thread.unread,
+    updatedAtISO: last?.created_at ?? new Date().toISOString(),
+    messages: last
+      ? [
+          {
+            id: last.id,
+            text: last.body,
+            atISO: last.created_at,
+            from: last.sender_id === viewerId ? 'me' : 'them',
+            status: 'sent',
+          },
+        ]
+      : [],
+  };
+};
+
+/**
+ * Pulls booking conversations from the API into the local inbox. Local-only
+ * support/cleaner threads are kept; booking threads are replaced wholesale so
+ * a removed assignment stops showing. Safe to call when offline.
+ */
+export async function syncBookingThreads(): Promise<boolean> {
+  try {
+    const { threads, viewerId } = await fetchBookingThreads();
+    const mapped = threads.map((thread) => bookingThreadFromApi(thread, viewerId));
+    const local = state.threads.filter((thread) => thread.kind !== 'booking');
+    state = { ...state, threads: [...mapped, ...local].sort((a, b) =>
+      new Date(b.updatedAtISO).getTime() - new Date(a.updatedAtISO).getTime(),
+    ) };
+    listeners.forEach((listener) => listener());
+    persist(state.threads);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Loads the full message history for a booking thread when it is opened. */
+export async function loadBookingMessages(threadId: string): Promise<void> {
+  const thread = state.threads.find((item) => item.id === threadId);
+  if (!thread?.serverId) return;
+
+  try {
+    const { messages, viewerId } = await fetchBookingMessages(thread.serverId);
+    const mapped: ChatMessage[] = messages.map((message) => ({
+      id: message.id,
+      text: message.body,
+      atISO: message.created_at,
+      from: message.sender_id === viewerId ? 'me' : 'them',
+      status: 'sent',
+      ...(message.media_kind
+        ? {
+            mediaKind: message.media_kind,
+            mediaDurationMs: message.media_duration_ms ?? undefined,
+            ...(message.media_kind === 'image' && message.mediaUrl
+              ? { imageUri: message.mediaUrl }
+              : {}),
+          }
+        : {}),
+    }));
+    const incoming = mapped.some(
+      (message) =>
+        message.from === 'them' && !thread.messages.some((existing) => existing.id === message.id),
+    );
+    setThreads(
+      state.threads.map((item) =>
+        item.id === threadId
+          ? {
+              ...item,
+              messages: mapped,
+              unread: 0,
+              updatedAtISO: mapped[mapped.length - 1]?.atISO ?? item.updatedAtISO,
+            }
+          : item,
+      ),
+    );
+    if (incoming) playMessageSound();
+  } catch {
+    // Keep the last-known message; the inbox still renders offline.
+  }
 }
 
 export function useThreads(): ChatThread[] {
@@ -252,6 +396,21 @@ const appendMessage = (threadId: string, message: ChatMessage, unread: number) =
   );
 };
 
+const markMessageFailed = (threadId: string, messageId: string) => {
+  setThreads(
+    state.threads.map((item) =>
+      item.id === threadId
+        ? {
+            ...item,
+            messages: item.messages.map((message) =>
+              message.id === messageId ? { ...message, status: 'failed' } : message,
+            ),
+          }
+        : item,
+    ),
+  );
+};
+
 const markMessageSent = (threadId: string, messageId: string) => {
   const thread = state.threads.find((item) => item.id === threadId);
   if (!thread?.messages.some((message) => message.id === messageId)) return;
@@ -269,6 +428,66 @@ const markMessageSent = (threadId: string, messageId: string) => {
   );
 };
 
+/**
+ * Sends one photo or short video with an optional caption. The bytes go to a
+ * signed upload URL, then the message row carries the attachment path.
+ */
+export async function sendMediaMessage(
+  threadId: string,
+  rawText: string,
+  attachment: ChatAttachment,
+): Promise<void> {
+  const text = rawText.trim();
+  const thread = state.threads.find((item) => item.id === threadId);
+  if (!thread) return;
+
+  const localId = nextMessageId();
+  appendMessage(
+    threadId,
+    {
+      id: localId,
+      text,
+      atISO: new Date().toISOString(),
+      from: 'me',
+      status: 'sending',
+      mediaKind: attachment.kind,
+      mediaDurationMs: attachment.durationMs,
+      ...(attachment.kind === 'image' ? { imageUri: attachment.uri } : {}),
+    },
+    0,
+  );
+
+  if (!thread.serverId) {
+    markMessageSent(threadId, localId);
+    return;
+  }
+
+  try {
+    const target = await requestChatMediaUpload(thread.serverId, {
+      kind: attachment.kind,
+      mimeType: attachment.mimeType,
+      bytes: attachment.bytes,
+      durationMs: attachment.durationMs,
+    });
+    const result = await FileSystem.uploadAsync(target.uploadUrl, attachment.uri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: target.headers,
+    });
+    if (result.status < 200 || result.status >= 300) throw new Error('Upload failed');
+    await sendBookingMessage(thread.serverId, text, {
+      path: target.path,
+      kind: attachment.kind,
+      mimeType: attachment.mimeType,
+      bytes: attachment.bytes,
+      durationMs: attachment.durationMs,
+    });
+    markMessageSent(threadId, localId);
+  } catch {
+    markMessageFailed(threadId, localId);
+  }
+}
+
 /** Optimistic send; the demo confirms locally and support replies after a short delay. */
 export function sendMessage(threadId: string, rawText: string, imageUri?: string): void {
   const text = rawText.trim();
@@ -285,6 +504,19 @@ export function sendMessage(threadId: string, rawText: string, imageUri?: string
     ...(imageUri ? { imageUri } : {}),
   };
   appendMessage(threadId, message, 0);
+
+  // Booking chats are real: write to the API, then flip the tick. The thread
+  // screen loads the full history when it opens.
+  if (thread.serverId) {
+    if (!text) {
+      markMessageSent(threadId, message.id);
+      return;
+    }
+    void sendBookingMessage(thread.serverId, text)
+      .then(() => markMessageSent(threadId, message.id))
+      .catch(() => markMessageFailed(threadId, message.id));
+    return;
+  }
 
   setTimeout(() => markMessageSent(threadId, message.id), 550);
 

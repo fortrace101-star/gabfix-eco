@@ -39,7 +39,7 @@ export default function ConfirmedScreen() {
     quote?: string;
   }>();
   const slug = typeof params.slug === 'string' ? params.slug : '';
-  const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-00000';
+  const bookingId = typeof params.bookingId === 'string' ? params.bookingId : 'GBX-0000000000';
   const [snapshot] = useState(() => getBookingDraft());
   const [tick] = useState(() => new Animated.Value(0));
   const [pushPrompt, setPushPrompt] = useState(false);

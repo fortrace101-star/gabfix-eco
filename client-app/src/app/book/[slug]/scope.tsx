@@ -55,7 +55,7 @@ export default function JobScopeScreen() {
   const [previewItem, setPreviewItem] = useState<BookingMediaItem | null>(null);
   const [remoteSchema, setRemoteSchema] = useState<FormSchema | null>(null);
 
-  const { requestExit, sheet } = useDraftExit({ step: 'scope' });
+  const { requestExit, requestBack, sheet } = useDraftExit({ step: 'scope' });
   const ready = useDraftGuard(slug);
 
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function JobScopeScreen() {
     <View style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Job scope'}
-        onBack={requestExit}
+        onBack={requestBack}
         right={
           <Pressable
             accessibilityRole="button"

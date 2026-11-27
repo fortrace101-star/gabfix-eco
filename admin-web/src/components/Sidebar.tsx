@@ -1,3 +1,4 @@
+import logoUrl from '../assets/gabfix-logo.png';
 import { canViewPage, roleLabel, type AdminRole, type AdminUser } from '../lib/auth';
 import { cx } from '../lib/format';
 import type { LiveStatus } from '../lib/live';
@@ -17,6 +18,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { id: 'support', label: 'Support', icon: 'messages' },
       { id: 'payments', label: 'Payments', icon: 'payments' },
       { id: 'cash', label: 'Cash collections', icon: 'cash' },
+      { id: 'chat-archive', label: 'Chat Archive', icon: 'download' },
     ],
   },
   {
@@ -56,15 +58,15 @@ export function Sidebar({
   onNavigate,
   user,
   role,
-  cashDue,
+  badges,
   live,
 }: {
   active: PageId;
   onNavigate: (page: PageId) => void;
   user: AdminUser;
   role: AdminRole;
-  /** Open cash collections, shown as the nav badge. */
-  cashDue: number;
+  /** Items waiting in each section; a section with none shows no badge. */
+  badges: Partial<Record<PageId, number>>;
   live: LiveStatus;
 }) {
   const status = liveCopy[live];
@@ -73,7 +75,7 @@ export function Sidebar({
     <aside className="sidebar" aria-label="Operations navigation">
       <div className="brand-row">
         <span className="brand-mark" aria-hidden="true">
-          G
+          <img className="brand-logo" src={logoUrl} alt="" />
         </span>
         <span className="brand-copy">
           <strong>Gabfix</strong>
@@ -99,8 +101,14 @@ export function Sidebar({
                 >
                   <Icon name={item.icon} size={20} />
                   <span>{item.label}</span>
-                  {item.id === 'cash' && cashDue > 0 ? (
-                    <em className="nav-badge">{cashDue}</em>
+                  {(badges[item.id] ?? 0) > 0 ? (
+                    <em
+                      className="nav-badge"
+                      aria-label={`${badges[item.id]} ${
+                        badges[item.id] === 1 ? 'update' : 'updates'
+                      }`}>
+                      {(badges[item.id] ?? 0) > 99 ? '99+' : badges[item.id]}
+                    </em>
                   ) : null}
                 </button>
               ))}

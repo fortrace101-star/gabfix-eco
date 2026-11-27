@@ -9,6 +9,7 @@ export type PageId =
   | 'catalogue'
   | 'quotes'
   | 'support'
+  | 'chat-archive'
   | 'costs'
   | 'services'
   | 'forms'

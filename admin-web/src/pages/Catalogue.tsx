@@ -25,6 +25,7 @@ import {
   type CatalogueCategory,
   type CatalogueService,
   type PricingType,
+  type ServiceFaq,
 } from '../lib/catalogue';
 import { cx, ugx } from '../lib/format';
 
@@ -65,6 +66,11 @@ type ServiceDraft = {
   requiredSkillId: string | null;
   popularRank: string;
   tag: string;
+  /** One item per line. */
+  includes: string;
+  excludes: string;
+  /** One `Question | Answer` per line. */
+  faqs: string;
   active: boolean;
   slugTouched: boolean;
 };
@@ -94,6 +100,9 @@ const blankServiceDraft = (categoryId: string): ServiceDraft => ({
   requiredSkillId: null,
   popularRank: '',
   tag: '',
+  includes: '',
+  excludes: '',
+  faqs: '',
   active: true,
   slugTouched: false,
 });
@@ -123,9 +132,31 @@ const serviceToDraft = (service: CatalogueService): ServiceDraft => ({
   requiredSkillId: service.requiredSkillId,
   popularRank: service.popularRank === null ? '' : String(service.popularRank),
   tag: service.tag ?? '',
+  includes: service.includes.join('\n'),
+  excludes: service.excludes.join('\n'),
+  faqs: service.faqs.map((faq) => `${faq.question} | ${faq.answer}`).join('\n'),
   active: service.active,
   slugTouched: true,
 });
+
+const draftLines = (value: string) =>
+  value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+/** Parses the `Question | Answer` textarea; returns null when a line is malformed. */
+const draftFaqs = (value: string): ServiceFaq[] | null => {
+  const faqs: ServiceFaq[] = [];
+  for (const line of draftLines(value)) {
+    const separator = line.indexOf('|');
+    const question = separator === -1 ? '' : line.slice(0, separator).trim();
+    const answer = separator === -1 ? '' : line.slice(separator + 1).trim();
+    if (!question || !answer) return null;
+    faqs.push({ question, answer });
+  }
+  return faqs;
+};
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -317,6 +348,10 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
         if (rank !== null && (!Number.isInteger(rank) || rank < 1 || rank > 99)) {
           return setFormError('Popular rank must be a whole number between 1 and 99, or left empty.');
         }
+        const faqs = draftFaqs(draft.faqs);
+        if (!faqs) {
+          return setFormError('Write each question as "Question | Answer", one per line.');
+        }
         await saveService({
           id: draft.id,
           categoryId: draft.categoryId,
@@ -330,6 +365,9 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
           requiredSkillId: draft.requiredSkillId,
           popularRank: rank,
           tag: draft.tag,
+          includes: draftLines(draft.includes),
+          excludes: draftLines(draft.excludes),
+          faqs,
           active: draft.active,
         });
         notify(`${name} saved.${draft.active ? '' : ' It is hidden from customers.'}`);
@@ -1062,6 +1100,39 @@ export function CataloguePage({ notify }: { notify: (message: string) => void })
                 value={editor.draft.description}
                 onChange={(event) =>
                   setEditor({ ...editor, draft: { ...editor.draft, description: event.target.value } })
+                }
+              />
+            </Field>
+            <Field
+              label="What's included"
+              hint="One item per line. Shown on the customer service page; empty uses the generic list"
+            >
+              <textarea
+                className="textarea"
+                rows={4}
+                value={editor.draft.includes}
+                onChange={(event) =>
+                  setEditor({ ...editor, draft: { ...editor.draft, includes: event.target.value } })
+                }
+              />
+            </Field>
+            <Field label="Not included" hint="One item per line; empty uses the generic list">
+              <textarea
+                className="textarea"
+                rows={3}
+                value={editor.draft.excludes}
+                onChange={(event) =>
+                  setEditor({ ...editor, draft: { ...editor.draft, excludes: event.target.value } })
+                }
+              />
+            </Field>
+            <Field label="Questions" hint="One per line as Question | Answer">
+              <textarea
+                className="textarea"
+                rows={4}
+                value={editor.draft.faqs}
+                onChange={(event) =>
+                  setEditor({ ...editor, draft: { ...editor.draft, faqs: event.target.value } })
                 }
               />
             </Field>

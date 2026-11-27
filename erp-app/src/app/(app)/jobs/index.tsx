@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ChevronRight, MapPin } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,7 @@ import { Screen } from '@/components/ui/screen';
 import { formatDay, formatMoney, formatWindow } from '@/lib/format';
 import { ACTIVE_STATUSES, statusChip } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
+import { markTabSeen } from '@/store/badges';
 import { colors, font, radius, shadow, space, text } from '@/theme';
 
 type JobRow = {
@@ -64,6 +65,12 @@ export default function JobsScreen() {
     queryKey: ['jobs', 'active'],
     queryFn: fetchJobs,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      markTabSeen('jobs');
+    }, []),
+  );
 
   const jobs = data ?? [];
   const todayJobs = jobs.filter((job) => isToday(job.scheduled_start));

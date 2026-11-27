@@ -20,7 +20,6 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -221,18 +220,10 @@ export default function HomeTab() {
     router.push('/help' as Href);
   }, [closeMenu]);
 
+  // Signing out is immediate: no confirmation dialog.
   const confirmSignOut = useCallback(() => {
     closeMenu();
-    Alert.alert('Sign out?', 'You can sign back in any time.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: () => {
-          void endSession().then(() => router.replace('/login' as Href));
-        },
-      },
-    ]);
+    void endSession().then(() => router.replace('/login' as Href));
   }, [closeMenu]);
   const reviews = useReviews();
   const dueBookings = useMemo(() => balanceDueBookings(bookings), [bookings]);

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
+import { setActiveAccountId } from '@/lib/account-cache';
 import { refreshSession as requestRefresh, type AuthSession, type AuthUser } from '@/lib/api/auth';
 import { setAuthBridge } from '@/lib/api/session-bridge';
 import { loadSession, saveSession } from '@/lib/session-storage';
@@ -47,11 +48,15 @@ const firstNameOf = (user: AuthUser) => user.name?.trim().split(/\s+/)[0] || nul
 export async function restoreSession(): Promise<void> {
   const session = await loadSession();
   if (session) {
+    // Activate this account's cache before emitting so account-scoped stores can
+    // hydrate against the correct identifying user id.
+    setActiveAccountId(session.user.id);
     const firstName = firstNameOf(session.user);
     if (firstName) setUserName(firstName);
     emit({ status: 'authenticated', session });
     return;
   }
+  setActiveAccountId(null);
   emit({ status: 'unauthenticated', session: null });
 }
 
@@ -70,6 +75,9 @@ export async function startSession(
   }
   const remember = options.remember ?? true;
   persistSession = remember;
+  // Switch the cache to this account before emitting; a different account gets a
+  // fresh cache object, never the previous account's data.
+  setActiveAccountId(session.user.id);
   const firstName = firstNameOf(session.user);
   if (firstName) setUserName(firstName);
   emit({ status: 'authenticated', session });
@@ -80,6 +88,9 @@ export async function endSession(): Promise<void> {
   emit({ status: 'unauthenticated', session: null });
   setUserName(null);
   persistSession = true;
+  // Drop the active account so account-scoped stores reset to empty defaults
+  // instead of leaking into the next sign-in.
+  setActiveAccountId(null);
   await saveSession(null);
 }
 

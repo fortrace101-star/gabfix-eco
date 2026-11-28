@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 import { fetchMyQuoteRequests, type ServerQuoteRequest } from '@/lib/api/quotes';
 import type { BookingFrequency } from '@/lib/pricing';
 import { addBooking, getBookings } from '@/store/bookings';
@@ -78,7 +78,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (requests: QuoteRequest[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(requests)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, requests);
 };
 
 const setRequests = (requests: QuoteRequest[]) => {
@@ -87,12 +87,11 @@ const setRequests = (requests: QuoteRequest[]) => {
   persist(requests);
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateQuotes(): Promise<void> {
   let requests: QuoteRequest[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       requests = parsed.filter((item): item is QuoteRequest =>
         Boolean(item && typeof item === 'object' && (item as QuoteRequest).id),
@@ -104,6 +103,19 @@ export async function hydrateQuotes(): Promise<void> {
   state = { ...state, requests, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetQuotes = () => {
+  state = {
+    requests: [],
+    serverRequests: [],
+    serverSynced: false,
+    syncing: false,
+    hydrated: false,
+  };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetQuotes);
 
 const toDateISO = (iso: string | null): string | undefined => {
   if (!iso) return undefined;

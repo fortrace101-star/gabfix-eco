@@ -1,11 +1,16 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import {
+  readAccountCache,
+  registerAccountCacheReset,
+  writeAccountCache,
+} from '@/lib/account-cache';
 import type { BookingLocation } from '@/lib/pricing';
 
 /**
  * P24 saved address book. Customers add and manage their own addresses; the app
- * does not seed demo addresses.
+ * does not seed demo addresses. Scoped per account so one account never inherits
+ * another account's addresses.
  */
 const STORAGE_KEY = 'gabfix.addresses.v1';
 
@@ -45,7 +50,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (addresses: SavedAddress[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(addresses)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, addresses);
 };
 
 const setAddresses = (addresses: SavedAddress[]) => {
@@ -54,18 +59,15 @@ const setAddresses = (addresses: SavedAddress[]) => {
   persist(addresses);
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateAddresses(): Promise<void> {
   let addresses: SavedAddress[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw !== null) {
-      const parsed = JSON.parse(raw) as unknown;
-      if (Array.isArray(parsed)) {
-        addresses = parsed.filter(
-          (item): item is SavedAddress => Boolean(item && (item as SavedAddress).id),
-        );
-      }
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
+    if (Array.isArray(parsed)) {
+      addresses = parsed.filter(
+        (item): item is SavedAddress => Boolean(item && (item as SavedAddress).id),
+      );
     }
   } catch {
     addresses = [];
@@ -73,6 +75,13 @@ export async function hydrateAddresses(): Promise<void> {
   state = { addresses, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetAddresses = () => {
+  state = { addresses: [], hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetAddresses);
 
 export const getAddresses = (): SavedAddress[] => state.addresses;
 

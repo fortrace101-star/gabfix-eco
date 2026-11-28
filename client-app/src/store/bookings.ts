@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
 import { mock } from '@/config/mock';
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 import { fetchMyBookings } from '@/lib/api/bookings';
 import { newBookingReference } from '@/lib/booking-reference';
 import { cancelAssignmentReminder } from '@/lib/local-notifications';
@@ -130,7 +130,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (bookings: SavedBooking[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bookings)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, bookings);
 };
 
 const setBookings = (bookings: SavedBooking[]) => {
@@ -139,12 +139,11 @@ const setBookings = (bookings: SavedBooking[]) => {
   persist(bookings);
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateBookings(): Promise<void> {
   let bookings: SavedBooking[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       bookings = parsed.filter((item): item is SavedBooking => Boolean(item && (item as SavedBooking).id));
     }
@@ -169,6 +168,13 @@ export async function hydrateBookings(): Promise<void> {
   if (baselined) persist(bookings);
   expireUnpaidBookings();
 }
+
+const resetBookings = () => {
+  state = { bookings: [], hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetBookings);
 
 export function addBooking(booking: SavedBooking): void {
   if (state.bookings.some((item) => item.id === booking.id)) return;

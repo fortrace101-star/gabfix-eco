@@ -23,7 +23,13 @@ import {
   suggestJob,
   suggestionCopy,
 } from '@/lib/booking-scope';
-import { validateAnswers, type FormField, type FormSchema, type FormValue } from '@/lib/form-schema';
+import {
+  schemaLayout,
+  validateAnswers,
+  type FormField,
+  type FormSchema,
+  type FormValue,
+} from '@/lib/form-schema';
 import { deleteMediaFile } from '@/lib/media';
 import { useService } from '@/hooks/use-service';
 import { price, servicePricing, type BookingMediaItem } from '@/lib/pricing';
@@ -54,6 +60,7 @@ export default function JobScopeScreen() {
   const [sheetSlot, setSheetSlot] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<BookingMediaItem | null>(null);
   const [remoteSchema, setRemoteSchema] = useState<FormSchema | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
 
   const { requestExit, requestBack, sheet } = useDraftExit({ step: 'scope' });
   const ready = useDraftGuard(slug);
@@ -90,6 +97,12 @@ export default function JobScopeScreen() {
   const scope = active?.scope;
   const mediaItems = active?.media?.items ?? [];
   const schema = remoteSchema ?? (scope ? schemaForScope(scope) : schemaForService(slug));
+  // Opt-in paged layout: one section at a time inside the Job scope stage. Schemas
+  // without `layout` (and older builds) keep the single scrolling screen.
+  const paged = schemaLayout(schema) === 'steps' && schema.sections.length > 1;
+  const stepCount = schema.sections.length;
+  const currentStep = Math.min(Math.max(stepIndex, 0), Math.max(stepCount - 1, 0));
+  const activeSection = schema.sections[currentStep];
   const mediaSlots = useMemo(
     () =>
       schema.sections
@@ -103,6 +116,14 @@ export default function JobScopeScreen() {
   const { details } = active;
   const quote = price(active);
   const errors = validateAnswers(schema, scope.answers, mediaItems.length);
+  // Errors for the section on screen, so Next only blocks on the current step.
+  const stepErrors = paged && activeSection
+    ? Object.fromEntries(
+        Object.entries(errors).filter(([fieldId]) =>
+          activeSection.fields.some((field) => field.id === fieldId),
+        ),
+      )
+    : errors;
   // Slot-aware completeness: a required media slot needs a file in that slot.
   const missingSlot = mediaSlots.some(
     (field) => field.required && !mediaItems.some((item) => item.slotId === field.id),
@@ -120,6 +141,17 @@ export default function JobScopeScreen() {
   };
 
   const onNext = () => {
+    if (paged && currentStep < stepCount - 1) {
+      setShowErrors(true);
+      const first = Object.values(stepErrors)[0];
+      if (first) {
+        Alert.alert('Finish this step', first);
+        return;
+      }
+      setShowErrors(false);
+      setStepIndex(currentStep + 1);
+      return;
+    }
     if (!complete) {
       setShowErrors(true);
       const first = Object.values(errors)[0];
@@ -127,6 +159,11 @@ export default function JobScopeScreen() {
       return;
     }
     router.push({ pathname: '/book/[slug]/schedule', params: { slug } });
+  };
+
+  const onPreviousStep = () => {
+    setShowErrors(false);
+    setStepIndex(Math.max(currentStep - 1, 0));
   };
 
   const applySuggestion = () => {
@@ -168,7 +205,7 @@ export default function JobScopeScreen() {
     <View style={styles.screen}>
       <TopBar
         title={service?.name ?? 'Job scope'}
-        onBack={requestBack}
+        onBack={paged && currentStep > 0 ? onPreviousStep : requestBack}
         right={
           <Pressable
             accessibilityRole="button"
@@ -197,30 +234,58 @@ export default function JobScopeScreen() {
                   } · ${details.hours} h`
             }
             total={quote.total}
-            actionLabel={service?.pricingMode === 'quote' ? 'Request quote' : 'Continue'}
+            actionLabel={
+              paged && currentStep < stepCount - 1
+                ? 'Next'
+                : service?.pricingMode === 'quote'
+                  ? 'Request quote'
+                  : 'Continue'
+            }
             onPress={onNext}
             onDetailsPress={() => setSummaryOpen(true)}
+            secondaryLabel={paged && currentStep > 0 ? 'Back' : undefined}
+            onSecondaryPress={onPreviousStep}
           />
         }>
-        <View style={styles.section}>
-          <Text style={styles.title} maxFontSizeMultiplier={1.3}>
-            {schema.heading}
-          </Text>
-          <Text style={styles.caption} maxFontSizeMultiplier={1.3}>
-            {schema.mediaHint || 'Helps us send the right team and time.'}
-          </Text>
-        </View>
+        {!paged || currentStep === 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.title} maxFontSizeMultiplier={1.3}>
+              {schema.heading}
+            </Text>
+            <Text style={styles.caption} maxFontSizeMultiplier={1.3}>
+              {schema.mediaHint || 'Helps us send the right team and time.'}
+            </Text>
+          </View>
+        ) : null}
+
+        {paged ? (
+          <View style={styles.stepLine}>
+            <Text style={styles.stepLabel} maxFontSizeMultiplier={1.3}>
+              Step {currentStep + 1} of {stepCount}
+            </Text>
+            <View style={styles.stepDots} accessibilityLabel={`Step ${currentStep + 1} of ${stepCount}`}>
+              {schema.sections.map((section, index) => (
+                <View
+                  key={section.id}
+                  style={[styles.stepDot, index === currentStep && styles.stepDotOn]}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <DynamicForm
-          schema={schema}
+          schema={
+            paged && activeSection ? { ...schema, sections: [activeSection] } : schema
+          }
           answers={scope.answers}
           onChange={onAnswer}
-          errors={showErrors ? errors : undefined}
+          errors={showErrors ? stepErrors : undefined}
           mediaCountBySlot={mediaCountBySlot}
           onMediaPress={openSlot}
         />
 
-        {showSuggestion && suggestion ? (
+        {showSuggestion && suggestion && (!paged || currentStep === stepCount - 1) ? (
           <View style={styles.suggestion}>
             <Sparkles size={18} color={colors.green700} strokeWidth={2} />
             <View style={styles.suggestionText}>
@@ -250,6 +315,7 @@ export default function JobScopeScreen() {
           </View>
         ) : null}
 
+        {!paged || currentStep === stepCount - 1 ? (
         <View style={styles.section}>
           <Text style={styles.label} maxFontSizeMultiplier={1.3}>
             Photos and video
@@ -287,7 +353,9 @@ export default function JobScopeScreen() {
             ) : null}
           </View>
         </View>
+        ) : null}
 
+        {!paged || currentStep === stepCount - 1 ? (
         <View style={styles.note}>
           <Info size={16} color={colors.textMuted} strokeWidth={2} />
           <Text style={styles.noteText} maxFontSizeMultiplier={1.3}>
@@ -296,6 +364,7 @@ export default function JobScopeScreen() {
               : 'Hours and team size stay editable until you pay.'}
           </Text>
         </View>
+        ) : null}
       </KeyboardScreen>
 
       <SummarySheet
@@ -329,6 +398,16 @@ const styles = StyleSheet.create({
   section: { gap: space[1] },
   title: { ...text.h2 },
   caption: { ...text.caption, color: colors.textMuted },
+  stepLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space[3],
+  },
+  stepLabel: { ...text.caption, fontFamily: font.bodySemi, color: colors.green700 },
+  stepDots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stepDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.border },
+  stepDotOn: { width: 16, backgroundColor: colors.green500 },
   label: { ...text.bodyM, fontFamily: font.bodySemi },
   close: { padding: space[1] },
   suggestion: {

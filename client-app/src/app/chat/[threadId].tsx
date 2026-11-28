@@ -20,7 +20,7 @@ import { TopBar } from '@/components/ui/top-bar';
 import { clockLabel } from '@/lib/chat';
 import {
   closeThread,
-  loadBookingMessages,
+  loadThreadMessages,
   openThread,
   sendMediaMessage,
   sendMessage,
@@ -122,10 +122,10 @@ export default function ChatThreadScreen() {
   useEffect(() => {
     if (!threadId) return;
     openThread(threadId);
-    void loadBookingMessages(threadId);
+    void loadThreadMessages(threadId);
     // The client app talks to the REST API, not Realtime, so it refreshes the
-    // open conversation on a short interval to show the technician's replies.
-    const timer = setInterval(() => void loadBookingMessages(threadId), 4_000);
+    // open conversation on a short interval to show the desk's or technician's replies.
+    const timer = setInterval(() => void loadThreadMessages(threadId), 4_000);
     return () => {
       clearInterval(timer);
       closeThread(threadId);

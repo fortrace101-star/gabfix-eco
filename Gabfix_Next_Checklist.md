@@ -242,3 +242,71 @@ Nothing was committed or deployed.
 - [~] **H15. Admin job scope.** The drawer lists services, address, every form answer and notes.
 - [~] **H16. In-app sound.** A short bundled chime plays for incoming messages while either app is
   open (`expo-audio`); push sound carries the closed-app case.
+
+---
+
+## I. Final implementation phase — session 2026-11-28 (M2 audit log, C2 account deletion)
+
+Scope: the two untouched register items that close the governance/account-lifecycle tail, with
+tests. G1 (payment adapter), H1 (laundry workspace), K1 (promo/referral server workflows) and Z1
+(release evidence) remain open.
+
+- [x] **M2-B1. Audit read functions.** `20261128120000_audit_log_view.sql`: `audit_log_page()`
+      (filters: table, action, actor-name fragment, record id, inclusive date range; paging; total
+      via a window count; actor name/role joined server-side because `audit_log.actor_id` lost its
+      `profiles` FK in `20261125160000`) and `audit_log_tables()` for the entity filter. Both are
+      `security definer` and raise `42501` for anyone who is not an `admin`, so the table's RLS stays
+      untouched.
+- [x] **M2-B2. Audit totals.** `20261128140000_audit_log_summary.sql` returns events/created/
+      updated/deleted/tables/newestAt for the KPI strip.
+- [x] **M2-A1. Console page.** `admin-web/src/lib/audit.ts` (reader, summary, changed-field diff,
+      CSV rows) and `pages/Audit.tsx` (filters, 25-row pager, expandable before/after table,
+      empty/loading/error states, CSV export that reuses the filters with a 5 000-row cap and a
+      truncation notice). Nav item “Audit log” under **Business**, `canViewPage` owner-only, topbar
+      label, `database.types.ts` regenerated from the local schema.
+- [x] **M2-V1. Checks.** `backend npm test` 14/14 (audit test: owner 200, manager and customer 403,
+      entity+action filter, totals add up); headless Chrome at 1440 as `admin@gabfix.ug`: 25 rows,
+      “Showing 1–25 of 665”, 9 entities, 174 deletions, 2-field expanded diff, payments filter → 38
+      rows, 39-line CSV with the same filter, table `1078/1078`, no console/page errors.
+      `admin-web` typecheck + build pass.
+- [ ] **M2-V2.** Review the page at 1280 and 1024, and agree what support/chat text an owner may see
+      in the diff (D14 redaction rules).
+- [x] **C2-B1. Deletion schema and guards.** `20261128130000_account_deletion.sql`:
+      `account_deletions` (profile, HMAC phone code, kept-booking count, desk read policy),
+      `account_deletion_blockers()` (upcoming bookings, unpaid balance, open cash dispute),
+      `account_deletion_status()` for the app screen, and `finalise_customer_deletion()` which the
+      service role alone may call, re-checks the blockers in the transaction, refuses staff
+      accounts, blanks the profile (`Deleted customer`, phone null, `auth_user_id` null,
+      deactivated), addresses, drafts, push tokens, notification prefs, chat/ticket text, review
+      comments and booking name snapshots, and keeps bookings, payments, referrals and audit.
+- [x] **C2-B2. API.** `GET /account/deletion` (blockers for the screen) and `POST /account/delete`
+      (blockers re-checked, password confirmed through a real Supabase sign-in, HMAC of the phone
+      computed in the function, blanking RPC, `auth.admin.deleteUser` last so every session ends and
+      the account cannot sign in again; a failed Auth delete leaves a fail-closed blanked profile).
+- [x] **C2-C1. Client screen.** `client-app/src/lib/api/account.ts` and
+      `app/profile/delete-account.tsx`: what is removed/kept, blocked reasons with a link to bookings,
+      password field, irreversible warning and confirm sheet; success clears the device
+      (`deleteLocalAccount`) and opens Login. Profile's old local-only confirm is gone.
+- [x] **C2-V1. Checks.** `backend npm test` 14/14 deletion case (wrong password 401 → blocked 409
+      with `upcomingBookings` 1 and an outstanding balance → cancel → 200 with `bookingsKept` 1 →
+      sign-in 401, profile blanked, 64-hex phone code, booking snapshot blanked); live probe repeated
+      the same flow. `client-app` `npx tsc --noEmit` and eslint on the touched files pass.
+- [ ] **C2-V2.** Open `/profile/delete-account` in the Expo web build and on a device; check the
+      blocked state with a live booking and the confirm-sheet behaviour with the keyboard open.
+- [ ] **C2-V3.** Decide how the desk sees `account_deletions` (D14 says phone deletion requests go to
+      a manager/admin), and whether audit rows for a deleted profile should be redacted for owners.
+
+### Verification gates this session
+
+| App | Command | Result |
+| --- | --- | --- |
+| `backend` | `npm test` (contract + RLS, now 14 tests) | 14/14 pass |
+| `admin-web` | `npm run typecheck` | clean |
+| `admin-web` | `npm run build` | passes (pre-existing >500 kB chunk warning) |
+| `admin-web` | headless Chrome `#/audit` at 1440 | pass, no console/page errors |
+| `client-app` | `npx tsc --noEmit` | clean |
+| `client-app` | eslint on the three touched files | clean |
+| Runtime | `GET /account/deletion`, `POST /account/delete` as a probe customer | 200 / 401 / 409 / 200 as expected |
+| Runtime | `audit_log_page` as admin / manager / customer | 200 / 403 / 403 |
+
+Nothing was committed or deployed. The ERP app was not touched by this batch.

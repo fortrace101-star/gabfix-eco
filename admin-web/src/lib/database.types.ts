@@ -3,27 +3,35 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type Database = {
   
-  "graphql_public": {
+  "public": {
           Tables: {
-            [_ in never]: never
-          }
-          Views: {
-            [_ in never]: never
-          }
-          Functions: {
-            "graphql":
-{ Args: { "extensions"?: Json,"operationName"?: string,"query"?: string,"variables"?: Json }; Returns: Json
-                           }
-          }
-          Enums: {
-            [_ in never]: never
-          }
-          CompositeTypes: {
-            [_ in never]: never
-          }
-        },"public": {
-          Tables: {
-            "addresses": {
+            "account_deletions": {
+                  Row: {
+                    "bookings_kept": number,"created_at": string,"deleted_by": string | null,"id": string,"phone_code": string,"profile_id": string,"reason": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bookings_kept"?: number,"created_at"?: string,"deleted_by"?: string | null,"id"?: string,"phone_code": string,"profile_id": string,"reason"?: string | null
+                  }
+                  Update: {
+                    "bookings_kept"?: number,"created_at"?: string,"deleted_by"?: string | null,"id"?: string,"phone_code"?: string,"profile_id"?: string,"reason"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "account_deletions_deleted_by_fkey"
+      columns: ["deleted_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "account_deletions_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"addresses": {
                   Row: {
                     "area": string | null,"created_at": string,"customer_id": string,"id": string,"is_default": boolean,"label": string,"latitude": number | null,"line1": string,"line2": string | null,"longitude": number | null,"notes": string | null
                   }
@@ -167,6 +175,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"booking_messages": {
+                  Row: {
+                    "body": string,"created_at": string,"id": string,"media_bytes": number | null,"media_duration_ms": number | null,"media_kind": string | null,"media_mime": string | null,"media_path": string | null,"sender_id": string,"thread_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body": string,"created_at"?: string,"id"?: string,"media_bytes"?: number | null,"media_duration_ms"?: number | null,"media_kind"?: string | null,"media_mime"?: string | null,"media_path"?: string | null,"sender_id": string,"thread_id": string
+                  }
+                  Update: {
+                    "body"?: string,"created_at"?: string,"id"?: string,"media_bytes"?: number | null,"media_duration_ms"?: number | null,"media_kind"?: string | null,"media_mime"?: string | null,"media_path"?: string | null,"sender_id"?: string,"thread_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "booking_messages_sender_id_fkey"
+      columns: ["sender_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_messages_thread_id_fkey"
+      columns: ["thread_id"]
+isOneToOne: false
+      referencedRelation: "booking_threads"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"booking_status_history": {
                   Row: {
                     "booking_id": string,"changed_at": string,"changed_by": string | null,"from_status": Database["public"]['Enums']["booking_status"] | null,"id": string,"note": string | null,"to_status": Database["public"]['Enums']["booking_status"]
@@ -188,6 +222,38 @@ isOneToOne: false
     },{
       foreignKeyName: "booking_status_history_changed_by_fkey"
       columns: ["changed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"booking_threads": {
+                  Row: {
+                    "booking_id": string,"created_at": string,"customer_id": string,"customer_last_read_at": string | null,"id": string,"last_message_at": string,"lead_id": string | null,"lead_last_read_at": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "booking_id": string,"created_at"?: string,"customer_id": string,"customer_last_read_at"?: string | null,"id"?: string,"last_message_at"?: string,"lead_id"?: string | null,"lead_last_read_at"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "booking_id"?: string,"created_at"?: string,"customer_id"?: string,"customer_last_read_at"?: string | null,"id"?: string,"last_message_at"?: string,"lead_id"?: string | null,"lead_last_read_at"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "booking_threads_booking_id_fkey"
+      columns: ["booking_id"]
+isOneToOne: true
+      referencedRelation: "bookings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_threads_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "booking_threads_lead_id_fkey"
+      columns: ["lead_id"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -1007,14 +1073,14 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"excludes": string[] | null,"faqs": Json | null,"id": string,"image_path": string | null,"includes": string[] | null,"name": string,"popular_rank": number | null,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null,"slug": string | null,"tag": string | null
+                    "active": boolean,"category_id": string,"created_at": string,"description": string | null,"duration_minutes": number,"excludes": (string)[] | null,"faqs": Json | null,"id": string,"image_path": string | null,"includes": (string)[] | null,"name": string,"popular_rank": number | null,"price": number,"pricing_type": Database["public"]['Enums']["pricing_type"],"required_skill_id": string | null,"slug": string | null,"tag": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: string[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: string[] | null,"name": string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
+                    "active"?: boolean,"category_id": string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: (string)[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: (string)[] | null,"name": string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Update: {
-                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: string[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: string[] | null,"name"?: string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
+                    "active"?: boolean,"category_id"?: string,"created_at"?: string,"description"?: string | null,"duration_minutes"?: number,"excludes"?: (string)[] | null,"faqs"?: Json | null,"id"?: string,"image_path"?: string | null,"includes"?: (string)[] | null,"name"?: string,"popular_rank"?: number | null,"price"?: number,"pricing_type"?: Database["public"]['Enums']["pricing_type"],"required_skill_id"?: string | null,"slug"?: string | null,"tag"?: string | null
                   }
                   Relationships: [
                     {
@@ -1215,7 +1281,13 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "add_job_cost":
+            "account_deletion_blockers":
+{ Args: { "p_profile": string }; Returns: Json
+                           },
+"account_deletion_status":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"add_job_cost":
 { Args: { "p_amount": number,"p_booking": string,"p_description": string }; Returns: {
               "amount": number,
 "approved_at": string | null,
@@ -1232,6 +1304,22 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "job_costs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"approve_cash_handover":
+{ Args: { "p_handover": string,"p_note"?: string }; Returns: {
+              "amount": number,
+"confirmed_at": string | null,
+"confirmed_by": string | null,
+"created_at": string,
+"id": string,
+"note": string | null,
+"technician_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "cash_handovers"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1255,6 +1343,19 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"audit_log_page":
+{ Args: { "p_action"?: string,"p_actor"?: string,"p_from"?: string,"p_limit"?: number,"p_offset"?: number,"p_search"?: string,"p_table"?: string,"p_to"?: string }; Returns: {
+              "action": string,"actor_id": string,"actor_name": string,"actor_role": string,"created_at": string,"id": number,"new_value": Json,"old_value": Json,"record_id": string,"table_name": string,"total": number
+            }[]
+                           },
+"audit_log_summary":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"audit_log_tables":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "events": number,"table_name": string
+            }[]
+                           },
 "auth_role":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -1264,25 +1365,12 @@ isOneToOne: false
 "can_view_booking":
 { Args: { "p_booking": string }; Returns: boolean
                            },
+"can_view_booking_thread":
+{ Args: { "p_thread": string }; Returns: boolean
+                           },
 "can_view_conversation":
 { Args: { "p_conversation": string }; Returns: boolean
                            },
-"approve_cash_handover":
-{ Args: { "p_handover": string,"p_note"?: string }; Returns: {
-              "amount": number,
-"confirmed_at": string | null,
-"confirmed_by": string | null,
-"created_at": string,
-"id": string,
-"note": string | null,
-"technician_id": string
-            }
-                          SetofOptions: {
-        from: "*"
-        to: "cash_handovers"
-        isOneToOne: true
-        isSetofReturn: false
-      } },
 "can_view_inspection":
 { Args: { "p_inspection": string }; Returns: boolean
                            },
@@ -1337,6 +1425,12 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"expire_stale_quotes":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"finalise_customer_deletion":
+{ Args: { "p_deleted_by"?: string,"p_phone_code": string,"p_profile": string,"p_reason"?: string }; Returns: Json
+                           },
 "has_capability":
 { Args: { "p_capability": string }; Returns: boolean
                            },
@@ -1378,8 +1472,14 @@ isOneToOne: false
 "my_profile_id":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"new_booking_reference":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "owns_booking":
 { Args: { "p_booking": string }; Returns: boolean
+                           },
+"queue_expo_push":
+{ Args: { "p_body": string,"p_data"?: Json,"p_title": string,"p_user": string }; Returns: undefined
                            },
 "record_cash_handover":
 { Args: { "p_amount": number,"p_note"?: string }; Returns: {
@@ -1403,6 +1503,7 @@ isOneToOne: false
 "booking_id": string | null,
 "created_at": string,
 "id": string,
+"kind": string | null,
 "laundry_order_id": string | null,
 "method": Database["public"]['Enums']["payment_method"],
 "paid_at": string | null,
@@ -1542,11 +1643,7 @@ export type CompositeTypes<
   : never
 
 export const Constants = {
-  "graphql_public": {
-          Enums: {
-            
-          }
-        },"public": {
+  "public": {
           Enums: {
             "app_role": ["customer", "technician", "laundry_operator", "sales_operator", "customer_relations", "manager", "admin"],"assignment_status": ["assigned", "accepted", "declined", "in_progress", "done", "removed"],"booking_source": ["app", "staff", "sales"],"booking_status": ["requested", "awaiting_confirmation", "confirmed", "scheduled", "on_the_way", "in_progress", "completed", "cancelled"],"cash_dispute_status": ["open", "resolved"],"cost_status": ["submitted", "approved", "rejected"],"crew_role": ["lead", "helper"],"draft_status": ["in_progress", "abandoned", "followed_up", "completed"],"equipment_status": ["available", "in_use", "maintenance", "out_of_service"],"inspection_media_kind": ["photo", "video"],"inspection_status": ["required", "scheduled", "in_progress", "submitted", "withdrawn"],"laundry_status": ["received", "washing", "drying", "ready", "delivered"],"payment_method": ["app", "cash"],"payment_status": ["pending", "paid", "failed", "refunded"],"photo_kind": ["before", "after"],"pricing_type": ["fixed", "hourly", "quote"],"profile_status": ["active", "deactivated"],"quote_status": ["requested", "inspection_required", "inspection_scheduled", "inspected", "quoted", "accepted", "declined", "expired"],"referral_status": ["invited", "joined", "completed", "rewarded", "expired"],"request_status": ["pending", "approved", "declined"],"review_target": ["service", "technician"],"support_category": ["booking", "payment", "service", "account", "other"],"support_status": ["open", "waiting_on_customer", "resolved"],"wallet_network": ["MTN", "Airtel"]
           }

@@ -1,6 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 import {
   fetchBookingMessages,
@@ -9,6 +10,12 @@ import {
   sendBookingMessage,
   type ApiBookingThread,
 } from '@/lib/api/chat';
+import {
+  fetchSupportThread,
+  sendSupportMessage,
+  type ApiSupportConversation,
+  type ApiSupportMessage,
+} from '@/lib/api/support';
 import { playMessageSound } from '@/lib/message-sound';
 
 const STORAGE_KEY = 'gabfix.messages.v1';
@@ -57,7 +64,7 @@ type MessagesState = {
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-/** Local demo threads until the chat/thread API exists. */
+/** The inbox starts with the support thread and one local cleaner conversation. */
 const seedThreads = (): ChatThread[] => [
   {
     id: 'support',
@@ -65,24 +72,9 @@ const seedThreads = (): ChatThread[] => [
     initials: 'GS',
     role: 'Support team',
     kind: 'support',
-    unread: 2,
-    updatedAtISO: minutesAgo(18),
-    messages: [
-      {
-        id: 'support-1',
-        text: 'Hi! You’re chatting with Gabfix support.',
-        atISO: minutesAgo(34),
-        from: 'them',
-        status: 'sent',
-      },
-      {
-        id: 'support-2',
-        text: 'Tell us what you need and we’ll take it from here.',
-        atISO: minutesAgo(18),
-        from: 'them',
-        status: 'sent',
-      },
-    ],
+    unread: 0,
+    updatedAtISO: new Date().toISOString(),
+    messages: [],
   },
   {
     id: 'rose-nakato',
@@ -125,7 +117,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (threads: ChatThread[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(threads)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, threads);
 };
 
 const setThreads = (threads: ChatThread[]) => {
@@ -182,12 +174,11 @@ const normalizeThread = (value: unknown): ChatThread | null => {
   };
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateMessages(): Promise<void> {
   let threads = seedThreads();
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       const stored = parsed
         .map(normalizeThread)
@@ -200,6 +191,14 @@ export async function hydrateMessages(): Promise<void> {
   state = { threads, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetMessages = () => {
+  activeThreadId = null;
+  state = { threads: seedThreads(), hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetMessages);
 
 /** Initials for a booking chat avatar, e.g. "Rose Nakato (Gabfix Team)" → "RN". */
 const initialsOf = (name: string) =>
@@ -251,12 +250,71 @@ const bookingThreadFromApi = (thread: ApiBookingThread, viewerId: string): ChatT
   };
 };
 
+const supportThreadFromApi = (
+  conversation: ApiSupportConversation,
+  messages: ApiSupportMessage[],
+): ChatThread => {
+  const last = messages[messages.length - 1];
+  return {
+    id: 'support',
+    serverId: conversation.id,
+    name: 'Gabfix Support',
+    initials: 'GS',
+    role: conversation.reference ? `Support team · ${conversation.reference}` : 'Support team',
+    kind: 'support',
+    unread: 0,
+    updatedAtISO: last?.created_at ?? conversation.last_message_at,
+    messages: messages.map((message) => ({
+      id: message.id,
+      text: message.body,
+      atISO: message.created_at,
+      // The conversation belongs to this customer, so their profile id is "me".
+      from: message.sender_id === conversation.customer_id ? 'me' : 'them',
+      status: 'sent',
+    })),
+  };
+};
+
+/**
+ * Pulls the customer's support conversation (and the desk's replies) into the inbox.
+ * Mirrors the booking chat: unread counts while the thread is closed, a message sound
+ * for a new desk reply, and the last-known thread kept when offline.
+ */
+async function syncSupportThread(): Promise<boolean> {
+  try {
+    const { conversation, messages } = await fetchSupportThread();
+    const mapped = supportThreadFromApi(conversation, messages);
+    const existing = state.threads.find((thread) => thread.id === 'support');
+    const seen = new Set((existing?.messages ?? []).map((message) => message.id));
+    const incoming = mapped.messages.filter(
+      (message) => message.from === 'them' && !seen.has(message.id),
+    );
+    mapped.unread =
+      activeThreadId === 'support' ? 0 : (existing?.unread ?? 0) + incoming.length;
+
+    const others = state.threads.filter((thread) => thread.id !== 'support');
+    state = {
+      ...state,
+      threads: [...others, mapped].sort(
+        (a, b) => new Date(b.updatedAtISO).getTime() - new Date(a.updatedAtISO).getTime(),
+      ),
+    };
+    listeners.forEach((listener) => listener());
+    persist(state.threads);
+    if (incoming.length > 0) playMessageSound();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Pulls booking conversations from the API into the local inbox. Local-only
  * support/cleaner threads are kept; booking threads are replaced wholesale so
  * a removed assignment stops showing. Safe to call when offline.
  */
 export async function syncBookingThreads(): Promise<boolean> {
+  await syncSupportThread();
   try {
     const { threads, viewerId } = await fetchBookingThreads();
     const mapped = threads
@@ -319,6 +377,18 @@ export async function loadBookingMessages(threadId: string): Promise<void> {
   }
 }
 
+/** Refreshes whichever conversation is open, by kind. */
+export async function loadThreadMessages(threadId: string): Promise<void> {
+  const thread = state.threads.find((item) => item.id === threadId);
+  if (!thread) return;
+  if (thread.kind === 'support') {
+    await syncSupportThread();
+    markThreadRead(threadId);
+    return;
+  }
+  await loadBookingMessages(threadId);
+}
+
 export function useThreads(): ChatThread[] {
   return useSyncExternalStore(subscribe, () => getState().threads, () => getState().threads);
 }
@@ -356,19 +426,6 @@ export function openThread(id: string): void {
 export function closeThread(id: string): void {
   if (activeThreadId === id) activeThreadId = null;
 }
-
-const supportReply = (text: string): string => {
-  if (/pay|refund|charge|invoice/i.test(text)) {
-    return 'I can help with that. Share your booking ID and I’ll check the payment with the finance team.';
-  }
-  if (/reschedul|cancel|change/i.test(text)) {
-    return 'You can reschedule or cancel from the booking details up to 24 hours before the visit. Send me the booking ID if you’d like me to check it.';
-  }
-  if (/cleaner|late|where|arriv/i.test(text)) {
-    return 'Let me check on your cleaner and the booking status. I’ll reply here as soon as I have an update.';
-  }
-  return 'Thanks for the details. A support agent is reviewing this and will reply here shortly.';
-};
 
 const appendMessage = (threadId: string, message: ChatMessage, unread: number) => {
   const thread = state.threads.find((item) => item.id === threadId);
@@ -448,8 +505,9 @@ export async function sendMediaMessage(
     0,
   );
 
-  if (!thread.serverId) {
-    markMessageSent(threadId, localId);
+  // Only booking chats take attachments today; support is text-only.
+  if (thread.kind !== 'booking' || !thread.serverId) {
+    markMessageFailed(threadId, localId);
     return;
   }
 
@@ -496,6 +554,22 @@ export function sendMessage(threadId: string, rawText: string, imageUri?: string
   };
   appendMessage(threadId, message, 0);
 
+  // Support chat is the real conversation the desk answers in the console.
+  if (thread.kind === 'support') {
+    void (async () => {
+      try {
+        // The API opens the conversation on first read, so make sure it exists.
+        if (!thread.serverId) await syncSupportThread();
+        await sendSupportMessage(text || 'photo attached');
+        markMessageSent(threadId, message.id);
+        await syncSupportThread();
+      } catch {
+        markMessageFailed(threadId, message.id);
+      }
+    })();
+    return;
+  }
+
   // Booking chats are real: write to the API, then flip the tick. The thread
   // screen loads the full history when it opens.
   if (thread.serverId) {
@@ -510,21 +584,4 @@ export function sendMessage(threadId: string, rawText: string, imageUri?: string
   }
 
   setTimeout(() => markMessageSent(threadId, message.id), 550);
-
-  if (thread.kind === 'support') {
-    const reply = supportReply(text || 'photo attached');
-    setTimeout(() => {
-      appendMessage(
-        threadId,
-        {
-          id: nextMessageId(),
-          text: reply,
-          atISO: new Date().toISOString(),
-          from: 'them',
-          status: 'sent',
-        },
-        activeThreadId === threadId ? 0 : 1,
-      );
-    }, 1_800);
-  }
 }

@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
 import { deviceTimezone } from '@/config/timezones';
+import { readAccountCache, registerAccountCacheReset, removeAccountCache, writeAccountCache } from '@/lib/account-cache';
 
 const STORAGE_KEY = 'gabfix.profile-settings.v2';
 const LEGACY_KEY = 'gabfix.profile-settings.v1';
@@ -65,7 +65,7 @@ const persist = (next: ProfileSettings) => {
     language: next.language,
     notifications: next.notifications,
   };
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, stored);
 };
 
 const setSettings = (next: ProfileSettings) => {
@@ -116,34 +116,27 @@ const normaliseNotifications = (value: unknown): NotificationPreferences => {
   };
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateProfileSettings(): Promise<void> {
   let next = defaults();
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Omit<ProfileSettings, 'hydrated'>> | null;
-      if (parsed) {
+    const parsed = await readAccountCache<Partial<Omit<ProfileSettings, 'hydrated'>> | null>(STORAGE_KEY);
+    if (parsed) {
+      next = {
+        ...next,
+        avatarUri: typeof parsed.avatarUri === 'string' ? parsed.avatarUri : undefined,
+        notifications: normaliseNotifications(parsed.notifications),
+      };
+    } else {
+      const legacy = await readAccountCache<V1 | null>(LEGACY_KEY);
+      if (legacy) {
+        const migrated = migrateV1(legacy);
         next = {
           ...next,
-          avatarUri: typeof parsed.avatarUri === 'string' ? parsed.avatarUri : undefined,
-          notifications: normaliseNotifications(parsed.notifications),
+          avatarUri: migrated.settings.avatarUri,
+          notifications: migrated.settings.notifications,
         };
-      }
-    } else {
-      const legacyRaw = await AsyncStorage.getItem(LEGACY_KEY);
-      if (legacyRaw) {
-        const legacy = JSON.parse(legacyRaw) as V1 | null;
-        if (legacy) {
-          const migrated = migrateV1(legacy);
-          next = {
-            ...next,
-            avatarUri: migrated.settings.avatarUri,
-            notifications: migrated.settings.notifications,
-          };
-          // v2 will be persisted below; keep legacy until v2 is written by persist().
-          await AsyncStorage.removeItem(LEGACY_KEY).catch(() => undefined);
-        }
+        await removeAccountCache(LEGACY_KEY);
       }
     }
   } catch {
@@ -154,6 +147,13 @@ export async function hydrateProfileSettings(): Promise<void> {
   persist(state);
 }
 
+const resetProfileSettings = () => {
+  state = { ...defaults(), hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetProfileSettings);
+
 export function setAvatarUri(avatarUri?: string): void {
   setSettings({ ...state, avatarUri });
 }
@@ -162,15 +162,12 @@ export function saveNotificationPreferences(notifications: NotificationPreferenc
   setSettings({ ...state, notifications });
 }
 
-/** Delete-account path; the caller also clears the rest of the local app data. */
+/** Delete-account path; clears this account's profile settings cache. */
 export async function clearProfileSettings(): Promise<void> {
   state = { ...defaults(), hydrated: true };
   listeners.forEach((listener) => listener());
-  try {
-    await AsyncStorage.multiRemove([STORAGE_KEY, LEGACY_KEY]);
-  } catch {
-    // Local cleanup is best-effort; the session is cleared separately.
-  }
+  await removeAccountCache(STORAGE_KEY);
+  await removeAccountCache(LEGACY_KEY);
 }
 
 export function useProfileSettings(): ProfileSettings {

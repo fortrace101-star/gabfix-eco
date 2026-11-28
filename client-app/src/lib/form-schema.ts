@@ -75,6 +75,14 @@ export type FormField = {
 
 export type FormSection = { id: string; title: string; fields: FormField[] };
 
+/**
+ * How the Job scope screen lays out the sections. `single` is one scrolling screen;
+ * `steps` shows one section at a time with Back / Next. Absent means `single`, so
+ * schemas saved before this key existed keep today's behaviour and older app builds
+ * (which ignore unknown keys) show every section stacked.
+ */
+export type FormLayout = 'single' | 'steps';
+
 export type FormSchema = {
   id: string;
   /** Incremented on every admin save. */
@@ -83,6 +91,7 @@ export type FormSchema = {
   sections: FormSection[];
   mediaRequired: boolean;
   mediaHint: string;
+  layout?: FormLayout;
 };
 
 export type ScopeSnapshotRow = {
@@ -110,6 +119,10 @@ const MAX_FIELDS = 40;
 
 export const fieldsOf = (schema: FormSchema): FormField[] =>
   schema.sections.flatMap((section) => section.fields);
+
+/** `single` unless the schema was explicitly saved as step by step. */
+export const schemaLayout = (schema: FormSchema): FormLayout =>
+  schema.layout === 'steps' ? 'steps' : 'single';
 
 export const findField = (schema: FormSchema, fieldId: string): FormField | undefined =>
   fieldsOf(schema).find((field) => field.id === fieldId);
@@ -169,6 +182,9 @@ export function validateSchema(schema: FormSchema): string[] {
   }
   if (allFields.length > MAX_FIELDS) {
     errors.push(`A schema can hold at most ${MAX_FIELDS} fields.`);
+  }
+  if (schema.layout !== undefined && schema.layout !== 'single' && schema.layout !== 'steps') {
+    errors.push(`Schema layout must be "single" or "steps".`);
   }
 
   const sectionIds = new Set<string>();

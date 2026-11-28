@@ -3,7 +3,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-const STORAGE_KEY = 'gabfix.booking.draft.v2';
+const STORAGE_KEY = 'gabfix.booking.draft.v2::test-account';
 
 type BookingModule = typeof import('@/store/booking');
 type StorageModule = typeof import('@react-native-async-storage/async-storage').default;
@@ -16,8 +16,11 @@ const loadStore = async (): Promise<{ store: BookingModule; storage: StorageModu
   jest.resetModules();
   // The package's jest mock is a CommonJS module object, not an ES default export.
   const storage = require('@react-native-async-storage/async-storage') as unknown as StorageModule;
-  const store = require('@/store/booking') as BookingModule;
   await storage.clear();
+  // Drafts are cached per account, so the store needs an active account identity.
+  const cache = require('@/lib/account-cache') as typeof import('@/lib/account-cache');
+  cache.setActiveAccountId('test-account');
+  const store = require('@/store/booking') as BookingModule;
   return { store, storage };
 };
 

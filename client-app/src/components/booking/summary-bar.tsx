@@ -16,6 +16,9 @@ type Props = {
   onDetailsPress?: () => void;
   /** Replaces the money total, e.g. "Custom quote" for quote-only services. */
   valueLabel?: string;
+  /** Optional secondary action on the left, e.g. Back in a step-by-step form. */
+  secondaryLabel?: string;
+  onSecondaryPress?: () => void;
 };
 
 /** Sticky summary bar (Gabfix_App_Ui_2.md, 2.2): caption plus live total on the left, CTA right. */
@@ -27,11 +30,21 @@ export function SummaryBar({
   disabled = false,
   onDetailsPress,
   valueLabel,
+  secondaryLabel,
+  onSecondaryPress,
 }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space[3]) }]}>
+      {secondaryLabel ? (
+        <Button
+          label={secondaryLabel}
+          variant="secondary"
+          onPress={onSecondaryPress}
+          style={styles.secondary}
+        />
+      ) : null}
       <Pressable
         accessibilityLabel={onDetailsPress ? 'View price breakdown' : undefined}
         accessibilityRole={onDetailsPress ? 'button' : undefined}
@@ -91,4 +104,5 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   action: { height: 48, paddingHorizontal: space[5] },
+  secondary: { height: 48, paddingHorizontal: space[4] },
 });

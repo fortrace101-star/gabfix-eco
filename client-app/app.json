@@ -68,7 +68,9 @@
       "expo-web-browser",
       "expo-secure-store",
       "expo-sharing",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

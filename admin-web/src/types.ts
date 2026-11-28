@@ -15,6 +15,7 @@ export type PageId =
   | 'forms'
   | 'promos'
   | 'reports'
+  | 'audit'
   | 'settings';
 
 export type BookingStatus = 'Pending' | 'Confirmed' | 'In progress' | 'Completed' | 'Cancelled';

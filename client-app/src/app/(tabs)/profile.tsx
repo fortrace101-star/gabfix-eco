@@ -14,19 +14,16 @@ import {
   Pencil,
   ShieldCheck,
   Smartphone,
-  Trash2,
   UserRound,
   Wallet,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { InlineBanner } from '@/components/ui/inline-banner';
 import { SettingsGroup, SettingsRow } from '@/components/ui/settings-list';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { deleteLocalAccount } from '@/lib/account';
 import { notificationSummary } from '@/lib/notify-policy';
 import { useDeviceSessions } from '@/hooks/use-device-sessions';
 import { setAvatarUri, useProfileSettings } from '@/store/profile-settings';
@@ -70,8 +67,6 @@ export default function ProfileTab() {
   const user = useAuthUser();
   const settings = useProfileSettings();
   const { sessions, refresh } = useDeviceSessions();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     refresh();
@@ -89,14 +84,6 @@ export default function ProfileTab() {
   const chooseAvatar = async () => {
     const uri = await pickAvatarImage();
     if (uri) setAvatarUri(uri);
-  };
-
-  const confirmDelete = async () => {
-    setDeleting(true);
-    await deleteLocalAccount();
-    setDeleting(false);
-    setDeleteOpen(false);
-    router.replace('/login' as Href);
   };
 
   const sessionCount = Math.max(1, sessions.length);
@@ -244,24 +231,13 @@ export default function ProfileTab() {
           accessibilityRole="button"
           accessibilityLabel="Delete account"
           hitSlop={8}
-          onPress={() => setDeleteOpen(true)}
+          onPress={() => router.push('/profile/delete-account' as Href)}
           style={({ pressed }) => [styles.deleteAccount, pressed && styles.deleteAccountPressed]}>
           <Text style={styles.deleteAccountText} maxFontSizeMultiplier={1.3}>
             Delete account
           </Text>
         </Pressable>
       </ScrollView>
-
-      <ConfirmSheet
-        visible={deleteOpen}
-        title="Delete account?"
-        body="This removes your local Gabfix data from this device and signs you out. Server-side deletion depends on the connected profile service."
-        confirmLabel="Delete and sign out"
-        busy={deleting}
-        icon={Trash2}
-        onClose={() => (deleting ? undefined : setDeleteOpen(false))}
-        onConfirm={() => void confirmDelete()}
-      />
     </View>
   );
 }

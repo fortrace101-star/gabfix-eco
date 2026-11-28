@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 import { decideInApp } from '@/lib/notify-policy';
 import { getProfileSettings } from '@/store/profile-settings';
 
@@ -70,7 +70,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (notifications: AppNotification[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(notifications)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, notifications);
 };
 
 const setNotifications = (notifications: AppNotification[]) => {
@@ -94,12 +94,11 @@ const isNotification = (value: unknown): value is AppNotification => {
   );
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateNotifications(): Promise<void> {
   let notifications = seedNotifications();
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       notifications = parsed.filter(isNotification);
     }
@@ -109,6 +108,13 @@ export async function hydrateNotifications(): Promise<void> {
   state = { notifications, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetNotifications = () => {
+  state = { notifications: seedNotifications(), hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetNotifications);
 
 /** Adds one notification, replacing an existing entry with the same id. */
 export function addNotification(notification: Omit<AppNotification, 'read'> & { read?: boolean }): void {

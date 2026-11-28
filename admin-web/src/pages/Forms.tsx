@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FormBuilder, FormPreview } from '../components/FormBuilder';
+import { FormWorkspace } from '../components/forms/FormWorkspace';
 import { Icon } from '../components/Icon';
-import {
-  Button,
-  EmptyState,
-  KpiCard,
-  Modal,
-  PageHeader,
-  SectionCard,
-  StatusChip,
-} from '../components/ui';
+import { Button, Drawer, EmptyState, Modal, StatusChip } from '../components/ui';
 import type { AdminUser } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
 import {
@@ -33,8 +25,8 @@ export function FormsPage({ user, notify }: { user: AdminUser; notify: (message:
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [editorEpoch, setEditorEpoch] = useState(0);
   const [restoreTarget, setRestoreTarget] = useState<FormDefinitionRow | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -78,7 +70,6 @@ export function FormsPage({ user, notify }: { user: AdminUser; notify: (message:
   }));
   const versions = selected && catalogue ? versionsFor(catalogue.definitions, selected) : [];
 
-  const categoryOptions = catalogue?.categories ?? [];
   const serviceGroups = useMemo(() => {
     const map = new Map<string, FormOwner[]>();
     for (const service of catalogue?.services ?? []) {
@@ -94,6 +85,7 @@ export function FormsPage({ user, notify }: { user: AdminUser; notify: (message:
     try {
       await publishForm(selected, next, user.id);
       await refresh();
+      setHistoryOpen(false);
       notify(`${label} saved · ${selected.name}.`);
     } catch (saveError) {
       notify(saveError instanceof Error ? `Save failed: ${saveError.message}` : 'Save failed.');
@@ -102,55 +94,60 @@ export function FormsPage({ user, notify }: { user: AdminUser; notify: (message:
     }
   };
 
-  const currentVersionCount = catalogue
-    ? catalogue.definitions.filter((definition) => definition.isCurrent).length
-    : 0;
-  const overrides = catalogue
-    ? catalogue.definitions.filter((definition) => definition.isCurrent && definition.serviceId).length
-    : 0;
-  const historyCount = catalogue ? catalogue.definitions.length : 0;
-
   return (
-    <div className="page">
-      <PageHeader
-        eyebrow="Catalogue"
-        title="Booking forms"
-        subtitle="Versioned job-details forms per category, with optional per-service overrides."
-        actions={
+    <div className="page forms-page">
+      <div className="forms-toolbar">
+        <div className="forms-owner">
+          <label className="field-label" htmlFor="form-owner">
+            Booking form for
+          </label>
+          <select
+            id="form-owner"
+            className="text-input"
+            value={selectedKey ?? ''}
+            onChange={(event) => setSelectedKey(event.target.value)}
+          >
+            {!catalogue && !selected ? <option value="">Loading…</option> : null}
+            <optgroup label="Categories">
+              {(catalogue?.categories ?? []).map((category) => (
+                <option key={ownerKey(category)} value={ownerKey(category)}>
+                  {category.name}
+                </option>
+              ))}
+            </optgroup>
+            {serviceGroups.map(([group, services]) => (
+              <optgroup key={group} label={`Services · ${group}`}>
+                {services.map((service) => (
+                  <option key={ownerKey(service)} value={ownerKey(service)}>
+                    {service.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {selected ? (
+            source === 'own' ? (
+              <StatusChip label={`v${base?.version} live`} tone="success" />
+            ) : source === 'inherited' ? (
+              <StatusChip label={`Inherits v${inherited?.version}`} tone="neutral" />
+            ) : (
+              <StatusChip label="No form yet" tone="warning" />
+            )
+          ) : null}
+        </div>
+
+        <div className="page-actions">
           <Button icon="refresh" disabled={loading} onClick={() => void refresh()}>
             {loading ? 'Refreshing…' : 'Reload'}
           </Button>
-        }
-      />
-
-      <div className="kpis">
-        <KpiCard
-          label="Current definitions"
-          value={String(currentVersionCount)}
-          detail="One live form per category or service"
-          icon="services"
-        />
-        <KpiCard
-          label="Service overrides"
-          value={String(overrides)}
-          detail="Services with their own form"
-          icon="bookings"
-          tone="blue"
-        />
-        <KpiCard
-          label="Versions stored"
-          value={String(historyCount)}
-          detail="Old bookings keep their snapshot"
-          icon="reports"
-          tone="yellow"
-        />
-        <KpiCard
-          label="Categories"
-          value={String(categoryOptions.length)}
-          detail="Every category needs a form"
-          icon="customers"
-          tone="rose"
-        />
+          <Button
+            icon="clock"
+            disabled={!selected}
+            onClick={() => setHistoryOpen(true)}
+          >
+            History · {versions.length}
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -163,155 +160,78 @@ export function FormsPage({ user, notify }: { user: AdminUser; notify: (message:
         </section>
       ) : null}
 
-      <div className="forms-layout">
-        <aside className="forms-rail">
-          <SectionCard title="Categories" meta="Default form for every service in the category">
-            <div className="stack-list">
-              {categoryOptions.map((category) => {
-                const definition = catalogue ? currentDefinition(catalogue.definitions, category) : null;
-                return (
-                  <button
-                    type="button"
-                    key={category.id}
-                    className={
-                      selectedKey === ownerKey(category) ? 'owner-row owner-row-active' : 'owner-row'
-                    }
-                    onClick={() => setSelectedKey(ownerKey(category))}
-                  >
-                    <span>
-                      <strong>{category.name}</strong>
-                      <small>{category.slug}</small>
-                    </span>
-                    {definition ? (
-                      <StatusChip label={`v${definition.version}`} tone="success" />
-                    ) : (
-                      <StatusChip label="No form" tone="warning" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </SectionCard>
+      {!catalogue && loading ? (
+        <p className="page-loading" role="status">
+          Loading form definitions…
+        </p>
+      ) : !selected ? (
+        <section className="card">
+          <EmptyState
+            icon="services"
+            title="Pick a category or service"
+            detail="Choose an item above to edit the questions customers answer when booking."
+          />
+        </section>
+      ) : (
+        <FormWorkspace
+          key={`${ownerKey(selected)}:${base?.id ?? 'new'}`}
+          title={selected.name}
+          subtitle={
+            base
+              ? `Version ${base.version} is live. Publishing writes version ${base.version + 1}; existing bookings keep their saved answers.`
+              : 'No form yet — start from a template and publish version 1.'
+          }
+          source={source}
+          publishedVersion={base?.version ?? null}
+          busy={saving}
+          baseSchema={schema}
+          notify={notify}
+          onPublish={(next) => void publish(next, `Version ${(base?.version ?? 0) + 1}`)}
+        />
+      )}
 
-          <SectionCard title="Services" meta="Overrides inherit the category form until one is published">
-            <div className="stack-list">
-              {serviceGroups.map(([group, services]) => (
-                <div key={group} className="owner-group">
-                  <p className="nav-label">{group}</p>
-                  {services.map((service) => {
-                    const definition = catalogue
-                      ? currentDefinition(catalogue.definitions, service)
-                      : null;
-                    const inheritedDefinition =
-                      catalogue && !definition
-                        ? effectiveDefinition(catalogue.definitions, service)
-                        : null;
-                    return (
-                      <button
-                        type="button"
-                        key={service.id}
-                        className={
-                          selectedKey === ownerKey(service)
-                            ? 'owner-row owner-row-active'
-                            : 'owner-row'
-                        }
-                        onClick={() => setSelectedKey(ownerKey(service))}
-                      >
-                        <span>
-                          <strong>{service.name}</strong>
-                          <small>{service.slug}</small>
-                        </span>
-                        {definition ? (
-                          <StatusChip label={`v${definition.version}`} tone="info" />
-                        ) : inheritedDefinition ? (
-                          <StatusChip label="Inherits" tone="neutral" />
-                        ) : (
-                          <StatusChip label="No form" tone="warning" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        </aside>
-
-        <div className="forms-main">
-          {!catalogue && loading ? (
-            <p className="page-loading" role="status">
-              Loading form definitions…
-            </p>
-          ) : !selected ? (
-            <SectionCard>
-              <EmptyState
-                icon="services"
-                title="Pick a category or service"
-                detail="Choose an item on the left to edit the questions customers answer when booking."
-              />
-            </SectionCard>
-          ) : (
-            <>
-              <div className="forms-editor">
-                <FormBuilder
-                  key={`${ownerKey(selected)}:${base?.id ?? 'new'}:${editorEpoch}`}
-                  title={selected.name}
-                  subtitle={
-                    base
-                      ? `Version ${base.version} is live. Publishing writes version ${base.version + 1}; existing bookings keep their saved answers.`
-                      : 'No form yet — start from the template and publish version 1.'
-                  }
-                  schema={schema}
-                  source={source}
-                  busy={saving}
-                  onSave={(next) => void publish(next, `Version ${(base?.version ?? 0) + 1}`)}
-                  onDiscard={() => setEditorEpoch((current) => current + 1)}
-                />
-                <aside className="forms-preview">
-                  <SectionCard title="Customer preview" meta="How the booking step renders">
-                    <FormPreview schema={schema} />
-                  </SectionCard>
-                </aside>
-              </div>
-
-              <SectionCard
-                title="Version history"
-                meta={`${versions.length} saved version${versions.length === 1 ? '' : 's'} · restoring creates a new version`}
-              >
-                {versions.length === 0 ? (
-                  <p className="field-note">
-                    <Icon name="alert" size={14} />
-                    Nothing has been published for this {selected.kind} yet.
-                  </p>
+      <Drawer
+        open={historyOpen}
+        title={`Version history · ${selected?.name ?? ''}`}
+        description="Restoring copies an old version into a new current version; saved bookings keep their snapshot."
+        onClose={() => setHistoryOpen(false)}
+        wide
+      >
+        {versions.length === 0 ? (
+          <p className="field-note">
+            <Icon name="alert" size={14} />
+            Nothing has been published for this {selected?.kind ?? 'form'} yet.
+          </p>
+        ) : (
+          <div className="history-list">
+            {versions.map((definition) => (
+              <div className="history-row" key={definition.id}>
+                <span className="history-version">v{definition.version}</span>
+                <span className="history-meta">
+                  <strong>{definition.schema.heading}</strong>
+                  <small>
+                    {definition.schema.sections.length} section
+                    {definition.schema.sections.length === 1 ? '' : 's'} ·{' '}
+                    {formatDateTime(definition.createdAt)}
+                  </small>
+                </span>
+                {definition.isCurrent ? (
+                  <StatusChip label="Live" tone="success" />
                 ) : (
-                  <div className="history-list">
-                    {versions.map((definition) => (
-                      <div className="history-row" key={definition.id}>
-                        <span className="history-version">v{definition.version}</span>
-                        <span className="history-meta">
-                          <strong>{definition.schema.heading}</strong>
-                          <small>
-                            {definition.schema.sections.length} section
-                            {definition.schema.sections.length === 1 ? '' : 's'} ·{' '}
-                            {formatDateTime(definition.createdAt)}
-                          </small>
-                        </span>
-                        {definition.isCurrent ? (
-                          <StatusChip label="Live" tone="success" />
-                        ) : (
-                          <Button onClick={() => setRestoreTarget(definition)}>
-                            Restore v{definition.version}
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <Button
+                    onClick={() => {
+                      setRestoreTarget(definition);
+                      setHistoryOpen(false);
+                    }}
+                  >
+                    Restore v{definition.version}
+                  </Button>
                 )}
-              </SectionCard>
-            </>
-          )}
-        </div>
-      </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Drawer>
 
       <Modal
         open={restoreTarget !== null}

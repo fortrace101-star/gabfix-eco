@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
+import { readAccountCache, registerAccountCacheReset, removeAccountCache, writeAccountCache } from '@/lib/account-cache';
 import { emptyScope, migrateScope } from '@/lib/booking-scope';
 import { validateMomo, type MomoNetwork } from '@/lib/momo';
 import {
@@ -36,9 +36,8 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (draft: BookingDraft | null) => {
-  const write = draft ? AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)) : AsyncStorage.removeItem(STORAGE_KEY);
   // Fire-and-forget: a failed write must not block the form. The draft stays in memory.
-  void write.catch(() => undefined);
+  void (draft ? writeAccountCache(STORAGE_KEY, draft) : removeAccountCache(STORAGE_KEY));
 };
 
 const migratePayment = (payment: unknown): BookingDraft['payment'] => {
@@ -109,10 +108,9 @@ const setDraft = (draft: BookingDraft | null) => {
 export async function hydrateBookingDraft(): Promise<void> {
   let draft: BookingDraft | null = null;
   try {
-    const raw =
-      (await AsyncStorage.getItem(STORAGE_KEY)) ??
-      (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
-    const parsed = raw ? (JSON.parse(raw) as BookingDraft) : null;
+    const stored = await readAccountCache<BookingDraft>(STORAGE_KEY);
+    const legacy = stored ? null : await readAccountCache<BookingDraft>(LEGACY_STORAGE_KEY);
+    const parsed = stored ?? legacy;
     if (parsed?.serviceSlug && parsed.details) {
       const normalized = withScopeDefaults(parsed);
       draft = {
@@ -122,8 +120,8 @@ export async function hydrateBookingDraft(): Promise<void> {
           items: dedupeMediaItems(normalized.media?.items ?? []),
         },
       };
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft)).catch(() => undefined);
-      void AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(() => undefined);
+      void writeAccountCache(STORAGE_KEY, draft);
+      if (legacy) void removeAccountCache(LEGACY_STORAGE_KEY);
     }
   } catch {
     draft = null;
@@ -131,6 +129,13 @@ export async function hydrateBookingDraft(): Promise<void> {
   state = { draft, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetBookingDraft = () => {
+  state = { draft: null, hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetBookingDraft);
 
 export const getBookingDraft = () => state.draft;
 
@@ -218,14 +223,10 @@ export function draftIsDirty(draft: BookingDraft | null): boolean {
   return strip(draft) !== strip(emptyDraft(draft.serviceSlug));
 }
 
-/** Awaits the AsyncStorage write so Home never reads a stale draft after Save draft. */
+/** Awaits the account-cache write so Home never reads a stale draft after Save draft. */
 export async function saveDraftNow(): Promise<void> {
   if (!state.draft) return;
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state.draft));
-  } catch {
-    // The draft is already in memory; a failed write must not trap the customer.
-  }
+  await writeAccountCache(STORAGE_KEY, state.draft);
 }
 
 /** Remembers the step the customer reached so Home's draft card resumes there. */

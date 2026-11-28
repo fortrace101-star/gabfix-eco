@@ -20,6 +20,7 @@ import {
   loadConsoleData,
 } from './lib/queries';
 import { ApprovalsPage } from './pages/Approvals';
+import { AuditPage } from './pages/Audit';
 import { BookingsPage } from './pages/Bookings';
 import { CataloguePage } from './pages/Catalogue';
 import { ChatArchivePage } from './pages/ChatArchive';
@@ -66,6 +67,7 @@ const pages: PageId[] = [
   'forms',
   'promos',
   'reports',
+  'audit',
   'settings',
 ];
 
@@ -86,8 +88,12 @@ const pageTitles: Record<PageId, string> = {
   forms: 'Booking forms',
   promos: 'Promos',
   reports: 'Reports',
+  audit: 'Audit log',
   settings: 'Settings',
 };
+
+/** Pages whose figures are read through the top bar's date range. */
+const DATE_RANGE_PAGES: PageId[] = ['overview', 'bookings', 'payments', 'costs', 'reports'];
 
 const pageFromHash = (): PageId => {
   const candidate = window.location.hash.replace(/^#\/?/, '') as PageId;
@@ -389,6 +395,7 @@ export default function App() {
           }}
           onReadAll={() => setReadNotifications(notificationsSeed.map((item) => item.id))}
           live={live}
+          showDateRange={DATE_RANGE_PAGES.includes(page)}
         />
         <main className="page-wrap" id="main-content" tabIndex={-1}>
           {loadError ? (
@@ -498,6 +505,19 @@ export default function App() {
               cleaners={cleaners}
               notify={notify}
             />
+          ) : null}
+          {page === 'audit' ? (
+            canViewPage('audit', user.role) ? (
+              <AuditPage notify={notify} />
+            ) : (
+              <section className="card restricted" role="alert">
+                <h2>The audit log is owner-only</h2>
+                <p>
+                  Ask an owner to check who changed a booking, payment or profile. Your role can
+                  still open the page it happened on.
+                </p>
+              </section>
+            )
           ) : null}
           {page === 'settings' ? (
             canViewPage('settings', user.role) ? (

@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 const STORAGE_KEY = 'gabfix.media-uploads.v1';
 
@@ -38,7 +39,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (items: UploadItem[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, items);
 };
 
 const setItems = (items: UploadItem[]) => {
@@ -61,12 +62,11 @@ const isUpload = (value: unknown): value is UploadItem => {
   );
 };
 
-/** Called once at boot: an item left “uploading” resumes as queued (3.11). */
+/** Called once at boot and when the active account changes. */
 export async function hydrateMediaUploads(): Promise<void> {
   let items: UploadItem[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       items = parsed
         .filter(isUpload)
@@ -78,6 +78,13 @@ export async function hydrateMediaUploads(): Promise<void> {
   state = { items, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetMediaUploads = () => {
+  state = { items: [], hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetMediaUploads);
 
 export function enqueueUploads(items: UploadItem[]): void {
   if (items.length === 0) return;

@@ -2600,3 +2600,134 @@ h3 {
 .nav::-webkit-scrollbar {
   width: 0;
 }
+
+/* Audit log (M2) ------------------------------------------------------------ */
+
+.audit-filters .search-field {
+  flex: 0 1 190px;
+  max-width: 220px;
+}
+
+.audit-date {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-input);
+  background: var(--surface);
+}
+
+.audit-date:focus-within {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.audit-date span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.audit-date input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.audit-actor {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.audit-actor small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.audit-record,
+.audit-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.audit-summary {
+  max-width: 320px;
+  color: var(--text-muted);
+}
+
+.audit-table .nowrap {
+  white-space: nowrap;
+}
+
+.audit-row.open td {
+  background: var(--green-50);
+}
+
+.audit-detail td {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-soft);
+}
+
+.audit-diff-meta {
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.audit-diff-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.audit-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-diff-table th {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.audit-diff-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--divider);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.audit-diff-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.audit-before {
+  color: var(--text-muted);
+}
+
+.audit-after {
+  color: var(--green-700);
+}
+
+.audit-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.audit-pager-actions {
+  display: flex;
+  gap: var(--space-2);
+}

@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -22,6 +22,7 @@ import { OfflineBanner } from '@/components/ui/offline-banner';
 import { SessionExpiredModal } from '@/components/ui/session-expired-modal';
 import { ToastHost } from '@/components/ui/toast';
 import { isUpdateRequired } from '@/config/release';
+import { migrateLegacyAccountCache } from '@/lib/account-cache';
 import { runMockBookingChecks } from '@/lib/assignment';
 import { syncPushToken } from '@/lib/push';
 import { cleanupDraftMedia } from '@/lib/media';
@@ -40,7 +41,7 @@ import { hydrateQuotes } from '@/store/quotes';
 import { hydrateReviews } from '@/store/reviews';
 import { hydrateSecurity } from '@/store/security';
 import { hydrateTickets } from '@/store/tickets';
-import { restoreSession, useSession } from '@/store/session';
+import { getSessionState, restoreSession, useSession } from '@/store/session';
 import { auth } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -59,12 +60,10 @@ export default function RootLayout() {
   const [sessionRestored, setSessionRestored] = useState(false);
   const session = useSession();
   const signedInUserId = session?.user.id ?? null;
+  const hydratedAccountId = useRef<string | null>(null);
 
-  useEffect(() => {
-    // Restore before the first screen renders: the splash route needs the session, the order
-    // flow needs any saved draft, and the bookings tab needs saved booking history.
-    Promise.all([
-      restoreSession(),
+  const hydrateAccountStores = async () => {
+    await Promise.all([
       hydrateBookingDraft().then(() => {
         cleanupDraftMedia(getBookingDraft()?.media?.items.map((item) => item.uri) ?? []);
       }),
@@ -81,9 +80,34 @@ export default function RootLayout() {
       hydrateSecurity(),
       hydrateLoginActivity(),
       hydrateMediaUploads(),
-      refreshDeviceSessions(),
-    ]).finally(() => setSessionRestored(true));
+    ]);
+  };
+
+  useEffect(() => {
+    // Restore the session first so account-scoped stores hydrate against the
+    // correct account identity (or stay empty when signed out).
+    (async () => {
+      await Promise.all([restoreSession(), refreshDeviceSessions()]);
+      const accountId = getSessionState().session?.user.id ?? null;
+      hydratedAccountId.current = accountId;
+      // A restored session owns the pre-account-scoping cache on this device, so
+      // move it into that account's namespace before the stores read it.
+      if (accountId) await migrateLegacyAccountCache(accountId);
+      await hydrateAccountStores();
+    })()
+      .catch(() => undefined)
+      .finally(() => setSessionRestored(true));
   }, []);
+
+  // Rehydrate account-scoped stores when the signed-in account changes (sign in,
+  // switch account, or sign out). Reset happens in the session store; this loads
+  // the new account's own cache object.
+  useEffect(() => {
+    if (!sessionRestored) return;
+    if (hydratedAccountId.current === signedInUserId) return;
+    hydratedAccountId.current = signedInUserId;
+    void hydrateAccountStores();
+  }, [sessionRestored, signedInUserId]);
 
   useEffect(() => {
     if ((fontsLoaded || fontError) && sessionRestored) {

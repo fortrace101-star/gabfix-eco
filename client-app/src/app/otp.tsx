@@ -21,9 +21,10 @@ export default function OtpScreen() {
     debugCode?: string;
   }>();
   const phone = typeof phoneParam === 'string' ? phoneParam : '';
-  // Only the local backend returns a code (no SMS provider yet, D12).
+  // Only the local backend echoes the issued code (no SMS provider yet, D12),
+  // so show it whenever it is present, in any build.
   const [debugCode, setDebugCode] = useState(
-    __DEV__ && typeof debugParam === 'string' ? debugParam : '',
+    typeof debugParam === 'string' ? debugParam : '',
   );
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -62,8 +63,8 @@ export default function OtpScreen() {
     try {
       if (phone) {
         const otp = await requestOtp({ phone });
-        // A resend issues a fresh code; keep the local development hint in step.
-        if (__DEV__ && otp.debugCode) setDebugCode(otp.debugCode);
+        // A resend issues a fresh code; keep the on-screen hint in step.
+        if (otp.debugCode) setDebugCode(otp.debugCode);
       }
       setSeconds(RESEND_SECONDS);
       setCode('');
@@ -117,9 +118,14 @@ export default function OtpScreen() {
       ) : null}
 
       {debugCode ? (
-        <Text style={styles.devHint} maxFontSizeMultiplier={1.3}>
-          Development code: {debugCode}
-        </Text>
+        <View style={styles.devRow} accessibilityLiveRegion="polite">
+          <Text style={styles.devLabel} maxFontSizeMultiplier={1.3}>
+            Development code
+          </Text>
+          <Text style={styles.devCode} maxFontSizeMultiplier={1.3}>
+            {debugCode}
+          </Text>
+        </View>
       ) : null}
 
       <View style={styles.resendRow}>
@@ -185,13 +191,32 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: auth.error,
   },
-  devHint: {
+  devRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginTop: 10,
-    fontFamily: font.poppinsSemi,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: auth.glassBorder,
+    borderRadius: 12,
+    backgroundColor: auth.glass,
+    alignSelf: 'center',
+  },
+  devLabel: {
+    fontFamily: font.poppins,
     fontSize: 12,
     lineHeight: 18,
+    color: auth.textSoft,
+  },
+  devCode: {
+    fontFamily: font.poppinsSemi,
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: 3,
     color: auth.accent,
-    textAlign: 'center',
   },
   resendRow: { minHeight: 32, justifyContent: 'center', marginTop: 8 },
   muted: {

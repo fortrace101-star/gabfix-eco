@@ -25,6 +25,7 @@ export function Topbar({
   live,
   user,
   onSignOut,
+  showDateRange = true,
 }: {
   page: PageId;
   live: LiveStatus;
@@ -40,6 +41,8 @@ export function Topbar({
   readNotifications: string[];
   onReadNotification: (id: string) => void;
   onReadAll: () => void;
+  /** Only report pages read the range, so the select stays off every other page. */
+  showDateRange?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -125,6 +128,7 @@ export function Topbar({
     customers: 'Customers',
     cleaners: 'Cleaners',
     catalogue: 'Service catalogue',
+    audit: 'Audit log',
     services: 'Services & pricing',
     forms: 'Booking forms',
     promos: 'Promos',
@@ -213,19 +217,21 @@ export function Topbar({
           <span className="live-dot" />
           {live === 'live' ? 'Live' : live === 'offline' ? 'Manual refresh' : 'Connecting'}
         </span>
-        <label className="date-range">
-          <Icon name="clock" size={15} />
-          <span className="sr-only">Date range</span>
-          <select
-            value={dateRange}
-            onChange={(event) => onDateRange(event.target.value as DateRange)}
-            aria-label="Date range"
-          >
-            <option>Today</option>
-            <option>Last 7 days</option>
-            <option>Last 30 days</option>
-          </select>
-        </label>
+        {showDateRange ? (
+          <label className="date-range">
+            <Icon name="clock" size={15} />
+            <span className="sr-only">Date range</span>
+            <select
+              value={dateRange}
+              onChange={(event) => onDateRange(event.target.value as DateRange)}
+              aria-label="Date range"
+            >
+              <option>Today</option>
+              <option>Last 7 days</option>
+              <option>Last 30 days</option>
+            </select>
+          </label>
+        ) : null}
 
         <div className="notification-wrap" ref={notificationRef}>
           <button

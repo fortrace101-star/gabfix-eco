@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 
 import {
@@ -7,6 +6,7 @@ import {
   type SavedCard,
   type SavedMobileMoney,
 } from '@/config/payments';
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 import { toStoredMomo, validateMomo, type MomoNetwork } from '@/lib/momo';
 
 const STORAGE_KEY = 'gabfix.payment-methods.v1';
@@ -33,9 +33,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (cards: SavedCard[], mobileMoney: SavedMobileMoney[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ cards, mobileMoney })).catch(
-    () => undefined,
-  );
+  void writeAccountCache(STORAGE_KEY, { cards, mobileMoney });
 };
 
 const setMethods = (cards: SavedCard[], mobileMoney: SavedMobileMoney[]) => {
@@ -66,15 +64,12 @@ const isMobileMoney = (value: unknown): value is SavedMobileMoney => {
   return validateMomo(providerNetwork(method.provider), local) === null;
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydratePaymentMethods(): Promise<void> {
   let cards = seedCards;
   let mobileMoney = seedMobileMoney;
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw
-      ? (JSON.parse(raw) as { cards?: unknown; mobileMoney?: unknown } | null)
-      : null;
+    const parsed = await readAccountCache<{ cards?: unknown; mobileMoney?: unknown } | null>(STORAGE_KEY);
     if (parsed && Array.isArray(parsed.cards) && Array.isArray(parsed.mobileMoney)) {
       cards = parsed.cards.filter(isCard);
       mobileMoney = parsed.mobileMoney.filter(isMobileMoney);
@@ -86,6 +81,13 @@ export async function hydratePaymentMethods(): Promise<void> {
   state = { cards, mobileMoney, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetPaymentMethods = () => {
+  state = { cards: seedCards, mobileMoney: seedMobileMoney, hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetPaymentMethods);
 
 export function useSavedCards(): SavedCard[] {
   return useSyncExternalStore(subscribe, () => getState().cards, () => getState().cards);

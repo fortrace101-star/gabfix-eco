@@ -128,6 +128,9 @@ before(async () => {
 
 after(async () => {
   if (state.bookingId) {
+    // `booking_media` is not cascaded by the booking delete, so clear it first or
+    // every run leaves pending rows behind and the media-validation test fails.
+    await rest(`/booking_media?booking_id=eq.${state.bookingId}`, { method: 'DELETE' });
     await rest(`/bookings?id=eq.${state.bookingId}`, { method: 'DELETE' });
   }
   if (state.receiptIds.length > 0) {
@@ -363,7 +366,11 @@ test('POST /bookings issues one signed target per attachment', async () => {
     assert.ok(upload.uploadUrl.startsWith('http'));
     assert.ok(upload.expiresAtISO);
   }
-  state.bookingId = created.body.bookingId;
+  // `bookingId` is the GBX reference the app shows; REST filters and the media
+  // routes below key on the row's UUID.
+  state.bookingId = created.body.booking.id;
+  assert.match(created.body.bookingId, /^GBX-[A-Z0-9]{10}$/);
+  assert.equal(created.body.booking.reference, created.body.bookingId);
 
   const snapshots = await rest(
     `/booking_form_snapshots?select=form_definition_id,form_version&booking_id=eq.${state.bookingId}`,
@@ -583,4 +590,147 @@ test('notifications: read and mark-read are scoped to the owner', async () => {
   assert.equal(marked.status, 200);
   const read = await rest(`/notifications?select=read_at&id=eq.${notificationId}`);
   assert.ok(read.body[0].read_at, 'the owner marks the notification read');
+});
+
+test('audit: only an owner can read the change log', async () => {
+  const owner = (await signIn('admin@gabfix.ug')).token;
+  const manager = (await signIn('manager@gabfix.ug')).token;
+
+  const page = await rest('/rpc/audit_log_page', {
+    token: owner,
+    method: 'POST',
+    body: { p_limit: 5 },
+  });
+  assert.equal(page.status, 200, JSON.stringify(page.body));
+  assert.ok(Array.isArray(page.body) && page.body.length > 0, 'the seeded log has entries');
+  assert.ok('actor_name' in page.body[0], 'the actor name is joined for the console');
+  assert.ok(Number(page.body[0].total) >= page.body.length);
+
+  const tables = await rest('/rpc/audit_log_tables', { token: owner, method: 'POST', body: {} });
+  assert.equal(tables.status, 200);
+  assert.ok(tables.body.some((row) => row.table_name === 'bookings'));
+  assert.ok(tables.body.every((row) => Number(row.events) > 0));
+
+  const filtered = await rest('/rpc/audit_log_page', {
+    token: owner,
+    method: 'POST',
+    body: { p_table: 'payments', p_action: 'INSERT', p_limit: 3 },
+  });
+  assert.equal(filtered.status, 200);
+  for (const row of filtered.body) {
+    assert.equal(row.table_name, 'payments');
+    assert.equal(row.action, 'INSERT');
+  }
+
+  for (const token of [manager, state.customerToken]) {
+    const refused = await rest('/rpc/audit_log_page', {
+      token,
+      method: 'POST',
+      body: { p_limit: 1 },
+    });
+    assert.equal(refused.status, 403, 'the log stays owner-only');
+    assert.match(JSON.stringify(refused.body), /owner can read the audit log/);
+    assert.equal((await rest('/rpc/audit_log_summary', { token, method: 'POST', body: {} })).status, 403);
+  }
+
+  const summary = await rest('/rpc/audit_log_summary', {
+    token: owner,
+    method: 'POST',
+    body: {},
+  });
+  assert.equal(summary.status, 200);
+  assert.equal(
+    Number(summary.body.created) + Number(summary.body.updated) + Number(summary.body.deleted),
+    Number(summary.body.events),
+  );
+});
+
+test('deletion: blocked by an active booking, confirmed by password, financial rows kept', async () => {
+  const phone = `07${String(Date.now()).slice(-8)}`;
+  state.otpPhones.push(phone);
+
+  const password = 'delete-contract-1';
+  assert.equal(
+    (await api('/auth/register', {
+      method: 'POST',
+      body: { name: 'Delete Contract', phone, password },
+    })).status,
+    201,
+  );
+  const code = (await api('/auth/otp/request', { method: 'POST', body: { phone } })).body.debugCode;
+  const verified = await api('/auth/otp/verify', { method: 'POST', body: { phone, code } });
+  assert.equal(verified.status, 200, JSON.stringify(verified.body));
+  const token = verified.body.accessToken;
+  const profileId = verified.body.user.id;
+
+  const clean = await api('/account/deletion', { token });
+  assert.equal(clean.status, 200, JSON.stringify(clean.body));
+  assert.equal(clean.body.status.canDelete, true);
+
+  assert.equal((await api('/account/delete', { token, method: 'POST', body: {} })).status, 400);
+  const wrong = await api('/account/delete', {
+    token,
+    method: 'POST',
+    body: { password: 'not-the-password' },
+  });
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.body.error.code, 'password_mismatch');
+
+  const start = new Date(Date.now() + 86_400_000);
+  const inserted = await rest('/bookings', {
+    method: 'POST',
+    prefer: 'return=representation',
+    body: {
+      customer_id: profileId,
+      status: 'confirmed',
+      scheduled_start: start.toISOString(),
+      scheduled_end: new Date(start.getTime() + 3_600_000).toISOString(),
+      total_price: 100_000,
+      customer_name: 'Delete Contract',
+      customer_phone: phone,
+    },
+  });
+  assert.equal(inserted.status, 201, JSON.stringify(inserted.body));
+  const bookingId = inserted.body[0].id;
+
+  const blocked = await api('/account/deletion', { token });
+  assert.equal(blocked.body.status.canDelete, false);
+  assert.equal(blocked.body.status.upcomingBookings, 1);
+  assert.ok(blocked.body.status.outstandingBalance > 0);
+  assert.equal(
+    (await api('/account/delete', { token, method: 'POST', body: { password } })).status,
+    409,
+  );
+
+  // Clearing the blocker lets the same request through.
+  await rest(`/bookings?id=eq.${bookingId}`, { method: 'PATCH', body: { status: 'cancelled' } });
+  const deleted = await api('/account/delete', { token, method: 'POST', body: { password } });
+  assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+  assert.equal(deleted.body.deleted, true);
+  assert.equal(deleted.body.bookingsKept, 1, 'the cancelled booking row is kept');
+
+  // The sign-in is gone, the profile is blanked and the financial row survives.
+  assert.equal(
+    (await api('/auth/login', { method: 'POST', body: { identifier: phone, password } })).status,
+    401,
+  );
+  const profile = await rest(`/profiles?select=full_name,phone,auth_user_id,status&id=eq.${profileId}`);
+  assert.equal(profile.body[0].full_name, 'Deleted customer');
+  assert.equal(profile.body[0].phone, null);
+  assert.equal(profile.body[0].auth_user_id, null);
+  assert.equal(profile.body[0].status, 'deactivated');
+
+  const booking = await rest(`/bookings?select=customer_name,customer_phone&id=eq.${bookingId}`);
+  assert.equal(booking.body[0].customer_name, 'Deleted customer');
+  assert.equal(booking.body[0].customer_phone, null);
+
+  const record = await rest(`/account_deletions?select=phone_code,bookings_kept&profile_id=eq.${profileId}`);
+  assert.equal(record.body.length, 1);
+  assert.match(record.body[0].phone_code, /^[0-9a-f]{64}$/);
+  assert.equal(record.body[0].bookings_kept, 1);
+
+  // Fixtures: the log itself is append-only, so only the probe rows go.
+  await rest(`/bookings?id=eq.${bookingId}`, { method: 'DELETE' });
+  await rest(`/account_deletions?profile_id=eq.${profileId}`, { method: 'DELETE' });
+  assert.equal((await rest(`/profiles?id=eq.${profileId}`, { method: 'DELETE' })).status, 204);
 });

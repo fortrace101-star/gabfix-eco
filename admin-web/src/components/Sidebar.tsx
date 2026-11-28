@@ -42,6 +42,7 @@ const groups: { label: string; items: NavItem[] }[] = [
     items: [
       { id: 'costs', label: 'Job costs', icon: 'payments' },
       { id: 'reports', label: 'Reports', icon: 'reports' },
+      { id: 'audit', label: 'Audit log', icon: 'clock' },
       { id: 'settings', label: 'Settings', icon: 'settings' },
     ],
   },

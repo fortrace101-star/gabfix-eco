@@ -1,4 +1,5 @@
-import type { FormSchema } from '@mobile/lib/form-schema';
+import { fieldsOf, type FormField, type FormSchema, type FormSection } from '@mobile/lib/form-schema';
+import { nextId } from './form-fields';
 import { supabase } from './supabase';
 
 /**
@@ -133,6 +134,153 @@ export const versionsFor = (
       owner.kind === 'category' ? row.categoryId === owner.id : row.serviceId === owner.id,
     )
     .sort((a, b) => b.version - a.version);
+
+/** Fields in the schema whose `showIf` points at this field id. */
+export const dependentsOf = (schema: FormSchema, fieldId: string): FormField[] =>
+  fieldsOf(schema).filter((field) => field.showIf?.fieldId === fieldId);
+
+/**
+ * Copies a step with fresh section and field ids. Condition rules that pointed inside
+ * the copied step follow the copy; rules against earlier fields keep pointing at them.
+ */
+export function cloneSection(
+  section: FormSection,
+  taken: ReadonlySet<string>,
+  title?: string,
+): FormSection {
+  const used = new Set(taken);
+  const idMap = new Map<string, string>();
+  const sectionId = nextId(used, section.id);
+  used.add(sectionId);
+
+  const copied: FormField[] = section.fields.map((field) => {
+    const fieldId = nextId(used, field.type.replace('-', '_'));
+    used.add(fieldId);
+    idMap.set(field.id, fieldId);
+    // Option ids only need to be unique inside their field, which is new.
+    return { ...field, id: fieldId, options: field.options?.map((option) => ({ ...option })) };
+  });
+
+  return {
+    ...section,
+    id: sectionId,
+    title: title ?? `${section.title || 'Step'} copy`,
+    fields: copied.map((field) => ({
+      ...field,
+      showIf: field.showIf
+        ? { ...field.showIf, fieldId: idMap.get(field.showIf.fieldId) ?? field.showIf.fieldId }
+        : undefined,
+    })),
+  };
+}
+
+/** Starter steps offered when adding a step, so a new step is valid immediately. */
+export const STEP_TEMPLATES: {
+  id: string;
+  label: string;
+  build: (taken: ReadonlySet<string>) => FormSection;
+}[] = [
+  {
+    id: 'blank',
+    label: 'Blank step',
+    build: (taken) => ({
+      id: nextId(taken, 'step'),
+      title: 'New step',
+      fields: [
+        { id: nextId(taken, 'text'), type: 'text', label: 'New question', required: false },
+      ],
+    }),
+  },
+  {
+    id: 'size',
+    label: 'Size & rooms',
+    build: (taken) => {
+      const used = new Set(taken);
+      const field = (id: string) => {
+        const next = nextId(used, id);
+        used.add(next);
+        return next;
+      };
+      return {
+        id: nextId(used, 'size'),
+        title: 'Size & rooms',
+        fields: [
+          { id: field('bedrooms'), type: 'counter', label: 'Bedrooms', required: true, min: 0, max: 10, minutesPerUnit: 20 },
+          { id: field('bathrooms'), type: 'counter', label: 'Bathrooms', required: true, min: 0, max: 10, minutesPerUnit: 25 },
+          {
+            id: field('home_size'),
+            type: 'select',
+            label: 'Home size',
+            required: true,
+            options: [
+              { id: 'small', label: 'Small', minutes: 30 },
+              { id: 'medium', label: 'Medium', minutes: 60 },
+              { id: 'large', label: 'Large', minutes: 120 },
+            ],
+          },
+        ],
+      };
+    },
+  },
+  {
+    id: 'condition',
+    label: 'Condition',
+    build: (taken) => {
+      const used = new Set(taken);
+      return {
+        id: nextId(used, 'condition'),
+        title: 'Condition',
+        fields: [
+          {
+            id: nextId(used, 'condition'),
+            type: 'select',
+            label: 'How is the place?',
+            required: true,
+            options: [
+              { id: 'light', label: 'Light tidy', minutes: 0 },
+              { id: 'standard', label: 'Standard', minutes: 30 },
+              { id: 'heavy', label: 'Needs a deep clean', minutes: 120, flagsQuote: true },
+            ],
+          },
+        ],
+      };
+    },
+  },
+  {
+    id: 'access',
+    label: 'Access & notes',
+    build: (taken) => {
+      const used = new Set(taken);
+      const notes = nextId(used, 'access_notes');
+      used.add(notes);
+      return {
+        id: nextId(used, 'access'),
+        title: 'Access & notes',
+        fields: [
+          { id: notes, type: 'textarea', label: 'Access notes', helper: 'Gate codes, parking, pets', required: false },
+          {
+            id: nextId(used, 'parking'),
+            type: 'boolean',
+            label: 'Parking available?',
+            required: false,
+            showIf: { fieldId: notes, op: 'truthy' },
+          },
+        ],
+      };
+    },
+  },
+  {
+    id: 'photos',
+    label: 'Photos',
+    build: (taken) => ({
+      id: nextId(taken, 'photos'),
+      title: 'Photos',
+      fields: [
+        { id: nextId(taken, 'media'), type: 'media-slot', label: 'Photos', required: false, maxMedia: 5 },
+      ],
+    }),
+  },
+];
 
 export const blankSchema = (owner: FormOwner): FormSchema => ({
   id: owner.slug,

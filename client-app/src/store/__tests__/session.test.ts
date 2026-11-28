@@ -8,6 +8,12 @@ jest.mock('@/lib/api/auth', () => ({
   refreshSession: jest.fn(),
 }));
 
+// Account-cache owns AsyncStorage; the session tests only need its switch call.
+jest.mock('@/lib/account-cache', () => ({
+  setActiveAccountId: jest.fn(),
+  getActiveAccountId: jest.fn(() => null),
+}));
+
 type SessionModule = typeof import('@/store/session');
 type StorageMock = {
   loadSession: jest.Mock;

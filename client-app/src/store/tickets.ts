@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 /**
  * P22a/P22b support tickets. There is no support API yet, so tickets live on the device
@@ -83,7 +84,7 @@ const subscribe = (listener: () => void) => {
 const emit = () => listeners.forEach((listener) => listener());
 
 const persist = (tickets: Ticket[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tickets)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, tickets);
 };
 
 const setTickets = (tickets: Ticket[]) => {
@@ -92,12 +93,11 @@ const setTickets = (tickets: Ticket[]) => {
   persist(tickets);
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateTickets(): Promise<void> {
   let tickets: Ticket[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       tickets = parsed.filter((item): item is Ticket =>
         Boolean(item && typeof item === 'object' && (item as Ticket).id),
@@ -109,6 +109,13 @@ export async function hydrateTickets(): Promise<void> {
   state = { tickets, hydrated: true };
   emit();
 }
+
+const resetTickets = () => {
+  state = { tickets: [], hydrated: false };
+  emit();
+};
+
+registerAccountCacheReset(resetTickets);
 
 export function createTicket(input: TicketInput): Ticket {
   const now = new Date().toISOString();

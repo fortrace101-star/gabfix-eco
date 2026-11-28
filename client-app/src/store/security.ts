@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, removeAccountCache, writeAccountCache } from '@/lib/account-cache';
 
 const STORAGE_KEY = 'gabfix.security.v1';
 
@@ -36,7 +37,7 @@ const persist = (next: SecurityState) => {
     lastLoginISO: next.lastLoginISO,
     biometric: next.biometric,
   };
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, stored);
 };
 
 const setState = (next: SecurityState) => {
@@ -48,8 +49,7 @@ const setState = (next: SecurityState) => {
 export async function hydrateSecurity(): Promise<void> {
   let next = defaults();
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Partial<Omit<SecurityState, 'hydrated'>> | null) : null;
+    const parsed = await readAccountCache<Partial<Omit<SecurityState, 'hydrated'>> | null>(STORAGE_KEY);
     if (parsed) {
       next = {
         ...next,
@@ -74,6 +74,13 @@ export async function hydrateSecurity(): Promise<void> {
   listeners.forEach((listener) => listener());
 }
 
+const resetSecurity = () => {
+  state = { ...defaults(), hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetSecurity);
+
 export function markPasswordChanged(): void {
   setState({ ...state, passwordChangedAtISO: new Date().toISOString() });
 }
@@ -93,11 +100,7 @@ export function setBiometric(enabled: boolean): void {
 export async function clearSecurity(): Promise<void> {
   state = { ...defaults(), hydrated: true };
   listeners.forEach((listener) => listener());
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Best-effort.
-  }
+  await removeAccountCache(STORAGE_KEY);
 }
 
 export function useSecurity(): SecurityState {

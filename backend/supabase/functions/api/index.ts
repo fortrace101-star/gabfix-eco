@@ -442,8 +442,13 @@ const OTP_PEPPER = Deno.env.get('OTP_PEPPER') ?? SERVICE_KEY;
 // (or when OTP_DEBUG=true) so local sign-up can finish; production never does.
 const OTP_DEBUG_RESPONSE =
   Deno.env.get('OTP_DEBUG') === 'true' || /\/\/(127\.0\.0\.1|localhost|kong)([:/]|$)/.test(SUPABASE_URL);
-// Optional fixed code for local/dev workflows. Only accepted when explicitly configured.
-const OTP_DEFAULT_CODE = (Deno.env.get('OTP_DEFAULT_CODE') ?? '').replace(/\D/g, '').slice(0, 6);
+// Default SMS OTP code for local/dev sign-up and verification when no SMS provider
+// is connected. Override with OTP_DEFAULT_CODE; production never accepts a default.
+const OTP_DEFAULT_CODE = (
+  Deno.env.get('OTP_DEFAULT_CODE') ?? (OTP_DEBUG_RESPONSE ? '123456' : '')
+)
+  .replace(/\D/g, '')
+  .slice(0, 6);
 
 const otpHash = async (phone: string, code: string) => {
   const bytes = new TextEncoder().encode(`${OTP_PEPPER}:${phone}:${code}`);
@@ -2395,6 +2400,115 @@ app.patch('/notifications/:id/read', async (c) => {
  * The same handset can change accounts after sign-out, so a token is reassigned
  * to the caller instead of blocking on the unique constraint.
  */
+// C2 — permanent customer deletion (D14).
+//
+// Password confirmation happens here against Supabase Auth, not on the device, so a
+// stolen session alone cannot delete an account. The blanking runs in
+// `finalise_customer_deletion()` and the Auth user is removed last, which ends every
+// session and makes signing in impossible.
+
+const deletionPhoneCode = async (phone: string): Promise<string> => {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(SERVICE_KEY),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(phone));
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+type DeletionBlockers = {
+  canDelete: boolean;
+  upcomingBookings: number;
+  outstandingBalance: number;
+  openDisputes: number;
+};
+
+app.get('/account/deletion', async (c) => {
+  const { db, profile } = await session(c);
+  if (profile.role !== 'customer') {
+    return fail(c, 403, 'staff_account', 'Staff accounts are deactivated by an owner, never deleted.');
+  }
+
+  const { data, error } = await db.rpc('account_deletion_status');
+  if (error) return fail(c, 400, 'deletion_status', error.message);
+
+  const row = (data ?? {}) as Record<string, unknown>;
+  const blockers: DeletionBlockers = {
+    canDelete: Boolean(row.canDelete),
+    upcomingBookings: money(row.upcomingBookings),
+    outstandingBalance: money(row.outstandingBalance),
+    openDisputes: money(row.openDisputes),
+  };
+  return c.json({ status: blockers });
+});
+
+app.post('/account/delete', async (c) => {
+  const { profile, userId } = await session(c);
+  if (profile.role !== 'customer') {
+    return fail(c, 403, 'staff_account', 'Staff accounts are deactivated by an owner, never deleted.');
+  }
+
+  const body = (await c.req.json().catch(() => null)) as
+    | { password?: unknown; reason?: unknown }
+    | null;
+  const password = typeof body?.password === 'string' ? body.password : '';
+  if (!password) {
+    return fail(c, 400, 'password_required', 'Enter your password to confirm deletion.');
+  }
+
+  const { data: blockerRow, error: blockerError } = await admin.rpc('account_deletion_blockers', {
+    p_profile: profile.id,
+  });
+  if (blockerError) return fail(c, 400, 'deletion_status', blockerError.message);
+  const blockers = (blockerRow ?? {}) as Record<string, unknown>;
+  if (!blockers.canDelete) {
+    return fail(
+      c,
+      409,
+      'deletion_blocked',
+      'Settle your open bookings, balance or cash dispute before deleting the account.',
+    );
+  }
+
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const email = authUser.user?.email ?? '';
+  if (!email) {
+    return fail(c, 409, 'no_login', 'This account has no password sign-in to confirm.');
+  }
+
+  const { error: passwordError } = await anonAuth().auth.signInWithPassword({ email, password });
+  if (passwordError) {
+    return fail(c, 401, 'password_mismatch', 'That password does not match this account.');
+  }
+
+  const reason = typeof body?.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
+  const { data, error } = await admin.rpc('finalise_customer_deletion', {
+    p_profile: profile.id,
+    p_phone_code: await deletionPhoneCode(profile.phone ?? 'deleted'),
+    p_reason: reason || null,
+    p_deleted_by: null,
+  });
+  if (error) return fail(c, 409, 'deletion_blocked', error.message);
+
+  const { error: removeError } = await admin.auth.admin.deleteUser(userId);
+  if (removeError) {
+    console.error('[api] account blanked but the auth user remains', removeError.message);
+    return fail(
+      c,
+      500,
+      'session_close_failed',
+      'Your details were removed but we could not close the sign-in. Contact support so we can finish it.',
+    );
+  }
+
+  return c.json({ deleted: true, ...(data as Record<string, unknown>) });
+});
+
 app.post('/device-tokens', async (c) => {
   const { db, profile } = await session(c);
   const body = await c.req.json().catch(() => null) as Record<string, unknown> | null;

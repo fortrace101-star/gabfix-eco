@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 const STORAGE_KEY = 'gabfix.login-activity.v1';
 const MAX_EVENTS = 20;
@@ -29,7 +30,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (events: LoginEvent[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, events);
 };
 
 const setEvents = (events: LoginEvent[]) => {
@@ -46,8 +47,7 @@ const isEvent = (value: unknown): value is LoginEvent => {
 export async function hydrateLoginActivity(): Promise<void> {
   let events: LoginEvent[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) events = parsed.filter(isEvent).slice(0, MAX_EVENTS);
   } catch {
     events = [];
@@ -55,6 +55,13 @@ export async function hydrateLoginActivity(): Promise<void> {
   state = { events, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetLoginActivity = () => {
+  state = { events: [], hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetLoginActivity);
 
 export function addLoginEvent(event: LoginEvent): void {
   setEvents([event, ...state.events].slice(0, MAX_EVENTS));

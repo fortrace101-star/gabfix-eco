@@ -3,6 +3,7 @@ import {
   defaultSchema,
   mergeAnswers,
   requiresQuote,
+  schemaLayout,
   suggestedMinutes,
   validateAnswers,
   validateSchema,
@@ -51,6 +52,19 @@ const base = (): FormSchema => ({
 describe('validateSchema', () => {
   it('accepts the seed schemas and the default schema', () => {
     for (const schema of formSchemas) expect(validateSchema(schema)).toEqual([]);
+  });
+
+  it('accepts the optional layout key and defaults to one screen', () => {
+    const schema = base();
+    expect(validateSchema(schema)).toEqual([]);
+    expect(schemaLayout(schema)).toBe('single');
+
+    schema.layout = 'steps';
+    expect(validateSchema(schema)).toEqual([]);
+    expect(schemaLayout(schema)).toBe('steps');
+
+    schema.layout = 'grid' as FormSchema['layout'];
+    expect(validateSchema(schema).join(' ')).toMatch(/layout must be/);
   });
 
   it('rejects duplicate field ids', () => {

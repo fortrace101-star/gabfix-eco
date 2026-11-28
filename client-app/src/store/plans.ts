@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 /**
  * P17 recurring-plan state. Plans themselves come from saved bookings whose frequency is not
@@ -35,7 +36,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (overrides: Record<string, PlanOverride>) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(overrides)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, overrides);
 };
 
 const setOverrides = (overrides: Record<string, PlanOverride>) => {
@@ -44,12 +45,11 @@ const setOverrides = (overrides: Record<string, PlanOverride>) => {
   persist(overrides);
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydratePlans(): Promise<void> {
   let overrides: Record<string, PlanOverride> = {};
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       overrides = parsed as Record<string, PlanOverride>;
     }
@@ -59,6 +59,13 @@ export async function hydratePlans(): Promise<void> {
   state = { overrides, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetPlans = () => {
+  state = { overrides: {}, hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetPlans);
 
 const writeOverride = (bookingId: string, patch: Partial<PlanOverride>) => {
   const current = state.overrides[bookingId] ?? emptyOverride();

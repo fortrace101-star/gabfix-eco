@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
+
+import { readAccountCache, registerAccountCacheReset, writeAccountCache } from '@/lib/account-cache';
 
 const STORAGE_KEY = 'gabfix.reviews.v1';
 
@@ -35,7 +36,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const persist = (reviews: SavedReview[]) => {
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)).catch(() => undefined);
+  void writeAccountCache(STORAGE_KEY, reviews);
 };
 
 const setReviews = (reviews: SavedReview[]) => {
@@ -83,12 +84,11 @@ const migrateReview = (value: unknown): SavedReview | undefined => {
   };
 };
 
-/** Called once at boot from the root layout. */
+/** Called once at boot and when the active account changes. */
 export async function hydrateReviews(): Promise<void> {
   let reviews: SavedReview[] = [];
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    const parsed = await readAccountCache<unknown>(STORAGE_KEY);
     if (Array.isArray(parsed)) {
       reviews = parsed
         .map(migrateReview)
@@ -100,6 +100,13 @@ export async function hydrateReviews(): Promise<void> {
   state = { reviews, hydrated: true };
   listeners.forEach((listener) => listener());
 }
+
+const resetReviews = () => {
+  state = { reviews: [], hydrated: false };
+  listeners.forEach((listener) => listener());
+};
+
+registerAccountCacheReset(resetReviews);
 
 /** One review per booking; a repeat submit returns the first saved entry. */
 export function addReview(review: Omit<SavedReview, 'id' | 'createdAtISO'>): SavedReview {

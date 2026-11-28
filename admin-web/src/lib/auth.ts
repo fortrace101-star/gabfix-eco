@@ -126,10 +126,15 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
-/** Settings is owner-only and approvals are manager-only; support sees the customer-facing modules only. */
+/**
+ * Settings, the chat archive and the audit log are owner-only; operations runs
+ * everything else, and support sees the customer-facing modules only.
+ */
 export const canViewPage = (page: PageId, role: AdminRole): boolean => {
   if (role === 'admin') return true;
-  if (role === 'operations') return page !== 'settings' && page !== 'chat-archive';
+  if (role === 'operations') {
+    return page !== 'settings' && page !== 'chat-archive' && page !== 'audit';
+  }
   return (
     page === 'overview' ||
     page === 'bookings' ||
